@@ -1332,8 +1332,12 @@ function MonsterGacha() {
   };
 
   // Back to slot select
+  const [prevSlotId, setPrevSlotId] = useState(null);
   const backToSlots = useCallback(async () => {
-    if (slotId !== null) saveToSlot(slotId, true);
+    if (slotId !== null) {
+      setPrevSlotId(slotId);
+      saveToSlot(slotId, true);
+    }
     setTimeout(() => { setSlotId(null); setScreen("home"); }, 500);
   }, [slotId, saveToSlot]);
 
@@ -1432,6 +1436,14 @@ function MonsterGacha() {
               );
             })}
           </div>
+
+          {/* Back to home button when coming from slot change */}
+          {prevSlotId !== null && (
+            <button className="btn bs" style={{ marginTop: 20, fontSize: 13, padding: '10px 24px' }}
+              onClick={() => loadSlot(prevSlotId)}>
+              🏠 ホームに戻る（スロット{prevSlotId}）
+            </button>
+          )}
         </div>
 
         {/* Delete confirmation modal */}
