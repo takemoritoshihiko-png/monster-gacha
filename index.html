@@ -17,6 +17,16 @@ window.storage = {
   set: async (key, value) => { try { localStorage.setItem(key, value); return true; } catch(e) { return false; } },
   get: async (key) => { try { const v = localStorage.getItem(key); return v ? { value: v } : null; } catch(e) { return null; } },
   delete: async (key) => { try { localStorage.removeItem(key); return true; } catch(e) { return false; } },
+  list: async (prefix) => {
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith(prefix)) keys.push(k);
+      }
+      return { keys };
+    } catch(e) { return { keys: [] }; }
+  },
 };
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -879,6 +889,43 @@ input[type="number"] { font-size: 16px; }
 .menu-card { min-height: 44px; }
 .tfb { min-height: 32px; display: inline-flex; align-items: center; }
 .ci { min-height: 60px; }
+
+/* Rare effects */
+@keyframes rareFlash {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes rareShake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, 2px); }
+  20% { transform: translate(4px, -2px); }
+  30% { transform: translate(-3px, -3px); }
+  40% { transform: translate(3px, 3px); }
+  50% { transform: translate(-2px, 1px); }
+  60% { transform: translate(2px, -1px); }
+  70% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+  90% { transform: translate(-1px, -1px); }
+}
+@keyframes rareRainbow {
+  0% { filter: hue-rotate(0deg) brightness(1.2); }
+  100% { filter: hue-rotate(360deg) brightness(1.2); }
+}
+@keyframes rareGodText {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.rare-flash {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  animation: rareFlash 0.4s ease-out forwards;
+}
+.rare-shake { animation: rareShake 0.5s ease-out; }
+.rare-rainbow { animation: rareRainbow 2s linear; }
+.rare-god-text {
+  animation: rareGodText 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
 `;
 
 // ============================================================
@@ -902,6 +949,9 @@ function MonsterGacha() {
   const [spending, setSpending] = useState([]); // [{amount, memo, date}]
   const [loaded, setLoaded] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [bestScores, setBestScores] = useState({});
+  const [rareEffect, setRareEffect] = useState(null);
   const saveTimer = useRef(null);
 
   const slotKey = (id) => `tgacha-s${id}`;
@@ -994,6 +1044,12 @@ function MonsterGacha() {
       }
       setStorageOk(canSave);
 
+      // Load nickname
+      try {
+        const nk = await window.storage.get('tgacha-nickname');
+        if (nk && nk.value) setNickname(nk.value);
+      } catch(e) {}
+
       // Load slot previews
       const previews = [null, null, null];
       for (let i = 0; i < 3; i++) {
@@ -1017,12 +1073,20 @@ function MonsterGacha() {
       setTotalPulls(d.totalPulls ?? 0);
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
+      setNickname(d.nickname || "");
+      setBestScores(d.bestScores || {});
       if (d.lastSave) {
         const away = Math.floor((Date.now() - d.lastSave) / 3000);
         if (away > 0) setCoins(c => c + Math.min(away, 10000));
       }
     } else {
-      setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]);
+      setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({});
+      // Preserve global nickname for new slots
+      try {
+        const nk = await window.storage.get('tgacha-nickname');
+        if (nk && nk.value) setNickname(nk.value);
+        else setNickname("");
+      } catch(e) { setNickname(""); }
     }
     setScreen("home");
   }, []);
@@ -1034,7 +1098,7 @@ function MonsterGacha() {
     setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
     setConfirmDeleteId(null);
     if (id === slotId) {
-      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setScreen("home");
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setScreen("home");
     }
     setSaveMsg("🗑 スロット" + id + "を削除しました");
     setTimeout(() => setSaveMsg(""), 2000);
@@ -1044,7 +1108,7 @@ function MonsterGacha() {
   // ---- SAVE: minimal, no lock, no retry ----
   const [showSaveModal, setShowSaveModal] = useState(false);
   const saveDataRef = useRef(null);
-  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending };
+  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores };
 
   const saveToSlot = useCallback(async (targetId, silent) => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -1055,7 +1119,7 @@ function MonsterGacha() {
     for (const k of Object.keys(col)) {
       if (col[k] && col[k].count > 0) compressed[k] = col[k].count;
     }
-    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], lastSave: Date.now() };
+    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, lastSave: Date.now() };
     const key = slotKey(targetId);
     try {
       const str = JSON.stringify(data);
@@ -1101,6 +1165,20 @@ function MonsterGacha() {
     } catch(e) {
       addLog("SAVE例外: " + (e.message || "").slice(0, 60));
       if (!silent) setSaveMsg("⚠️ " + (e.message || "エラー"));
+    }
+    // Write ranking data on manual save
+    if (!silent && s.nickname) {
+      try {
+        const bs = s.bestScores || {};
+        const bestMiniGame = Object.entries(bs).reduce((best, [k, v]) => (v > (best.score || 0)) ? { id: k, score: v } : best, { id: '', score: 0 });
+        const colCount = Object.keys(compressed).length;
+        const colPower = Object.entries(compressed).reduce((sum, [k, cnt]) => {
+          const rank = parseInt(k.split('_')[1]) || 0;
+          return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
+        }, 0);
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, updated: Date.now() };
+        await window.storage.set('tgacha-rank:' + s.nickname, JSON.stringify(rankData));
+      } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
     if (!silent) setTimeout(() => setSaveMsg(""), 5000);
   }, []);
@@ -1177,8 +1255,16 @@ function MonsterGacha() {
     setOpened(new Set());
     setGachaPhase("chests");
     // Auto open all with fast tempo after brief anticipation
+    // Sort open order so rank>=10 items open last
+    const openOrder = res.map((r, i) => ({ i, rank: r.rank }));
+    openOrder.sort((a, b) => {
+      if (a.rank >= 10 && b.rank < 10) return 1;
+      if (a.rank < 10 && b.rank >= 10) return -1;
+      return a.i - b.i;
+    });
     autoOpenRef.current.forEach(t => clearTimeout(t));
-    autoOpenRef.current = res.map((_, i) => setTimeout(() => {
+    autoOpenRef.current = openOrder.map((o, seq) => setTimeout(() => {
+      const i = o.i;
       setOpened(prev => {
         const next = new Set(prev);
         next.add(i);
@@ -1194,8 +1280,29 @@ function MonsterGacha() {
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
         sfx(revealSound);
         addToCollection(r);
+        // Rare effects
+        if (r.rank >= 10) {
+          setRareEffect({ type: 'god', rank: r.rank });
+          playNote(523, 0.3, 'sine', 0.15);
+          playNote(659, 0.3, 'sine', 0.13, 0.05);
+          playNote(784, 0.3, 'sine', 0.15, 0.1);
+          playNote(1046, 0.5, 'sine', 0.12, 0.2);
+          playNote(523, 0.5, 'triangle', 0.08);
+          setTimeout(() => setRareEffect(null), 3000);
+        } else if (r.rank === 9) {
+          setRareEffect({ type: 'mythic', rank: 9 });
+          playNote(523, 0.2, 'sine', 0.15);
+          playNote(659, 0.2, 'sine', 0.13, 0.1);
+          playNote(784, 0.3, 'sine', 0.15, 0.2);
+          setTimeout(() => setRareEffect(null), 2000);
+        } else if (r.rank === 8) {
+          setRareEffect({ type: 'legend', rank: 8 });
+          playNote(880, 0.15, 'sine', 0.12);
+          playNote(1108, 0.2, 'sine', 0.1, 0.08);
+          setTimeout(() => setRareEffect(null), 1000);
+        }
       }, revealDelay);
-    }, 250 + i * 225)); // 250ms initial, 225ms between each (~2.3s for 10)
+    }, 250 + seq * 225)); // 250ms initial, 225ms between each (~2.3s for 10)
   }, [coins, addToCollection]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
@@ -1253,6 +1360,10 @@ function MonsterGacha() {
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
+        if (targetRank === 11) {
+          setRareEffect({ type: 'synthMax', name: nm.name });
+          setTimeout(() => setRareEffect(null), 3000);
+        }
         return n;
       });
     } else {
@@ -1369,6 +1480,24 @@ function MonsterGacha() {
           </div>
           <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, color: 'rgba(196,132,252,0.5)', letterSpacing: 5, marginBottom: 32 }}>
             伝 説 の 宝 探 し
+          </div>
+
+          {/* Nickname input */}
+          <div style={{ marginBottom: 20, width: '100%', maxWidth: 340 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'rgba(255,255,255,0.5)' }}>ニックネーム</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} placeholder="名前を入力..."
+                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10,
+                  padding: '8px 12px', fontSize: 14, color: '#fff', fontFamily: "'Noto Sans JP',sans-serif", outline: 'none' }}
+                onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(139,92,246,0.25)'}
+              />
+              <button className="btn bs" style={{ fontSize: 12, padding: '8px 14px' }}
+                onClick={async () => {
+                  await window.storage.set('tgacha-nickname', nickname);
+                  setSaveMsg("ニックネームを保存しました"); setTimeout(() => setSaveMsg(""), 2000);
+                }}>保存</button>
+            </div>
           </div>
 
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: 'rgba(255,255,255,0.6)' }}>セーブスロットを選択</div>
@@ -1684,6 +1813,10 @@ function MonsterGacha() {
                 <div className="menu-card-icon">💾</div>
                 <div className="menu-card-label">セーブ</div>
               </div>
+              <div className="menu-card" onClick={() => nav("ranking")}>
+                <div className="menu-card-icon">🏆</div>
+                <div className="menu-card-label">ランキング</div>
+              </div>
               <div className="menu-card" onClick={backToSlots}>
                 <div className="menu-card-icon">🔄</div>
                 <div className="menu-card-label">スロット変更</div>
@@ -1901,14 +2034,14 @@ function MonsterGacha() {
             ))}
           </div>
         )}
-        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
-        {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.tap || 0)) return { ...prev, tap: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.gem || 0)) return { ...prev, gem: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.timing || 0)) return { ...prev, timing: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.tower || 0)) return { ...prev, tower: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.shooting || 0)) return { ...prev, shooting: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.mathEasy || 0)) return { ...prev, mathEasy: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.kuku || 0)) return { ...prev, kuku: c }; return prev; }); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => { setCoins(p => p + c); setBestScores(prev => { if (c > (prev.mathMid || 0)) return { ...prev, mathMid: c }; return prev; }); setMiniGame(null); }} />}
 
         {/* COLLECTION */}
         {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} />}
@@ -1985,6 +2118,8 @@ function MonsterGacha() {
             </div>
           );
         })()}
+        {/* RANKING */}
+        {screen === "ranking" && <RankingScreen />}
       </div>
 
       {/* NAV */}
@@ -2093,6 +2228,33 @@ function MonsterGacha() {
               onClick={() => setShowClear(false)}>
               ゲームに戻る
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rare gacha effects */}
+      {rareEffect && rareEffect.type === 'god' && (
+        <>
+          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,107,107,0.3), rgba(255,209,61,0.3), rgba(107,255,107,0.3), rgba(107,197,255,0.3), rgba(208,107,255,0.3))' }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', pointerEvents: 'none' }}>
+            <div className="rare-rainbow" style={{ textAlign: 'center' }}>
+              <div className="rare-god-text" style={{ fontSize: 28, fontWeight: 900, color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.4)', fontFamily: "'Orbitron',sans-serif", letterSpacing: 6 }}>
+                ✨ G O D 降 臨 ✨
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {rareEffect && rareEffect.type === 'mythic' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.4), transparent 70%)' }} />
+      )}
+      {rareEffect && rareEffect.type === 'legend' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(200,214,229,0.3), transparent 70%)' }} />
+      )}
+      {rareEffect && rareEffect.type === 'synthMax' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
+          <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900, color: '#fff', textShadow: '0 0 30px rgba(255,255,255,0.8)', fontFamily: "'Orbitron',sans-serif" }}>
+            伝説の{rareEffect.name}を手に入れた！
           </div>
         </div>
       )}
@@ -4142,6 +4304,127 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// RANKING SCREEN
+// ============================================================
+function RankingScreen() {
+  const [tab, setTab] = useState(0);
+  const [rankings, setRankings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await window.storage.list('tgacha-rank:');
+        const keys = res?.keys || [];
+        const entries = [];
+        for (const k of keys) {
+          try {
+            const r = await window.storage.get(k);
+            if (r && r.value) {
+              const d = JSON.parse(r.value);
+              if (d && d.name) entries.push(d);
+            }
+          } catch(e) {}
+        }
+        setRankings(entries);
+      } catch(e) {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const tabs = [
+    { icon: "💰", label: "総資産", key: "totalAssets" },
+    { icon: "📖", label: "コレクション", key: "colCount" },
+    { icon: "🎮", label: "ミニゲーム", key: "bestMiniGame" },
+  ];
+
+  const sorted = useMemo(() => {
+    const list = [...rankings];
+    if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
+    else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
+    else list.sort((a, b) => ((b.bestMiniGame?.score) || 0) - ((a.bestMiniGame?.score) || 0));
+    return list;
+  }, [rankings, tab]);
+
+  const medal = (i) => i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
+
+  return (
+    <div>
+      <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
+        background: 'linear-gradient(160deg, rgba(255,215,0,0.1) 0%, rgba(139,92,246,0.08) 100%)',
+        borderBottom: '1px solid rgba(255,215,0,0.15)', marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🏆 ファミリーランキング</div>
+        <div style={{ fontSize: 11, opacity: 0.4 }}>セーブ時にランキングが更新されます</div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        {tabs.map((t, i) => (
+          <button key={i} className={`tfb ${tab === i ? 'act' : ''}`}
+            style={{ flex: 1, textAlign: 'center', padding: '8px 4px' }}
+            onClick={() => setTab(i)}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>読み込み中...</div>
+      ) : sorted.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div>
+          <div style={{ fontSize: 13 }}>まだランキングデータがありません</div>
+          <div style={{ fontSize: 11, marginTop: 4 }}>ニックネームを設定してセーブすると登録されます</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {sorted.map((r, i) => (
+            <div key={r.name + i} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14,
+              background: i === 0 ? 'linear-gradient(135deg, rgba(255,215,0,0.12), rgba(245,158,11,0.06))'
+                : i === 1 ? 'linear-gradient(135deg, rgba(200,214,229,0.08), rgba(200,214,229,0.03))'
+                : i === 2 ? 'linear-gradient(135deg, rgba(205,127,50,0.08), rgba(205,127,50,0.03))'
+                : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${i === 0 ? 'rgba(255,215,0,0.25)' : i < 3 ? 'rgba(200,214,229,0.15)' : 'rgba(255,255,255,0.06)'}`,
+            }}>
+              <div style={{ fontSize: i < 3 ? 24 : 14, width: 32, textAlign: 'center', fontWeight: 900,
+                color: i >= 3 ? 'rgba(255,255,255,0.3)' : undefined }}>
+                {medal(i)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: i === 0 ? '#fbbf24' : '#e0e0e0' }}>{r.name}</div>
+                <div style={{ fontSize: 11, opacity: 0.5, display: 'flex', gap: 8 }}>
+                  <span>💰{formatYen(r.totalAssets || 0)}</span>
+                  <span>📖{r.colCount || 0}/66</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                {tab === 0 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#fbbf24' }}>
+                    {formatYen(r.totalAssets || 0)}
+                  </div>
+                )}
+                {tab === 1 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
+                    {r.colCount || 0}<span style={{ fontSize: 10, opacity: 0.5 }}>/66</span>
+                  </div>
+                )}
+                {tab === 2 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#ec4899' }}>
+                    🪙{r.bestMiniGame?.score || 0}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
