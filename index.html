@@ -1796,22 +1796,23 @@ function MonsterGacha() {
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase
-  const [crowns, setCrowns] = useState({ gold: 0, silver: 0, goldGames: [], silverGames: [] });
+  const [crowns, setCrowns] = useState({ gold: 0, silver: 0, bronze: 0, goldGames: [], silverGames: [], bronzeGames: [] });
   useEffect(() => {
     if (!nickname || !window.fbDb) return;
     window.fbDb.ref('rankings').once('value').then(snapshot => {
       const entries = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) entries.push(d); });
-      let gold = 0, silver = 0, goldGames = [], silverGames = [];
+      let gold = 0, silver = 0, bronze = 0, goldGames = [], silverGames = [], bronzeGames = [];
       GAME_IDS.forEach(gid => {
         const scores = entries.filter(e => (e.bestScores?.[gid] || 0) > 0).sort((a, b) => (b.bestScores?.[gid] || 0) - (a.bestScores?.[gid] || 0));
         if (scores.length > 0 && scores[0].name === nickname) { gold++; goldGames.push(GAME_NAMES[gid]); }
         else if (scores.length > 1 && scores[1].name === nickname) { silver++; silverGames.push(GAME_NAMES[gid]); }
+        else if (scores.length > 2 && scores[2].name === nickname) { bronze++; bronzeGames.push(GAME_NAMES[gid]); }
       });
-      setCrowns({ gold, silver, goldGames, silverGames });
+      setCrowns({ gold, silver, bronze, goldGames, silverGames, bronzeGames });
     }).catch(() => {});
   }, [nickname, bestScores]);
-  const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04);
+  const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
   // Score caps per game to prevent illegitimate scores
   const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
@@ -2153,6 +2154,15 @@ function MonsterGacha() {
                       <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#c8d6e5' }}>×{crowns.silver}</span>
                     </div>
                   )}
+                  {crowns.bronze > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRadius: 12,
+                      background: 'rgba(205,127,50,0.1)',
+                      border: '1px solid rgba(205,127,50,0.25)' }}
+                      title={crowns.bronzeGames.join(', ')}>
+                      <span style={{ fontSize: 14 }}>🥉</span>
+                      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#cd7f32' }}>×{crowns.bronze}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2398,7 +2408,7 @@ function MonsterGacha() {
                       )}
                     </div>
                     <div style={{ fontSize: 10, opacity: 0.5, marginTop: 3 }}>
-                      👑×{crowns.gold} 🥈×{crowns.silver} → ★7以上優遇
+                      👑×{crowns.gold} 🥈×{crowns.silver} 🥉×{crowns.bronze} → ★7以上優遇
                     </div>
                   </div>
                 )}
