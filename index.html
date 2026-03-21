@@ -2263,6 +2263,7 @@ function MonsterGacha() {
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>利用履歴（{spending.length}件）</div>
                   <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                     {[...spending].reverse().map((e, i) => {
+                      const realIdx = spending.length - 1 - i;
                       const icon = e.memo?.includes('Amazon') ? '🎁' : e.memo?.includes('食事') ? '🍽️' : e.memo?.includes('家具') ? '🏠' : e.memo?.includes('旅費') ? '✈️' : '💰';
                       return (
                         <div key={i} style={{
@@ -2274,9 +2275,24 @@ function MonsterGacha() {
                             <div style={{ fontWeight: 700 }}>{e.memo}</div>
                             <div style={{ fontSize: 10, opacity: 0.4 }}>{new Date(e.date).toLocaleDateString('ja-JP')} {new Date(e.date).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})}</div>
                           </div>
-                          <span style={{ color: '#ec4899', fontWeight: 900, fontFamily: "'Orbitron',sans-serif", fontSize: 11 }}>
+                          <span style={{ color: '#ec4899', fontWeight: 900, fontFamily: "'Orbitron',sans-serif", fontSize: 11, marginRight: 6 }}>
                             -{formatYen(e.amount)}
                           </span>
+                          {e.paid ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' }}>✅ 入金済み</span>
+                          ) : (
+                            <button onClick={() => {
+                              if (confirm('入金をもらいましたか？')) {
+                                setSpending(prev => {
+                                  const n = [...prev];
+                                  n[realIdx] = { ...n[realIdx], paid: true };
+                                  return n;
+                                });
+                              }
+                            }} style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              💰 入金確認
+                            </button>
+                          )}
                         </div>
                       );
                     })}
