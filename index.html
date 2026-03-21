@@ -4707,12 +4707,12 @@ function BubbleGame({ onDone }) {
       const b = next[id];
       if (b.popped) return prev;
       b.taps++;
-      const chance = b.taps <= 4 ? 0 : (b.taps - 4) * 0.1;
+      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.1;
       if (Math.random() < chance) {
         b.popped = true;
         sfx('wrong');
       } else {
-        if (b.taps <= 4) {
+        if (b.taps <= 5) {
           playNote(300 + b.taps * 80, 0.06, 'sine', 0.06);
         } else {
           playNote(400 + b.taps * 60, 0.08, 'triangle', 0.08);
