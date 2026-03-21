@@ -1907,7 +1907,19 @@ function MonsterGacha() {
               />
               <button className="btn bs" style={{ fontSize: 12, padding: '8px 14px' }}
                 onClick={async () => {
+                  const oldNick = await window.storage.get('tgacha-nickname');
+                  const oldName = oldNick?.value || '';
                   await window.storage.set('tgacha-nickname', nickname);
+                  // Migrate Firebase ranking data to new nickname
+                  if (window.fbDb && oldName && oldName !== nickname) {
+                    try {
+                      const oldData = await new Promise(r => window.fbDb.ref('rankings/' + oldName).once('value', s => r(s.val())));
+                      if (oldData) {
+                        await window.fbDb.ref('rankings/' + nickname).set({ ...oldData, name: nickname });
+                        await window.fbDb.ref('rankings/' + oldName).remove();
+                      }
+                    } catch(e) {}
+                  }
                   setSaveMsg("ニックネームを保存しました"); setTimeout(() => setSaveMsg(""), 2000);
                 }}>保存</button>
             </div>
@@ -2134,11 +2146,11 @@ function MonsterGacha() {
                 };
                 return (
                   <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3,
-                      color: 'rgba(232,213,163,0.7)' }}>
+                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 4,
+                      color: 'rgba(232,213,163,0.8)', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
                       Rank {rn} / 25
                     </div>
-                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 6, marginTop: 2, ...rankStyle }}>
+                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 8, marginTop: 3, ...rankStyle }}>
                       {r.icon} {r.name}
                     </div>
                   </div>
