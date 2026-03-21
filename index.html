@@ -1135,6 +1135,13 @@ function MonsterGacha() {
   const [dailyMissions, setDailyMissions] = useState([]);
   const [dailyProgress, setDailyProgress] = useState({});
   const [dailyCompleted, setDailyCompleted] = useState({});
+  const [giftsSentToday, setGiftsSentToday] = useState(0);
+  const [lastGiftDate, setLastGiftDate] = useState(null);
+  const [totalGiftValue, setTotalGiftValue] = useState(0);
+  const [pendingGifts, setPendingGifts] = useState([]);
+  const [showGiftModal, setShowGiftModal] = useState(null);
+  const [giftRecipient, setGiftRecipient] = useState('');
+  const [showGiftReceived, setShowGiftReceived] = useState(null);
   const saveTimer = useRef(null);
 
   const slotKey = (id) => `tgacha-s${id}`;
@@ -1262,6 +1269,9 @@ function MonsterGacha() {
       setLastLoginDate(d.lastLoginDate || null);
       setLoginStreak(d.loginStreak || 0);
       setWeeklyScores(d.weeklyScores || {});
+      setTotalGiftValue(d.totalGiftValue || 0);
+      setGiftsSentToday(d.giftsSentToday || 0);
+      setLastGiftDate(d.lastGiftDate || null);
       if (d.lastSave) {
         const away = Math.floor((Date.now() - d.lastSave) / 2000);
         if (away > 0) setCoins(c => c + Math.min(away, 5000));
@@ -1269,6 +1279,7 @@ function MonsterGacha() {
     } else {
       setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({}); setPlayCounts({});
       setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({});
+      setTotalGiftValue(0); setGiftsSentToday(0); setLastGiftDate(null);
       // Preserve global nickname for new slots
       try {
         const nk = await window.storage.get('tgacha-nickname');
@@ -1286,7 +1297,7 @@ function MonsterGacha() {
     setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
     setConfirmDeleteId(null);
     if (id === slotId) {
-      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({}); setScreen("home");
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({}); setTotalGiftValue(0); setGiftsSentToday(0); setLastGiftDate(null); setScreen("home");
     }
     setSaveMsg("🗑 スロット" + id + "を削除しました");
     setTimeout(() => setSaveMsg(""), 2000);
@@ -1296,7 +1307,7 @@ function MonsterGacha() {
   // ---- SAVE: minimal, no lock, no retry ----
   const [showSaveModal, setShowSaveModal] = useState(false);
   const saveDataRef = useRef(null);
-  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores, playCounts, lastLoginDate, loginStreak, weeklyScores };
+  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores, playCounts, lastLoginDate, loginStreak, weeklyScores, totalGiftValue, giftsSentToday, lastGiftDate };
 
   const saveToSlot = useCallback(async (targetId, silent) => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -1307,7 +1318,7 @@ function MonsterGacha() {
     for (const k of Object.keys(col)) {
       if (col[k] && col[k].count > 0) compressed[k] = col[k].count;
     }
-    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, playCounts: s.playCounts || {}, lastLoginDate: s.lastLoginDate, loginStreak: s.loginStreak, weeklyScores: s.weeklyScores || {}, lastSave: Date.now() };
+    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, playCounts: s.playCounts || {}, lastLoginDate: s.lastLoginDate, loginStreak: s.loginStreak, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, giftsSentToday: s.giftsSentToday || 0, lastGiftDate: s.lastGiftDate || null, lastSave: Date.now() };
     const key = slotKey(targetId);
     try {
       const str = JSON.stringify(data);
@@ -1364,7 +1375,7 @@ function MonsterGacha() {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, updated: Date.now() };
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
         }
@@ -1385,6 +1396,73 @@ function MonsterGacha() {
     saveTimer.current = setTimeout(() => { addLog("自動セーブ実行"); saveToSlot(slotId, true); }, 60000);
     return () => clearTimeout(saveTimer.current);
   }, [collection, totalPulls, spending, loaded, slotId, saveToSlot]);
+
+  // ---- GIFT SYSTEM: Check for pending gifts ----
+  useEffect(() => {
+    if (!nickname || !window.fbDb || slotId === null) return;
+    const ref = window.fbDb.ref('gifts/' + nickname);
+    ref.once('value').then(snapshot => {
+      const gifts = [];
+      snapshot.forEach(child => {
+        gifts.push({ fbKey: child.key, ...child.val() });
+      });
+      if (gifts.length > 0) {
+        setPendingGifts(gifts);
+      }
+    });
+  }, [nickname, slotId, loaded]);
+
+  const receiveGifts = useCallback(() => {
+    if (pendingGifts.length === 0) return;
+    pendingGifts.forEach(gift => {
+      const key = `${gift.typeId}_${gift.rank}`;
+      setCollection(prev => {
+        const n = { ...prev };
+        if (n[key]) {
+          n[key] = { ...n[key], count: n[key].count + (gift.count || 1) };
+        } else {
+          const type = TYPES.find(t => t.id === gift.typeId);
+          const m = MONSTERS[gift.typeId][gift.rank - 1];
+          const rarity = RARITIES[gift.rank - 1];
+          n[key] = { ...m, typeId: gift.typeId, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: gift.rank, rarity, count: gift.count || 1 };
+        }
+        return n;
+      });
+      window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
+    });
+    setShowGiftReceived(pendingGifts);
+    setPendingGifts([]);
+    setTimeout(() => setShowGiftReceived(null), 4000);
+  }, [pendingGifts, nickname]);
+
+  const sendGift = useCallback((itemKey, recipientName) => {
+    if (!nickname || !recipientName || !window.fbDb) return;
+    if (recipientName === nickname) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = lastGiftDate === today ? giftsSentToday : 0;
+    if (todayCount >= 3) return;
+    const item = collection[itemKey];
+    if (!item || item.count <= 1) return;
+    const giftValue = POWER_VALUES[item.rank - 1] || 0;
+    setCollection(prev => {
+      const n = { ...prev };
+      n[itemKey] = { ...n[itemKey], count: n[itemKey].count - 1 };
+      if (n[itemKey].count <= 0) delete n[itemKey];
+      return n;
+    });
+    window.fbDb.ref('gifts/' + recipientName).push({
+      typeId: item.typeId, rank: item.rank, name: item.name, icon: item.icon,
+      count: 1, from: nickname, value: giftValue, timestamp: Date.now()
+    });
+    setGiftsSentToday(todayCount + 1);
+    setLastGiftDate(today);
+    setTotalGiftValue(prev => prev + giftValue);
+    window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue);
+    sfx('sell');
+    setShowGiftModal(null);
+    setSaveMsg('🎁 ' + recipientName + 'に' + item.name + 'を送りました！');
+    setTimeout(() => setSaveMsg(''), 3000);
+  }, [nickname, collection, giftsSentToday, lastGiftDate]);
 
   // Daily login bonus check
   useEffect(() => {
@@ -2471,6 +2549,19 @@ function MonsterGacha() {
               </div>
             </div>
 
+            {/* Pending Gifts Banner */}
+            {pendingGifts.length > 0 && (
+              <div onClick={receiveGifts} style={{ margin: '12px 0', padding: '12px 16px', borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(74,222,128,0.15), rgba(74,222,128,0.05))',
+                border: '1px solid rgba(74,222,128,0.3)', cursor: 'pointer', textAlign: 'center',
+                position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#4ade80' }}>
+                  🎁 {pendingGifts.length}件のギフトが届いています！
+                </div>
+                <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>タップして受け取る</div>
+              </div>
+            )}
+
             {/* Daily Missions */}
             {dailyMissions.length > 0 && (
               <div style={{ margin: '16px 0', position: 'relative', zIndex: 1 }}>
@@ -3132,6 +3223,13 @@ function MonsterGacha() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+              {modal.count > 1 && (
+                <button className="btn" style={{ fontSize: 12, padding: '8px 14px',
+                  background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#c084fc' }}
+                  onClick={() => { setShowGiftModal({ key: `${modal.typeId}_${modal.rank}`, item: modal }); setModal(null); setGiftRecipient(''); }}>
+                  🎁 ギフト
+                </button>
+              )}
               <button className="btn bs" style={{ fontSize: 12, padding: '8px 14px' }} onClick={() => setModal(null)}>閉じる</button>
             </div>
           </div>
@@ -3444,6 +3542,64 @@ function MonsterGacha() {
               onClick={() => saveToSlot(slotId || 1)}>
               ⚙️ 強制セーブ（トラブル時用）
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* GIFT MODAL */}
+      {showGiftModal && (
+        <div className="mo" onClick={() => setShowGiftModal(null)}>
+          <div className="mc" style={{ borderColor: 'rgba(139,92,246,0.4)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>{showGiftModal.item.icon}</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#c084fc', marginBottom: 4 }}>
+              🎁 ギフトを送る
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
+              {showGiftModal.item.name}（{showGiftModal.item.rarity.label}）
+            </div>
+            <div style={{ fontSize: 10, opacity: 0.4, marginBottom: 12 }}>
+              資産価値: {formatYen(POWER_VALUES[showGiftModal.item.rank - 1])}
+            </div>
+            <div style={{ fontSize: 11, marginBottom: 8 }}>送り先のニックネーム:</div>
+            <input type="text" value={giftRecipient} onChange={e => setGiftRecipient(e.target.value)}
+              placeholder="相手の名前..." style={{ width: '80%', background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10, padding: '8px 12px',
+              fontSize: 14, color: '#fff', outline: 'none', textAlign: 'center', marginBottom: 12 }} />
+            <div style={{ fontSize: 9, opacity: 0.4, marginBottom: 12 }}>
+              本日の残り: {3 - (lastGiftDate === new Date().toISOString().slice(0, 10) ? giftsSentToday : 0)}回
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px' }}
+                disabled={!giftRecipient || giftRecipient === nickname}
+                onClick={() => sendGift(showGiftModal.key, giftRecipient)}>
+                🎁 送る
+              </button>
+              <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
+                onClick={() => setShowGiftModal(null)}>キャンセル</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GIFT RECEIVED NOTIFICATION */}
+      {showGiftReceived && (
+        <div className="mo" onClick={() => setShowGiftReceived(null)}>
+          <div className="mc" style={{ borderColor: 'rgba(74,222,128,0.4)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#4ade80', marginBottom: 12 }}>
+              ギフトが届きました！
+            </div>
+            {showGiftReceived.map((g, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
+                justifyContent: 'center', fontSize: 13 }}>
+                <span style={{ fontSize: 24 }}>{g.icon}</span>
+                <span style={{ fontWeight: 700 }}>{g.name}</span>
+                <span style={{ opacity: 0.5 }}>from</span>
+                <span style={{ color: '#c084fc' }}>{g.from}</span>
+              </div>
+            ))}
+            <button className="btn bp" style={{ marginTop: 12, fontSize: 13, padding: '10px 24px' }}
+              onClick={() => setShowGiftReceived(null)}>受け取る！</button>
           </div>
         </div>
       )}
@@ -6322,6 +6478,7 @@ function RankingScreen() {
     { icon: "💰", label: "総資産" },
     { icon: "📖", label: "コレクション" },
     { icon: "🎰", label: "ガチャ回数" },
+    { icon: "🎁", label: "ギフト" },
     { icon: "🎮", label: "ミニゲーム" },
   ];
 
@@ -6341,7 +6498,7 @@ function RankingScreen() {
   ];
 
   const sorted = useMemo(() => {
-    if (tab === 3 && rankMode === 'weekly') {
+    if (tab === 4 && rankMode === 'weekly') {
       const list = [...weeklyData];
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
@@ -6350,6 +6507,7 @@ function RankingScreen() {
     if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
     else if (tab === 2) list.sort((a, b) => (b.totalPulls || 0) - (a.totalPulls || 0));
+    else if (tab === 3) list.sort((a, b) => (b.totalGiftValue || 0) - (a.totalGiftValue || 0));
     else {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
@@ -6394,7 +6552,7 @@ function RankingScreen() {
       </div>
 
       {/* Game sub-tabs for minigame ranking */}
-      {tab === 3 && (
+      {tab === 4 && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
           {GAME_TABS.map(g => (
             <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
@@ -6453,6 +6611,11 @@ function RankingScreen() {
                   </div>
                 )}
                 {tab === 3 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
+                    🎁{formatYen(r.totalGiftValue || 0)}
+                  </div>
+                )}
+                {tab === 4 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>
                     🪙{r.bestScores?.[gameTab] || 0}
                   </div>
