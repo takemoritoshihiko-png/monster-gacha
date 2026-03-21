@@ -3315,9 +3315,9 @@ function TimingGame({ onDone }) {
 
   const calcPerfectBonus = (tapList) => {
     const pc = tapList.filter(t => t.diff === 0).length;
-    if (pc >= 10) return { bonus: 500, label: "ALL PERFECT!! +500" };
-    if (pc >= 7) return { bonus: 200, label: "7 PERFECT! +200" };
-    if (pc >= 5) return { bonus: 100, label: "5 PERFECT! +100" };
+    if (pc >= 10) return { bonus: 400, label: "ALL PERFECT!! +400" };
+    if (pc >= 7) return { bonus: 150, label: "7 PERFECT! +150" };
+    if (pc >= 5) return { bonus: 80, label: "5 PERFECT! +80" };
     if (pc >= 3) return { bonus: 50, label: "3 PERFECT +50" };
     return { bonus: 0, label: "" };
   };
@@ -3393,7 +3393,7 @@ function TimingGame({ onDone }) {
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
             ぴったり=🪙50 / ±0.1s=🪙25 / ±0.2s=🪙15 / ±0.4s=🪙10 / ±0.5s=🪙5<br/>
-            PERFECT 3個+50 / 5個+100 / 7個+200 / ALL+500
+            PERFECT 3個+50 / 5個+80 / 7個+150 / ALL+400
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
