@@ -1097,6 +1097,7 @@ function MonsterGacha() {
   const [spending, setSpending] = useState([]); // [{amount, memo, date}]
   const [loaded, setLoaded] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [newRecord, setNewRecord] = useState(null);
   const [nickname, setNickname] = useState("");
   const [bestScores, setBestScores] = useState({});
   const [playCounts, setPlayCounts] = useState({});
@@ -1953,6 +1954,10 @@ function MonsterGacha() {
     setCoins(p => p + capped);
     setBestScores(prev => {
       const isNewBest = capped > (prev[gameId] || 0);
+      if (isNewBest) {
+        setNewRecord({ gameId, score: capped, prev: prev[gameId] || 0 });
+        setTimeout(() => setNewRecord(null), 3000);
+      }
       const updated = isNewBest ? { ...prev, [gameId]: capped } : prev;
       // Immediately update Firebase with new best score
       if (isNewBest && nickname && window.fbDb) {
@@ -2197,6 +2202,15 @@ function MonsterGacha() {
           {saveMsg}
         </div>
       )}
+      {newRecord && (
+        <div style={{ position: 'fixed', top: 54, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
+          background: 'linear-gradient(135deg, rgba(251,191,36,0.95), rgba(245,158,11,0.95))',
+          color: '#fff', padding: '8px 24px', borderRadius: 20,
+          fontSize: 14, fontWeight: 900, animation: 'ri 0.3s ease-out',
+          boxShadow: '0 4px 20px rgba(251,191,36,0.4)', textAlign: 'center' }}>
+          🎉 NEW RECORD! 🪙{newRecord.score}
+        </div>
+      )}
       {showLoginBonus && loginBonusInfo && (
         <div style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
           background: 'linear-gradient(135deg, rgba(80,50,120,0.95), rgba(60,35,100,0.95))',
@@ -2384,18 +2398,47 @@ function MonsterGacha() {
               </div>
             </div>
 
-            <div className="stat-cards">
-              <div className="stat-card">
-                <div className="stat-card-val">{colCount}<span style={{ fontSize: 11, opacity: 0.5 }}>/66</span></div>
-                <div className="stat-card-label">📖 コレクション</div>
+            <div style={{ position: 'relative', zIndex: 1, margin: '16px 0' }}>
+              {/* Coin display with next gacha target */}
+              <div style={{ textAlign: 'center', marginBottom: 10, padding: '10px 16px', borderRadius: 12,
+                background: 'linear-gradient(180deg, rgba(50,40,70,0.6), rgba(30,22,45,0.7))',
+                border: '1px solid rgba(139,92,246,0.15)' }}>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900, color: '#fbbf24' }}>
+                  🪙 {coins.toLocaleString()}
+                </div>
+                {coins < 200 && (
+                  <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>10連まであと 🪙{(200 - coins).toLocaleString()}</div>
+                )}
+                {coins >= 200 && coins < 400 && (
+                  <div style={{ fontSize: 10, color: '#4ade80', marginTop: 4 }}>✓ 10連ガチャ可能！</div>
+                )}
+                {coins >= 400 && (
+                  <div style={{ fontSize: 10, color: '#fbbf24', marginTop: 4 }}>✓ {Math.floor(coins / 200) * 10}連分のコインあり！</div>
+                )}
               </div>
-              <div className="stat-card">
-                <div className="stat-card-val" style={{ color: '#fbbf24' }}>{coins.toLocaleString()}</div>
-                <div className="stat-card-label">🪙 コイン</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-card-val">{loginDay}</div>
-                <div className="stat-card-label">📅 日目</div>
+              {/* Collection progress */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, padding: '8px 10px', borderRadius: 10,
+                  background: 'linear-gradient(180deg, rgba(50,40,70,0.5), rgba(30,22,45,0.6))',
+                  border: '1px solid rgba(139,92,246,0.12)' }}>
+                  <div style={{ fontSize: 9, opacity: 0.4, marginBottom: 4 }}>📖 コレクション</div>
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#c084fc' }}>
+                    {colCount}<span style={{ fontSize: 10, opacity: 0.4 }}>/66</span>
+                  </div>
+                  <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 2, width: `${(colCount/66)*100}%`,
+                      background: 'linear-gradient(90deg, #a78bfa, #c084fc)' }} />
+                  </div>
+                </div>
+                <div style={{ flex: 1, padding: '8px 10px', borderRadius: 10,
+                  background: 'linear-gradient(180deg, rgba(50,40,70,0.5), rgba(30,22,45,0.6))',
+                  border: '1px solid rgba(139,92,246,0.12)' }}>
+                  <div style={{ fontSize: 9, opacity: 0.4, marginBottom: 4 }}>📅 ログイン</div>
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#4ade80' }}>
+                    {loginStreak}<span style={{ fontSize: 10, opacity: 0.4 }}>日連続</span>
+                  </div>
+                  <div style={{ fontSize: 9, opacity: 0.4, marginTop: 4 }}>回復+{loginStreak}%</div>
+                </div>
               </div>
             </div>
 
@@ -2734,22 +2777,18 @@ function MonsterGacha() {
                 {allOpened && (() => {
                   const best = gachaResults.reduce((a, b) => a.rank > b.rank ? a : b);
                   if (best.rank >= 6) {
-                    const msgs = {
-                      6: "✨ ウルトラ発見！",
-                      7: "⚡ エピック級の財宝！",
-                      8: "🔥 レジェンド級降臨！！",
-                      9: "💜 ミシカル...!? 奇跡の発掘！！",
-                      10: "👑✨ G O D 級 発 見 ✨👑",
-                    };
+                    const rkCls = best.rank >= 10 ? 'rank-rainbow' : best.rank === 9 ? 'rank-gold' : best.rank === 8 ? 'rank-silver' : best.rank === 7 ? 'rank-epic' : 'rank-ultra';
+                    const cardCls = best.rank >= 10 ? 'rank10-card' : best.rank === 9 ? 'rank9-card' : best.rank === 8 ? 'rank8-card' : best.rank === 7 ? 'rank7-card' : 'rank6-card';
                     return (
-                      <div style={{
-                        marginTop: 8, padding: '6px 16px', borderRadius: 10,
-                        background: `linear-gradient(135deg, ${best.rarity.color}20, ${best.rarity.color}08)`,
-                        border: `1px solid ${best.rarity.color}40`,
-                        fontSize: 13, fontWeight: 900, color: best.rarity.color,
-                        textAlign: 'center',
-                      }}>
-                        {msgs[best.rank] || ""}
+                      <div style={{ margin: '10px auto', maxWidth: 280, padding: '14px 16px', borderRadius: 14, textAlign: 'center',
+                        background: 'linear-gradient(160deg, rgba(50,40,70,0.9), rgba(30,22,45,0.95))',
+                        border: `2px solid ${best.rarity.color}60`,
+                        boxShadow: `0 0 20px ${best.rarity.color}20` }}>
+                        <div style={{ fontSize: 9, opacity: 0.5, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>TODAY'S BEST</div>
+                        <div style={{ fontSize: 48, marginBottom: 4, filter: `drop-shadow(0 0 8px ${best.rarity.color})` }}>{best.icon}</div>
+                        <div className={rkCls} style={{ fontSize: 16, fontWeight: 900 }}>{best.name}</div>
+                        <div className={rkCls} style={{ fontSize: 12, marginTop: 2 }}>{renderStars(best.rank)}</div>
+                        <div style={{ fontSize: 10, color: best.typeColor, marginTop: 4 }}>{best.typeEmoji} {best.typeName}</div>
                       </div>
                     );
                   }
@@ -3337,7 +3376,7 @@ function TapGame({ onDone }) {
     }, 50);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   const handleTap = () => {
     if (phase !== "play") return;
@@ -3471,7 +3510,7 @@ function KukuGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3573,7 +3612,7 @@ function MathMidGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3674,7 +3713,7 @@ function MathEasyGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3778,7 +3817,7 @@ function MathHardAddGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase, earned, onDone]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase, earned, onDone]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3883,7 +3922,7 @@ function MathHardMultGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase, earned, onDone]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase, earned, onDone]);
 
   const check = (v) => {
     if (!prob) return;
@@ -4060,7 +4099,7 @@ function TimingGame({ onDone }) {
   const { bonus: perfectBonus, label: bonusLabel } = calcPerfectBonus(taps);
   const totalCoins = baseCoins + (phase === "done" ? perfectBonus : 0);
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 3000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -4563,7 +4602,7 @@ function ShootingGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -4896,7 +4935,7 @@ function CoinTowerGame({ onDone }) {
   };
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -5581,7 +5620,7 @@ function GemCatchGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -5730,6 +5769,33 @@ function CollectionView({ collection, onSelect }) {
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
       </div>
+      {/* Hall of Fame - ★8+ items */}
+      {(() => {
+        const rareItems = all.filter(m => m.owned && m.rank >= 8);
+        if (rareItems.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 14, padding: '10px 12px', borderRadius: 12,
+            background: 'linear-gradient(160deg, rgba(50,40,70,0.6), rgba(30,22,45,0.7))',
+            border: '1px solid rgba(139,92,246,0.2)' }}>
+            <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.5, marginBottom: 8,
+              fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>HALL OF FAME</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {rareItems.sort((a,b) => b.rank - a.rank).map(m => {
+                const rkCls = m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : 'rank-silver';
+                return (
+                  <div key={m.key} onClick={() => onSelect(m)} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 8px',
+                    borderRadius: 10, background: `${m.rarity.color}10`, border: `1px solid ${m.rarity.color}30`,
+                    boxShadow: `0 0 8px ${m.rarity.color}15`, minWidth: 60 }}>
+                    <div style={{ fontSize: 28, filter: `drop-shadow(0 0 4px ${m.rarity.color})` }}>{m.icon}</div>
+                    <div className={rkCls} style={{ fontSize: 8, fontWeight: 900 }}>{m.name}</div>
+                    {m.count > 1 && <div style={{ fontSize: 7, opacity: 0.5 }}>×{m.count}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
       <div className="tf2">
         <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
         {TYPES.map(t => (
