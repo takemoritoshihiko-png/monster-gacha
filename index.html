@@ -2032,81 +2032,23 @@ function MonsterGacha() {
               <div style={{ textAlign: 'center' }}>
                 <div className="hero-icon">💎</div>
                 <div className="hero-title">TREASURE<br/>GACHA</div>
-                <div className="hero-sub">伝 説 の 宝 探 し</div>
-                {(crowns.gold > 0 || crowns.silver > 0) && (
-                  <div style={{ marginTop: 12, position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontSize: 9, color: 'rgba(255,215,0,0.5)', letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>
-                      GAME RANKING
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
-                      {crowns.gold > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 12px', borderRadius: 14,
-                          background: 'linear-gradient(135deg, rgba(255,215,0,0.2), rgba(245,158,11,0.1))',
-                          border: '1px solid rgba(255,215,0,0.35)' }}
-                          title={crowns.goldGames.join(', ')}>
-                          <span style={{ fontSize: 16 }}>👑</span>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>×{crowns.gold}</span>
-                        </div>
-                      )}
-                      {crowns.silver > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 12px', borderRadius: 14,
-                          background: 'linear-gradient(135deg, rgba(200,214,229,0.15), rgba(200,214,229,0.05))',
-                          border: '1px solid rgba(200,214,229,0.3)' }}
-                          title={crowns.silverGames.join(', ')}>
-                          <span style={{ fontSize: 16 }}>🥈</span>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#c8d6e5' }}>×{crowns.silver}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+
                 {isComplete && (
-                  <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
-                    <div style={{
-                      display: 'inline-block', padding: '4px 20px', borderRadius: 20, position: 'relative',
+                  <div style={{ marginTop: 6, position: 'relative', zIndex: 1 }}>
+                    <div style={{ display: 'inline-block', padding: '3px 16px', borderRadius: 16, position: 'relative',
                       background: 'linear-gradient(135deg, rgba(255,215,0,0.2), rgba(236,72,153,0.15))',
-                      boxShadow: '0 0 20px rgba(255,215,0,0.2)',
-                    }}>
-                      <div style={{ position: 'absolute', inset: -1, borderRadius: 20,
+                      boxShadow: '0 0 15px rgba(255,215,0,0.2)' }}>
+                      <div style={{ position: 'absolute', inset: -1, borderRadius: 16,
                         background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
                         backgroundSize: '200% 100%', animation: 'rainbowText 2s linear infinite',
                         WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-                        WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
-                      }} />
-                      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 11, fontWeight: 900, letterSpacing: 2 }}>
-                        <span className="rank-rainbow">🏆 GAME CLEAR</span>
-                      </span>
+                        WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none' }} />
+                      <span className="rank-rainbow" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 10, fontWeight: 900, letterSpacing: 2 }}>🏆 GAME CLEAR</span>
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Odometer */}
-              <div className="odo-wrap" style={{ textAlign: 'center' }}>
-                <div className="odo-label">TOTAL GACHA</div>
-                <div className="odo-digits">
-                  {String(Math.min(totalPulls, 99999)).padStart(5, '0').split('').map((d, i) => (
-                    <div key={i} className={`odo-d ${totalPulls > 0 && i >= 5 - String(totalPulls).length ? 'lit' : 'dim'}`}>
-                      {d}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Stat cards */}
-            <div style={{ textAlign: 'center', margin: '16px 0 8px', position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.5)', letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>TOTAL ASSETS</div>
-              <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 18, fontWeight: 900,
-                background: totalPower >= 8000000000 ? 'linear-gradient(135deg,#fbbf24,#f472b6,#c084fc)' :
-                            totalPower >= 300000000 ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' :
-                            totalPower >= 1000000 ? 'linear-gradient(135deg,#a78bfa,#ec4899)' :
-                            'linear-gradient(135deg,#a78bfa,#c084fc)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                textShadow: 'none',
-              }}>
-                {formatYen(totalPower)}
-              </div>
+                {/* Rank + Title */}
               {(() => {
                 const RANKS = [
                   { min: 0, icon: '🌱', name: '拾い屋見習い' },
@@ -2167,13 +2109,67 @@ function MonsterGacha() {
                   fontSize: 12, color: 'rgba(255,255,255,0.6)',
                 };
                 return (
-                  <div style={{ marginTop: 4 }}>
+                  <div style={{ marginTop: 8, position: 'relative', zIndex: 1 }}>
                     <div style={{ fontWeight: 900, ...rankStyle }}>
                       {r.icon} Rank {rn}/25 — {r.name}
                     </div>
                   </div>
                 );
               })()}
+
+                {/* Total Assets */}
+                <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
+                  <div style={{ fontSize: 9, color: 'rgba(167,139,250,0.5)', letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 2 }}>TOTAL ASSETS</div>
+                  <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 18, fontWeight: 900,
+                    background: totalPower >= 8000000000 ? 'linear-gradient(135deg,#fbbf24,#f472b6,#c084fc)' :
+                                totalPower >= 300000000 ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' :
+                                totalPower >= 1000000 ? 'linear-gradient(135deg,#a78bfa,#ec4899)' :
+                                'linear-gradient(135deg,#a78bfa,#c084fc)',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    {formatYen(totalPower)}
+                  </div>
+                </div>
+
+                {/* Game Ranking + Gacha Count */}
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+                  {crowns.gold > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRadius: 12,
+                      background: 'linear-gradient(135deg, rgba(255,215,0,0.2), rgba(245,158,11,0.1))',
+                      border: '1px solid rgba(255,215,0,0.3)' }}
+                      title={crowns.goldGames.join(', ')}>
+                      <span style={{ fontSize: 14 }}>👑</span>
+                      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#fbbf24' }}>×{crowns.gold}</span>
+                    </div>
+                  )}
+                  {crowns.silver > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRadius: 12,
+                      background: 'rgba(200,214,229,0.1)',
+                      border: '1px solid rgba(200,214,229,0.25)' }}
+                      title={crowns.silverGames.join(', ')}>
+                      <span style={{ fontSize: 14 }}>🥈</span>
+                      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#c8d6e5' }}>×{crowns.silver}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRadius: 12,
+                    background: 'rgba(139,92,246,0.1)',
+                    border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <span style={{ fontSize: 14 }}>🎰</span>
+                    <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#a78bfa' }}>{totalPulls.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Odometer */}
+              <div className="odo-wrap" style={{ textAlign: 'center' }}>
+                <div className="odo-label">TOTAL GACHA</div>
+                <div className="odo-digits">
+                  {String(Math.min(totalPulls, 99999)).padStart(5, '0').split('').map((d, i) => (
+                    <div key={i} className={`odo-d ${totalPulls > 0 && i >= 5 - String(totalPulls).length ? 'lit' : 'dim'}`}>
+                      {d}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="stat-cards">
