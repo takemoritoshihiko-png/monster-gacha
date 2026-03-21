@@ -1320,7 +1320,8 @@ function MonsterGacha() {
       if (rank === 7) return 1080;  // ★7 Epic: noticeable pause
       if (rank === 6) return 720;   // ★6 Ultra: slight pause
       if (rank === 5) return 450;   // ★5 SSRare: small pause
-      return 225;                   // ★1-4: normal speed
+      if (rank === 4) return 225;   // ★4: normal speed
+      return 158;                   // ★1-3: fast open (30% faster)
     };
     // Build cumulative timing
     let cumTime = 250;
