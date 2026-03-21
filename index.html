@@ -1888,7 +1888,7 @@ function MonsterGacha() {
   }, [nickname, bestScores]);
   const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
+  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
