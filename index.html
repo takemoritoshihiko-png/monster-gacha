@@ -579,10 +579,10 @@ const CSS = `
 }
 .bp:hover { box-shadow: 0 6px 30px rgba(245,158,11,0.4), 0 0 60px rgba(236,72,153,0.2); }
 .bs {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #ccc;
+  background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.2); color: #ccc;
   backdrop-filter: blur(4px);
 }
-.bs:hover { background: rgba(255,255,255,0.1); border-color: rgba(139,92,246,0.3); }
+.bs:hover { background: rgba(80,60,140,0.3); border-color: rgba(139,92,246,0.4); }
 .bd { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; }
 .st { font-size: 18px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 
@@ -813,10 +813,11 @@ const CSS = `
 
 /* Minigames */
 .mgc {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(50,45,65,0.7), rgba(35,30,48,0.85));
+  border: 1px solid rgba(139,92,246,0.15);
   border-radius: 14px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;
 }
-.mgc:hover { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.2); transform: translateX(4px); }
+.mgc:hover { background: rgba(80,60,140,0.2); border-color: rgba(139,92,246,0.3); transform: translateX(4px); }
 .tap {
   width: 180px; height: 180px; border-radius: 50%;
   background: radial-gradient(circle, #ec4899, #be185d);
@@ -841,26 +842,29 @@ const CSS = `
 /* Collection & Synth */
 .cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
 .ci {
-  aspect-ratio: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  aspect-ratio: 1; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9));
+  border: 1px solid rgba(139,92,246,0.15);
   border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 26px; cursor: pointer; transition: all 0.2s; position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
 }
-.ci:hover { background: rgba(139,92,246,0.1); transform: scale(1.05); }
+.ci:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.35); transform: scale(1.05); }
 .ci.un { opacity: 0.2; cursor: default; }
-.ci.un:hover { transform: none; background: rgba(255,255,255,0.04); }
+.ci.un:hover { transform: none; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9)); }
 .ic { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.7); border-radius: 6px; padding: 1px 4px; font-size: 9px; font-weight: 700; }
 .cn { font-size: 7px; font-weight: 700; margin-top: 1px; text-align: center; line-height: 1.1; max-width: 100%; padding: 0 2px; }
-.tb { width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin: 8px 0; }
-.tf { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #ec4899); transition: width 0.1s linear; }
+.tb { width: 100%; height: 5px; background: rgba(50,45,65,0.4); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.tf { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #c084fc); transition: width 0.1s linear; }
 .sr { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
-.sb { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.sb { background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.15); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
 .tf2 { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
 .tfb {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(180deg, rgba(50,45,65,0.7), rgba(35,30,48,0.85));
+  border: 1px solid rgba(139,92,246,0.15);
   border-radius: 8px; padding: 3px 9px; font-size: 11px; cursor: pointer;
   color: #aaa; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
 }
-.tfb.act { background: rgba(139,92,246,0.2); border-color: #a78bfa; color: #c084fc; }
+.tfb.act { background: linear-gradient(180deg, rgba(80,60,140,0.4), rgba(60,40,110,0.5)); border-color: rgba(167,139,250,0.5); color: #c084fc; box-shadow: 0 0 8px rgba(139,92,246,0.15); }
 
 /* Modal */
 .mo {
@@ -869,7 +873,7 @@ const CSS = `
   backdrop-filter: blur(4px);
 }
 .mc {
-  background: linear-gradient(160deg, rgba(15,15,35,0.98), rgba(20,10,30,0.98));
+  background: linear-gradient(160deg, rgba(30,25,50,0.98), rgba(20,15,35,0.98));
   border-radius: 20px; padding: 24px; max-width: 340px; width: 100%;
   text-align: center; border: 2px solid; animation: ri 0.3s ease-out;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -878,11 +882,11 @@ const CSS = `
 /* Synth */
 .ss { display: flex; gap: 14px; align-items: center; justify-content: center; margin: 16px 0; }
 .sl {
-  width: 72px; height: 72px; border: 2px dashed rgba(139,92,246,0.2); border-radius: 14px;
+  width: 72px; height: 72px; border: 2px dashed rgba(139,92,246,0.25); border-radius: 14px;
   display: flex; align-items: center; justify-content: center; font-size: 32px;
-  cursor: pointer; background: rgba(255,255,255,0.03); transition: all 0.2s;
+  cursor: pointer; background: rgba(50,45,65,0.3); transition: all 0.2s;
 }
-.sl.fl { border-style: solid; background: rgba(139,92,246,0.08); }
+.sl.fl { border-style: solid; background: rgba(80,60,140,0.2); }
 .sgl { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 6px; margin-top: 12px; max-height: 280px; overflow-y: auto; }
 
 /* ===== RESPONSIVE / MOBILE ===== */
@@ -5399,11 +5403,11 @@ function CollectionView({ collection, onSelect }) {
     <div>
       <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/66</span></div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <div style={{ flex: 1, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+        <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(50,40,80,0.5), rgba(35,28,55,0.6))', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#c084fc' }}>{totalPwr.toLocaleString()}</div>
         </div>
-        <div style={{ flex: 1, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+        <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(60,50,30,0.5), rgba(40,35,20,0.6))', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: 9, opacity: 0.4 }}>総保有数</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
@@ -5462,8 +5466,8 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
     <div>
       {/* Header with gradient */}
       <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
-        background: 'linear-gradient(160deg, rgba(167,139,250,0.1) 0%, rgba(236,72,153,0.06) 100%)',
-        borderBottom: '1px solid rgba(139,92,246,0.1)', marginBottom: 16 }}>
+        background: 'linear-gradient(160deg, rgba(60,40,100,0.3) 0%, rgba(40,25,70,0.2) 100%)',
+        borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>⚗️ 合成</div>
         <div style={{ fontSize: 11, opacity: 0.4 }}>
           同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム<br/>※各アイテム1個はコレクション用に保持
