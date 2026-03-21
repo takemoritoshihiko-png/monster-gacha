@@ -1454,8 +1454,44 @@ function MonsterGacha() {
     });
   }, [collection]);
 
+  const playSynthSound = (targetRank) => {
+    if (targetRank >= 11) {
+      // ★MAX: 壮大なファンファーレ
+      playNote(65, 0.5, 'sawtooth', 0.1);
+      playSweep(200, 2000, 0.6, 'sine', 0.1);
+      [440, 554, 659, 831, 1047, 1319, 1568].forEach((f, i) => playNote(f, 0.3, 'sine', 0.1, 0.15 + i * 0.07));
+      playChord([1319, 1568, 2093], 0.8, 'sine', 0.08, 0.7);
+    } else if (targetRank === 10) {
+      // ★10 GOD: 深い衝撃 + 上昇和音
+      playNote(80, 0.4, 'sawtooth', 0.12);
+      playSweep(150, 1200, 0.5, 'sine', 0.1);
+      [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.12, 0.2 + i * 0.08));
+      playChord([1047, 1319, 1568], 0.6, 'sine', 0.07, 0.55);
+    } else if (targetRank === 9) {
+      // ★9 Mythic: 荘厳なスウィープ + 和音
+      playSweep(200, 1000, 0.4, 'sine', 0.09);
+      [554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.1 + i * 0.07));
+      playChord([831, 1047, 1319], 0.5, 'sine', 0.06, 0.4);
+    } else if (targetRank === 8) {
+      // ★8 Legend: 金属的シマー + 上昇音
+      playNote(600, 0.1, 'square', 0.05);
+      [659, 831, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, 0.05 + i * 0.07));
+      playNote(1047, 0.3, 'triangle', 0.06, 0.3);
+    } else if (targetRank === 7) {
+      // ★7 Epic: きらめく3音
+      [523, 659, 784].forEach((f, i) => playNote(f, 0.18, 'sine', 0.1, i * 0.06));
+      playNoise(0.03, 0.04);
+    } else if (targetRank === 6) {
+      // ★6 Ultra: 明るい2音
+      playNote(523, 0.12, 'sine', 0.1);
+      playNote(784, 0.15, 'sine', 0.1, 0.08);
+    } else {
+      sfx('synth');
+    }
+  };
+
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
-    sfx('synth');
+    playSynthSound(targetRank);
     if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(prev => {
@@ -1504,7 +1540,8 @@ function MonsterGacha() {
   const doSynthAll = useCallback(() => {
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
-    sfx('synth');
+    const maxTarget = Math.max(...candidates.map(c => c.targetRank));
+    playSynthSound(maxTarget);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
     setCollection(prev => {
       const n = { ...prev };
