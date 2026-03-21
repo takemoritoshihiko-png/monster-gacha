@@ -2626,7 +2626,7 @@ function TimingGame({ onDone }) {
   const handleTap = () => {
     if (phase !== "playing") return;
     const now = Date.now();
-    if (now - lastTapTime.current < 150) return;
+    if (now - lastTapTime.current < 300) return;
     lastTapTime.current = now;
     const current = tapsRef.current;
     if (current.length >= TOTAL_TAPS) return;
@@ -3098,7 +3098,7 @@ function GemCatchGame({ onDone }) {
           <div style={{ position: 'relative', marginTop: 8, display: 'inline-block' }}>
             <canvas ref={canvasRef} width={300} height={GAME_H}
               style={{ borderRadius: 14, background: 'rgba(6,6,15,0.85)', border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', marginBottom: 20 }}
-              onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(e); }} />
+              onClick={handleTap} onTouchStart={e => { e.preventDefault(); Array.from(e.touches).forEach(touch => handleTap({ clientX: touch.clientX, clientY: touch.clientY, touches: [touch] })); }} />
             {floats.map(f => (
               <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '70%', fontSize: 12, fontWeight: 900 }}>{f.label}</div>
             ))}
