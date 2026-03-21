@@ -456,13 +456,18 @@ function getChestType(rank) {
 function renderStars(rank) {
   if (rank === 11) return <span className="rank-diamond" style={{ letterSpacing: 2 }}>★MAX</span>;
   const rColor = RARITIES[rank - 1]?.color || '#fbbf24';
+  // 6th star onward: use a brighter accent color (no blur/glow)
+  const accentColors = {
+    '#8e9aab': '#b0c0d0', '#a3b18a': '#c5d4a8', '#2ecc71': '#5eff9e',
+    '#3498db': '#6bc5ff', '#9b59b6': '#c084fc', '#e67e22': '#ffaa44',
+    '#ff4757': '#ff8a94', '#c8d6e5': '#ffffff', '#ffd700': '#fff4a3',
+    '#ff6b81': '#ffb3c1',
+  };
+  const accent = accentColors[rColor] || '#ffffff';
   const stars = [];
   for (let i = 0; i < Math.min(rank, 10); i++) {
-    const bright = i >= 5;
     stars.push(<span key={i} style={{
-      color: rColor,
-      filter: bright ? 'brightness(1.5)' : 'none',
-      textShadow: bright ? `0 0 6px ${rColor}` : 'none',
+      color: i >= 5 ? accent : rColor,
     }}>★</span>);
   }
   return <span style={{ letterSpacing: 1 }}>{stars}</span>;
