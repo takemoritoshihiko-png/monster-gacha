@@ -1857,9 +1857,15 @@ function MonsterGacha() {
     return (
       <div className="G">
         <style>{CSS}</style>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: 16 }}>
-          <div style={{ fontSize: 72, animation: 'heroIconFloat 2s ease-in-out infinite', filter: 'drop-shadow(0 0 30px rgba(139,92,246,0.4))' }}>💎</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 700, color: '#a78bfa', letterSpacing: 3 }}>LOADING...</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: 16,
+          background: 'url(bg.jpg) center top / cover no-repeat' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 30%, rgba(0,0,0,0) 20%, rgba(6,6,15,0.7) 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900,
+              background: 'linear-gradient(180deg, #e0d0ff, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              letterSpacing: 4, marginBottom: 8, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}>TREASURE GACHA</div>
+            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, fontWeight: 700, color: 'rgba(167,139,250,0.6)', letterSpacing: 3 }}>LOADING...</div>
+          </div>
         </div>
       </div>
     );
@@ -1870,15 +1876,18 @@ function MonsterGacha() {
     return (
       <div className="G">
         <style>{CSS}</style>
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: 64, marginBottom: 12, animation: 'heroIconFloat 3s ease-in-out infinite', filter: 'drop-shadow(0 0 30px rgba(139,92,246,0.4))' }}>💎</div>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 24, position: 'relative',
+          background: 'url(bg.jpg) center top / cover no-repeat' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 30%, rgba(6,6,15,0.85) 55%, rgba(6,6,15,0.95) 100%)', pointerEvents: 'none' }} />
+          <div style={{ height: 160 }} />
+          <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%' }}>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 24, fontWeight: 900,
-            background: 'linear-gradient(135deg, #c084fc, #f472b6, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            letterSpacing: 3, marginBottom: 4 }}>
+            background: 'linear-gradient(180deg, #e0d0ff, #a78bfa, #e0d0ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            letterSpacing: 4, marginBottom: 4, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}>
             TREASURE GACHA
           </div>
-          <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, color: 'rgba(196,132,252,0.5)', letterSpacing: 5, marginBottom: 32 }}>
-            伝 説 の 宝 探 し
+          <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 12, color: 'rgba(167,139,250,0.5)', letterSpacing: 4, marginBottom: 28 }}>
+            SELECT SAVE SLOT
           </div>
 
           {/* Nickname input */}
@@ -1974,6 +1983,7 @@ function MonsterGacha() {
               🏠 ホームに戻る（スロット{prevSlotId}）
             </button>
           )}
+        </div>
         </div>
 
         {/* Delete confirmation modal */}
