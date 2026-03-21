@@ -2054,11 +2054,11 @@ function MonsterGacha() {
               <div className="gs">
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
                 {allOpened && <p style={{ fontSize: 16, fontWeight: 900 }}>🎉 結果</p>}
-                <div className="cr" style={{ gridTemplateColumns: `repeat(${gachaResults.length <= 10 ? 5 : gachaResults.length <= 20 ? 5 : 6}, 1fr)` }}>
+                <div className="cr" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                   {gachaChests.map((ct, i) => (
-                    <div key={i}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {!opened.has(i) ? (
-                        <div className="chest" style={{ width: 56, height: 56 }}>
+                        <div className="chest" style={{ width: 48, height: 48, margin: '0 auto' }}>
                           <div className={`chest-box ${ct === 'rainbow' ? 'rainbow-box' : ct === 'gold' ? 'gold-box' : ct === 'silver' ? 'silver-box' : 'wood-box'}`}>
                             {ct === 'rainbow' ? '💎' : ct === 'gold' ? '👑' : ct === 'silver' ? '🪙' : '📦'}
                           </div>
