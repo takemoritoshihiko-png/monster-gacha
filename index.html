@@ -1176,7 +1176,7 @@ function MonsterGacha() {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, updated: Date.now() };
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, updated: Date.now() };
         await window.storage.set('tgacha-rank:' + s.nickname, JSON.stringify(rankData));
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
@@ -4347,19 +4347,35 @@ function RankingScreen() {
     })();
   }, []);
 
+  const [gameTab, setGameTab] = useState("tap");
+
   const tabs = [
-    { icon: "💰", label: "総資産", key: "totalAssets" },
-    { icon: "📖", label: "コレクション", key: "colCount" },
-    { icon: "🎮", label: "ミニゲーム", key: "bestMiniGame" },
+    { icon: "💰", label: "総資産" },
+    { icon: "📖", label: "コレクション" },
+    { icon: "🎮", label: "ミニゲーム" },
+  ];
+
+  const GAME_TABS = [
+    { id: "tap", icon: "👊", name: "連打" },
+    { id: "gem", icon: "💎", name: "キャッチ" },
+    { id: "timing", icon: "⏱️", name: "タイマー" },
+    { id: "tower", icon: "🪙", name: "タワー" },
+    { id: "shooting", icon: "🎯", name: "射的" },
+    { id: "mathEasy", icon: "➕", name: "初級+" },
+    { id: "kuku", icon: "🔢", name: "九九" },
+    { id: "mathMid", icon: "📐", name: "中級+" },
   ];
 
   const sorted = useMemo(() => {
     const list = [...rankings];
     if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
-    else list.sort((a, b) => ((b.bestMiniGame?.score) || 0) - ((a.bestMiniGame?.score) || 0));
+    else {
+      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
+      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+    }
     return list;
-  }, [rankings, tab]);
+  }, [rankings, tab, gameTab]);
 
   const medal = (i) => i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
 
@@ -4382,6 +4398,19 @@ function RankingScreen() {
           </button>
         ))}
       </div>
+
+      {/* Game sub-tabs for minigame ranking */}
+      {tab === 2 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+          {GAME_TABS.map(g => (
+            <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
+              style={{ padding: '4px 8px', fontSize: 10 }}
+              onClick={() => setGameTab(g.id)}>
+              {g.icon}{g.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>読み込み中...</div>
@@ -4426,7 +4455,7 @@ function RankingScreen() {
                 )}
                 {tab === 2 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#ec4899' }}>
-                    🪙{r.bestMiniGame?.score || 0}
+                    🪙{r.bestScores?.[gameTab] || 0}
                   </div>
                 )}
               </div>
