@@ -2406,15 +2406,6 @@ function MonsterGacha() {
                 <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900, color: '#fbbf24' }}>
                   🪙 {coins.toLocaleString()}
                 </div>
-                {coins < 200 && (
-                  <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>10連まであと 🪙{(200 - coins).toLocaleString()}</div>
-                )}
-                {coins >= 200 && coins < 400 && (
-                  <div style={{ fontSize: 10, color: '#4ade80', marginTop: 4 }}>✓ 10連ガチャ可能！</div>
-                )}
-                {coins >= 400 && (
-                  <div style={{ fontSize: 10, color: '#fbbf24', marginTop: 4 }}>✓ {Math.floor(coins / 200) * 10}連分のコインあり！</div>
-                )}
               </div>
               {/* Collection progress */}
               <div style={{ display: 'flex', gap: 8 }}>
