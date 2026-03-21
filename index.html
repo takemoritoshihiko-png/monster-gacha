@@ -2083,7 +2083,7 @@ function MonsterGacha() {
               </div>
 
               {/* Input form */}
-              <SpendForm available={available} onSpend={(amount, memo) => {
+              <SpendForm available={available} spending={spending} onSpend={(amount, memo) => {
                 setSpending(prev => [...prev, { amount, memo, date: Date.now() }]);
                 setSaveMsg("🍽️ " + formatYen(amount) + " を使用しました");
                 setTimeout(() => setSaveMsg(""), 2500);
@@ -3961,20 +3961,24 @@ function GemCatchGame({ onDone }) {
 // ============================================================
 // SPEND FORM
 // ============================================================
-function SpendForm({ available, onSpend }) {
+function SpendForm({ available, spending, onSpend }) {
   const [confirm, setConfirm] = useState(null); // null | {amount, label}
 
   const options = [
-    { amount: 10000000000, label: "🎁 Amazonギフトカード 1,000円分", desc: "100億円の資産を使用" },
-    { amount: 50000000000, label: "🍽️ 家族で食事ごちそう 5,000円分", desc: "500億円の資産を使用" },
-    { amount: 200000000000, label: "🏠 家庭用の家具サポート 20,000円分", desc: "2,000億円の資産を使用" },
-    { amount: 500000000000, label: "✈️ 国内旅費サポート 50,000円分", desc: "5,000億円の資産を使用" },
+    { amount: 10000000000, label: "🎁 Amazonギフトカード 1,000円分", desc: "100億円の資産を使用", maxUses: 20 },
+    { amount: 50000000000, label: "🍽️ 家族で食事ごちそう 5,000円分", desc: "500億円の資産を使用", maxUses: 10 },
+    { amount: 200000000000, label: "🏠 家庭用の家具サポート 20,000円分", desc: "2,000億円の資産を使用", maxUses: 10 },
+    { amount: 500000000000, label: "✈️ 国内旅費サポート 50,000円分", desc: "5,000億円の資産を使用", maxUses: 10 },
   ];
+
+  const getUsedCount = (label) => (spending || []).filter(e => e.memo === label).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {options.map((opt, i) => {
-        const canAfford = available >= opt.amount;
+        const usedCount = getUsedCount(opt.label);
+        const atLimit = usedCount >= opt.maxUses;
+        const canAfford = available >= opt.amount && !atLimit;
         return (
           <button key={i} disabled={!canAfford}
             onClick={() => setConfirm(opt)}
@@ -3985,7 +3989,12 @@ function SpendForm({ available, onSpend }) {
               opacity: canAfford ? 1 : 0.4, color: '#fff', transition: 'all 0.2s',
             }}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>{opt.label}</div>
-            <div style={{ fontSize: 11, opacity: 0.5 }}>{opt.desc}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 11, opacity: 0.5 }}>{opt.desc}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: atLimit ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>
+                {usedCount}/{opt.maxUses}回
+              </div>
+            </div>
           </button>
         );
       })}
