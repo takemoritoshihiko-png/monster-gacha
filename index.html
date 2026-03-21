@@ -1,0 +1,3467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TREASURE GACHA</title>
+  <style>body { margin: 0; background: #06060f; }</style>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+// localStorage shim for window.storage
+window.storage = {
+  set: async (key, value) => { try { localStorage.setItem(key, value); return true; } catch(e) { return false; } },
+  get: async (key) => { try { const v = localStorage.getItem(key); return v ? { value: v } : null; } catch(e) { return null; } },
+  delete: async (key) => { try { localStorage.removeItem(key); return true; } catch(e) { return false; } },
+};
+
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+
+// ============================================================
+// SOUND ENGINE (Web Audio API) - Rich Gacha Audio
+// ============================================================
+const audioCtx = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
+
+function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0) {
+  if (!audioCtx) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(volume, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + duration + 0.01);
+  } catch(e) {}
+}
+
+function playSweep(startFreq, endFreq, duration = 0.3, type = 'sine', volume = 0.12) {
+  if (!audioCtx) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(startFreq, t);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + duration + 0.01);
+  } catch(e) {}
+}
+
+function playChord(freqs, duration = 0.4, type = 'sine', volume = 0.08, delay = 0) {
+  freqs.forEach(f => playNote(f, duration, type, volume, delay));
+}
+
+function playNoise(duration = 0.05, volume = 0.08) {
+  if (!audioCtx) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    const src = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 3000;
+    src.buffer = buffer;
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start();
+  } catch(e) {}
+}
+
+// ============================================================
+// BGM ENGINE - Looping mini-game music
+// ============================================================
+class BGMPlayer {
+  constructor() { this.timers = []; this.playing = false; this.loopTimer = null; }
+  stop() {
+    this.playing = false;
+    this.timers.forEach(t => clearTimeout(t)); this.timers = [];
+    if (this.loopTimer) clearTimeout(this.loopTimer); this.loopTimer = null;
+  }
+  playLoop(pattern, bpm = 140) {
+    this.stop(); this.playing = true;
+    const ms = 60000 / bpm;
+    const once = () => {
+      if (!this.playing) return;
+      pattern.forEach(({ n, b, d, t, v }) => {
+        if (!this.playing) return;
+        this.timers.push(setTimeout(() => { if (this.playing) playNote(n, d || ms/1000*0.8, t||'sine', v||0.04); }, b * ms));
+      });
+      this.loopTimer = setTimeout(() => once(), (Math.max(...pattern.map(p => p.b)) + 1) * ms);
+    };
+    once();
+  }
+}
+const bgm = new BGMPlayer();
+
+// Tap BGM: Energetic driving beat
+const BGM_TAP = [
+  {n:130,b:0,d:0.12,t:'square',v:0.06},{n:330,b:0,d:0.08,t:'sine',v:0.03},
+  {n:165,b:0.5,d:0.08,t:'square',v:0.04},{n:130,b:1,d:0.12,t:'square',v:0.06},
+  {n:392,b:1,d:0.08,t:'sine',v:0.03},{n:165,b:1.5,d:0.08,t:'square',v:0.04},
+  {n:147,b:2,d:0.12,t:'square',v:0.06},{n:440,b:2,d:0.08,t:'sine',v:0.03},
+  {n:185,b:2.5,d:0.08,t:'square',v:0.04},{n:147,b:3,d:0.12,t:'square',v:0.06},
+  {n:392,b:3,d:0.1,t:'sine',v:0.03},{n:185,b:3.5,d:0.08,t:'square',v:0.04},
+  {n:174,b:4,d:0.12,t:'square',v:0.06},{n:523,b:4,d:0.1,t:'sine',v:0.035},
+  {n:220,b:4.5,d:0.08,t:'square',v:0.04},{n:174,b:5,d:0.12,t:'square',v:0.06},
+  {n:494,b:5,d:0.08,t:'sine',v:0.03},{n:220,b:5.5,d:0.08,t:'square',v:0.04},
+  {n:147,b:6,d:0.12,t:'square',v:0.06},{n:440,b:6,d:0.1,t:'sine',v:0.035},
+  {n:185,b:6.5,d:0.08,t:'square',v:0.04},{n:130,b:7,d:0.15,t:'square',v:0.06},
+  {n:392,b:7,d:0.12,t:'sine',v:0.035},{n:330,b:7.5,d:0.1,t:'sine',v:0.03},
+];
+// Calc BGM: Chill thinking arpeggios
+const BGM_CALC = [
+  {n:262,b:0,d:0.3,t:'sine',v:0.03},{n:330,b:0.5,d:0.3,t:'sine',v:0.025},
+  {n:392,b:1,d:0.3,t:'sine',v:0.03},{n:330,b:1.5,d:0.3,t:'sine',v:0.025},
+  {n:294,b:2,d:0.3,t:'sine',v:0.03},{n:370,b:2.5,d:0.3,t:'sine',v:0.025},
+  {n:440,b:3,d:0.3,t:'sine',v:0.03},{n:370,b:3.5,d:0.3,t:'sine',v:0.025},
+  {n:247,b:4,d:0.3,t:'sine',v:0.03},{n:311,b:4.5,d:0.3,t:'sine',v:0.025},
+  {n:370,b:5,d:0.3,t:'sine',v:0.03},{n:311,b:5.5,d:0.3,t:'sine',v:0.025},
+  {n:262,b:6,d:0.3,t:'sine',v:0.03},{n:330,b:6.5,d:0.3,t:'sine',v:0.025},
+  {n:392,b:7,d:0.4,t:'sine',v:0.035},
+  {n:131,b:0,d:0.5,t:'triangle',v:0.025},{n:147,b:2,d:0.5,t:'triangle',v:0.025},
+  {n:123,b:4,d:0.5,t:'triangle',v:0.025},{n:131,b:6,d:0.5,t:'triangle',v:0.025},
+];
+
+function sfx(name) {
+  const sounds = {
+    // === GACHA: Chest Open ===
+    chestWood: () => {
+      // Creaky wood open + small sparkle
+      playNote(130, 0.12, 'sawtooth', 0.08);
+      playNote(180, 0.15, 'square', 0.06, 0.05);
+      playNoise(0.08, 0.06);
+      playNote(440, 0.15, 'sine', 0.08, 0.15);
+      playNote(554, 0.12, 'sine', 0.06, 0.22);
+    },
+    chestSilver: () => {
+      // Metallic clink + ascending shimmer
+      playNote(180, 0.1, 'sawtooth', 0.07);
+      playNoise(0.06, 0.07);
+      playNote(600, 0.12, 'sine', 0.1, 0.08);
+      playNote(750, 0.15, 'sine', 0.09, 0.14);
+      playNote(900, 0.12, 'sine', 0.07, 0.2);
+    },
+    chestGold: () => {
+      // Grand golden chest: dramatic creak → ascending sparkle chord
+      playNote(110, 0.15, 'sawtooth', 0.08);
+      playNoise(0.1, 0.07);
+      playSweep(200, 600, 0.25, 'sine', 0.1);
+      [554, 660, 831].forEach((f, i) => playNote(f, 0.3, 'sine', 0.1, 0.2 + i * 0.07));
+      playNote(1047, 0.4, 'sine', 0.08, 0.42);
+      playNote(1319, 0.35, 'sine', 0.06, 0.5);
+    },
+    chestRainbow: () => {
+      // Epic rainbow: deep impact → shimmering ascending arpeggio → chord bloom
+      playNote(80, 0.3, 'sawtooth', 0.1);
+      playNoise(0.15, 0.1);
+      playSweep(150, 1200, 0.5, 'sine', 0.12);
+      [440, 554, 660, 831, 1047, 1319, 1568].forEach((f, i) =>
+        playNote(f, 0.35, 'sine', 0.1, 0.15 + i * 0.06)
+      );
+      // Final shimmering chord
+      playChord([1047, 1319, 1568, 2093], 0.8, 'sine', 0.07, 0.6);
+      playChord([1047, 1319, 1568, 2093], 0.6, 'triangle', 0.05, 0.7);
+    },
+
+    // === GACHA: Monster Reveal ===
+    reveal1: () => {
+      // ★1-2: Simple pop
+      playNote(600, 0.08, 'square', 0.08);
+      playNote(800, 0.1, 'sine', 0.06, 0.06);
+    },
+    reveal3: () => {
+      // ★3-4: Bright two-note
+      playNote(523, 0.1, 'sine', 0.1);
+      playNote(784, 0.15, 'sine', 0.1, 0.08);
+    },
+    reveal5: () => {
+      // ★5-6: Sparkle triple
+      [659, 831, 1047].forEach((f, i) => playNote(f, 0.18, 'sine', 0.1, i * 0.07));
+      playNoise(0.04, 0.04);
+    },
+    reveal7: () => {
+      // ★7: Epic ascending quad
+      [554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.22, 'sine', 0.12, i * 0.08));
+      playNote(1047, 0.3, 'triangle', 0.06, 0.35);
+    },
+    reveal8: () => {
+      // ★8 Legend: Dramatic sweep + triumphant chord
+      playSweep(300, 1200, 0.4, 'sine', 0.1);
+      [659, 831, 1047, 1319].forEach((f, i) => playNote(f, 0.3, 'sine', 0.12, 0.2 + i * 0.06));
+      playChord([1047, 1319, 1568], 0.5, 'sine', 0.08, 0.5);
+      playNoise(0.06, 0.05);
+    },
+    reveal9: () => {
+      // ★9 Mythical: Deep boom → ethereal ascending → shimmering hold
+      playNote(65, 0.5, 'sawtooth', 0.1);
+      playNoise(0.12, 0.08);
+      playSweep(200, 2000, 0.6, 'sine', 0.1);
+      [440, 554, 659, 831, 1047, 1319, 1568].forEach((f, i) =>
+        playNote(f, 0.3, 'sine', 0.1, 0.15 + i * 0.07)
+      );
+      playChord([1319, 1568, 2093], 0.8, 'sine', 0.08, 0.7);
+      playChord([1319, 1568, 2093], 0.6, 'triangle', 0.05, 0.8);
+    },
+    reveal10: () => {
+      // ★10 GOD: Ground-shaking boom → silence → explosive fanfare
+      playNote(40, 0.6, 'sawtooth', 0.15);
+      playNote(55, 0.5, 'square', 0.08);
+      playNoise(0.2, 0.12);
+      // Silence gap, then fanfare at 0.5s
+      playSweep(100, 3000, 0.8, 'sine', 0.1);
+      [330, 440, 554, 660, 831, 1047, 1319, 1568, 2093].forEach((f, i) =>
+        playNote(f, 0.4, 'sine', 0.12, 0.5 + i * 0.06)
+      );
+      // Majestic final chord
+      playChord([1047, 1319, 1568, 2093], 1.2, 'sine', 0.1, 1.0);
+      playChord([1047, 1319, 1568, 2093], 1.0, 'triangle', 0.06, 1.1);
+      playChord([523, 784, 1047, 1568], 1.0, 'sine', 0.05, 1.2);
+      // Sparkle tail
+      [2093, 2349, 2637, 3136].forEach((f, i) =>
+        playNote(f, 0.2, 'sine', 0.04, 1.5 + i * 0.1)
+      );
+    },
+
+    // === GACHA: Pull button ===
+    gachaPull: () => {
+      // Anticipation whoosh
+      playSweep(200, 800, 0.3, 'sine', 0.08);
+      playNoise(0.1, 0.06);
+      playNote(400, 0.15, 'triangle', 0.06, 0.1);
+    },
+
+    // === MINI GAMES ===
+    tap: () => playNote(440 + Math.random() * 60, 0.04, 'square', 0.07),
+    tapBonus2: () => {
+      playNote(523, 0.1, 'sine', 0.12); playNote(659, 0.12, 'sine', 0.12, 0.05);
+      playNote(523, 0.06, 'triangle', 0.05);
+    },
+    tapBonus4: () => {
+      [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.14, i * 0.04));
+      playNoise(0.03, 0.04);
+    },
+    tapBonus6: () => {
+      [523, 659, 784, 880].forEach((f, i) => playNote(f, 0.12, 'sine', 0.16, i * 0.04));
+      playSweep(400, 900, 0.2, 'sine', 0.06);
+    },
+    tapBonus10: () => {
+      playSweep(300, 1200, 0.3, 'sine', 0.08);
+      [523, 659, 784, 880, 1047].forEach((f, i) => playNote(f, 0.18, 'sine', 0.18, i * 0.05));
+      playChord([784, 1047, 1319], 0.3, 'sine', 0.06, 0.3);
+    },
+    tapBonus100: () => {
+      playNote(80, 0.3, 'sawtooth', 0.08);
+      playSweep(200, 2400, 0.5, 'sine', 0.1);
+      [523, 659, 784, 880, 1047, 1319, 1568, 2093].forEach((f, i) => playNote(f, 0.25, 'sine', 0.2, 0.1 + i * 0.05));
+      playChord([1047, 1319, 1568, 2093], 0.8, 'sine', 0.08, 0.6);
+    },
+    correctStreak: () => {
+      // Ascending sparkle for correct answer streaks
+      playNote(880, 0.08, 'sine', 0.1); playNote(1047, 0.1, 'sine', 0.1, 0.06);
+      playNote(1319, 0.12, 'sine', 0.08, 0.12);
+    },
+    gameFinish: () => {
+      // Victory fanfare
+      [523, 659, 784].forEach((f, i) => playNote(f, 0.2, 'sine', 0.12, i * 0.1));
+      playChord([784, 1047, 1319], 0.6, 'sine', 0.08, 0.35);
+    },
+    correct: () => { playNote(523, 0.08, 'sine', 0.1); playNote(659, 0.12, 'sine', 0.1, 0.06); },
+    wrong: () => playNote(200, 0.2, 'sawtooth', 0.08),
+    hit: () => { playNote(100, 0.25, 'sawtooth', 0.12); playNoise(0.08, 0.06); },
+
+    // === UI ===
+    sell: () => { playNote(800, 0.06, 'sine', 0.08); playNote(1000, 0.1, 'sine', 0.08, 0.05); },
+    synth: () => {
+      playSweep(300, 1500, 0.5, 'sine', 0.1);
+      [440, 554, 660, 880, 1047].forEach((f, i) => playNote(f, 0.35, 'sine', 0.12, 0.1 + i * 0.09));
+      playChord([880, 1047, 1319], 0.5, 'sine', 0.06, 0.55);
+    },
+    click: () => playNote(600, 0.03, 'square', 0.05),
+  };
+  if (sounds[name]) sounds[name]();
+}
+
+// ============================================================
+// DATA: 5 Types × 11 Ranks (★1-10 + ★MAX) = 55 Monsters
+// ============================================================
+const TYPES = [
+  { id: "gem", name: "宝石", emoji: "💎", color: "#3498db" },
+  { id: "gold", name: "黄金遺産", emoji: "👑", color: "#f1c40f" },
+  { id: "relic", name: "古代秘宝", emoji: "🏺", color: "#e67e22" },
+  { id: "art", name: "芸術品", emoji: "🎨", color: "#e74c3c" },
+  { id: "space", name: "宇宙の秘宝", emoji: "🛸", color: "#9b59b6" },
+];
+
+// ★6-10=元の1/2, ★5=3%, ★4=8%, 残り87.12%を★1-3に配分
+const RARITIES = [
+  { rank: 1, label: "コモン", color: "#8e9aab", rate: 37 },
+  { rank: 2, label: "アンコモン", color: "#a3b18a", rate: 29 },
+  { rank: 3, label: "レア", color: "#2ecc71", rate: 21.121 },
+  { rank: 4, label: "Sレア", color: "#3498db", rate: 8 },
+  { rank: 5, label: "SSレア", color: "#9b59b6", rate: 3 },
+  { rank: 6, label: "ウルトラ", color: "#e67e22", rate: 1 },
+  { rank: 7, label: "エピック", color: "#ff4757", rate: 0.5 },
+  { rank: 8, label: "レジェンド", color: "#c8d6e5", rate: 0.33 },
+  { rank: 9, label: "ミシカル", color: "#ffd700", rate: 0.037 },
+  { rank: 10, label: "ゴッド", color: "#ff6b81", rate: 0.012 },
+  { rank: 11, label: "★MAX", color: "#ffffff", rate: 0 },
+];
+
+const MONSTERS = {
+  gem: [
+    { name: "石ころ", icon: "🪨", desc: "道端に落ちてる小石" },
+    { name: "アメジスト", icon: "🟣", desc: "パワーストーン屋の定番" },
+    { name: "翡翠", icon: "🟢", desc: "宝石店の入門ジュエリー" },
+    { name: "サファイア", icon: "🔵", desc: "婚約指輪クラスの青い石" },
+    { name: "ルビー", icon: "🔴", desc: "高級ジュエリーの赤い宝石" },
+    { name: "エメラルド", icon: "💚", desc: "セレブの首飾りに輝く石" },
+    { name: "ブラックオパール", icon: "🖤", desc: "コレクター垂涎の虹色の石" },
+    { name: "ダイヤモンド", icon: "💎", desc: "一生モノの最高の輝き" },
+    { name: "ピンクダイヤ", icon: "✨", desc: "世界に数個の希少石" },
+    { name: "永遠の輝石", icon: "🌟", desc: "伝説の超越宝石" },
+    { name: "神々の宝玉", icon: "💫", desc: "宇宙を創った究極の石" },
+  ],
+  gold: [
+    { name: "銅貨", icon: "🪙", desc: "古い1円玉みたいな銅貨" },
+    { name: "銀のスプーン", icon: "🥄", desc: "アンティーク食器" },
+    { name: "金貨", icon: "💰", desc: "ずっしり重い金貨" },
+    { name: "金塊", icon: "🧱", desc: "銀行の金庫に眠る金塊" },
+    { name: "黄金の聖杯", icon: "🏆", desc: "教会の宝物庫の聖杯" },
+    { name: "プラチナの王冠", icon: "💍", desc: "王族の装飾品" },
+    { name: "王の錫杖", icon: "🔱", desc: "国王の権力の象徴" },
+    { name: "戴冠の大冠", icon: "👑", desc: "戴冠式に使われた至宝" },
+    { name: "黄金の玉座", icon: "🪑", desc: "帝国の玉座そのもの" },
+    { name: "全世界の王笏", icon: "☀️", desc: "全大陸を治めた王の杖" },
+    { name: "天帝の至宝", icon: "🔆", desc: "神が座した黄金の玉座" },
+  ],
+  relic: [
+    { name: "欠けた土器", icon: "🫙", desc: "畑から出てきた破片" },
+    { name: "錆びた古代コイン", icon: "🪙", desc: "フリマで見つけた古銭" },
+    { name: "封印の巻物", icon: "📜", desc: "読めない古代文字の巻物" },
+    { name: "黄金の仮面", icon: "🎭", desc: "博物館の目玉展示品" },
+    { name: "ファラオの指輪", icon: "💍", desc: "エジプト王の遺品" },
+    { name: "不死鳥の羽根", icon: "🪶", desc: "本当に存在した証拠" },
+    { name: "賢者の石", icon: "⚗️", desc: "錬金術の最終到達点" },
+    { name: "時空の砂時計", icon: "⏳", desc: "時間を操る古代装置" },
+    { name: "創世の書", icon: "📖", desc: "世界の始まりが記された書" },
+    { name: "万物の起源石", icon: "🌌", desc: "全ての物質の始まり" },
+    { name: "アトランティスの核", icon: "🕳️", desc: "失われた文明の究極エネルギー" },
+  ],
+  art: [
+    { name: "子供の絵", icon: "🖍️", desc: "冷蔵庫に貼るやつ" },
+    { name: "陶芸の皿", icon: "🍽️", desc: "陶芸教室の作品" },
+    { name: "骨董の花瓶", icon: "🏺", desc: "鑑定団に出せるレベル" },
+    { name: "名匠のバイオリン", icon: "🎻", desc: "コンサート級の名器" },
+    { name: "印象派の油絵", icon: "🖼️", desc: "美術館に展示される一枚" },
+    { name: "大理石の彫刻", icon: "🏛️", desc: "ルーヴル級の彫刻" },
+    { name: "ストラディバリウス", icon: "🎵", desc: "数億円の伝説の名器" },
+    { name: "モナリザ級名画", icon: "🎨", desc: "国宝・門外不出の絵画" },
+    { name: "ミケランジェロの天井画", icon: "🌈", desc: "人類史の頂点の芸術" },
+    { name: "神殿の壁画", icon: "🌠", desc: "神が描いたとされる壁画" },
+    { name: "創造神の傑作", icon: "✴️", desc: "宇宙そのものが作品" },
+  ],
+  space: [
+    { name: "隕石のカケラ", icon: "☄️", desc: "庭に落ちてきた隕石片" },
+    { name: "月の石", icon: "🌑", desc: "アポロが持ち帰った石" },
+    { name: "火星のクリスタル", icon: "🔴", desc: "火星探査で発見された結晶" },
+    { name: "星間コンパス", icon: "🧭", desc: "異星文明の航海道具" },
+    { name: "異星の水晶球", icon: "🔮", desc: "宇宙人の通信装置" },
+    { name: "暗黒物質の結晶", icon: "🟣", desc: "科学を超えた未知の物質" },
+    { name: "ワープコア", icon: "⚛️", desc: "光速を超えるエンジンの核" },
+    { name: "恒星のコア", icon: "🌞", desc: "太陽の心臓部そのもの" },
+    { name: "銀河の心臓", icon: "🌀", desc: "銀河系の中心エネルギー" },
+    { name: "ビッグバンの種", icon: "💥", desc: "宇宙誕生の瞬間そのもの" },
+    { name: "全次元の鍵", icon: "🗝️", desc: "全並行宇宙を開く究極の鍵" },
+  ],
+};
+
+const SELL_VALUES = [1, 2, 4, 8, 15, 30, 60, 150, 400, 1000, 5000];
+// 資産価値（円）: ★1=1,000円～★MAX=400億円
+const POWER_VALUES = [1000, 10000, 100000, 500000, 2500000, 12000000, 60000000, 300000000, 1500000000, 8000000000, 40000000000];
+
+// 円表示フォーマット（カンマ区切り数字）
+function formatYen(n) {
+  return n.toLocaleString() + '円';
+}
+const GACHA_COST_1 = 20;
+const GACHA_COST_10 = 200;
+
+function getChestType(rank) {
+  if (rank >= 8) return "rainbow";
+  if (rank >= 5) return "gold";
+  if (rank >= 3) return "silver";
+  return "wood";
+}
+
+// Star display: rarity color, 6th onwards brighter+glow for counting
+function renderStars(rank) {
+  if (rank === 11) return <span className="rank-diamond" style={{ letterSpacing: 2 }}>★MAX</span>;
+  const rColor = RARITIES[rank - 1]?.color || '#fbbf24';
+  const stars = [];
+  for (let i = 0; i < Math.min(rank, 10); i++) {
+    const bright = i >= 5;
+    stars.push(<span key={i} style={{
+      color: rColor,
+      filter: bright ? 'brightness(1.5)' : 'none',
+      textShadow: bright ? `0 0 6px ${rColor}` : 'none',
+    }}>★</span>);
+  }
+  return <span style={{ letterSpacing: 1 }}>{stars}</span>;
+}
+
+function rollRarity() {
+  const r = Math.random() * 100;
+  let cum = 0;
+  for (const rarity of RARITIES) {
+    cum += rarity.rate;
+    if (r < cum) return rarity.rank;
+  }
+  return 1;
+}
+
+function rollMonster() {
+  const rank = rollRarity();
+  const type = TYPES[Math.floor(Math.random() * TYPES.length)];
+  const m = MONSTERS[type.id][rank - 1];
+  return { ...m, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank, rarity: RARITIES[rank - 1] };
+}
+
+// ============================================================
+// STYLES
+// ============================================================
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.G {
+  font-family: 'Noto Sans JP', sans-serif;
+  width: 100%; min-height: 100vh;
+  background: #06060f; color: #e0e0e0;
+  overflow-x: hidden; position: relative;
+}
+.G::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(139,92,246,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.06) 0%, transparent 70%);
+}
+.G::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.hdr {
+  position: sticky; top: 0; z-index: 100;
+  max-width: 480px; margin: 0 auto;
+  background: linear-gradient(180deg, rgba(6,6,15,0.97), rgba(6,6,15,0.85));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(139,92,246,0.15);
+  padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+}
+.hdr-t {
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
+  background: linear-gradient(135deg, #a78bfa, #ec4899, #f59e0b);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+}
+.coin {
+  display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(236,72,153,0.1));
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 20px; padding: 4px 14px;
+  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; color: #fbbf24;
+}
+.cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }
+.nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 100;
+  background: rgba(6,6,15,0.97); backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(139,92,246,0.15);
+  display: flex; justify-content: space-around; padding: 6px 0 8px;
+  border-radius: 16px 16px 0 0;
+}
+.nb {
+  background: none; border: none; color: rgba(255,255,255,0.3);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10px; font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer; padding: 4px 8px; transition: all 0.3s;
+}
+.nb.act { color: #a78bfa; }
+.nb span:first-child { font-size: 20px; }
+.btn {
+  border: none; border-radius: 14px; padding: 12px 24px;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  position: relative; overflow: hidden;
+}
+.btn:active { transform: scale(0.95); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.bp {
+  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  color: #fff; box-shadow: 0 4px 20px rgba(245,158,11,0.3), 0 0 40px rgba(236,72,153,0.15);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.bp:hover { box-shadow: 0 6px 30px rgba(245,158,11,0.4), 0 0 60px rgba(236,72,153,0.2); }
+.bs {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #ccc;
+  backdrop-filter: blur(4px);
+}
+.bs:hover { background: rgba(255,255,255,0.1); border-color: rgba(139,92,246,0.3); }
+.bd { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; }
+.st { font-size: 18px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+/* Home hero */
+.hero-bg {
+  position: relative; margin: -16px -16px 0; padding: 32px 16px 24px;
+  background: linear-gradient(160deg, rgba(139,92,246,0.12) 0%, rgba(236,72,153,0.08) 40%, rgba(14,165,233,0.06) 100%);
+  border-bottom: 1px solid rgba(139,92,246,0.1);
+  overflow: hidden;
+}
+.hero-bg::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 120%, rgba(245,158,11,0.15) 0%, transparent 60%);
+}
+.hero-orb {
+  position: absolute; border-radius: 50%; filter: blur(40px); pointer-events: none; opacity: 0.4;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+@keyframes orbFloat {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-15px) scale(1.1); }
+}
+.hero-icon {
+  font-size: 72px; position: relative; z-index: 1;
+  animation: heroIconFloat 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 30px rgba(139,92,246,0.4));
+}
+@keyframes heroIconFloat {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.hero-title {
+  font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900;
+  background: linear-gradient(135deg, #c084fc, #f472b6, #fbbf24, #a78bfa);
+  background-size: 300% 300%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: gradShift 4s ease infinite;
+  letter-spacing: 3px; margin-top: 12px; position: relative; z-index: 1;
+}
+@keyframes gradShift {
+  0%,100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.hero-sub {
+  font-family: 'Rajdhani', sans-serif; font-size: 14px; color: rgba(196,132,252,0.6);
+  letter-spacing: 6px; margin-top: 4px; position: relative; z-index: 1;
+}
+
+/* Odometer */
+.odo-wrap {
+  margin: 20px 0 16px; position: relative; z-index: 1;
+}
+.odo-label {
+  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(251,191,36,0.5);
+  letter-spacing: 4px; margin-bottom: 8px;
+}
+.odo-digits { display: flex; justify-content: center; gap: 5px; }
+.odo-d {
+  width: 36px; height: 50px;
+  background: linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(22,22,44,0.95) 49%, rgba(10,10,25,0.95) 50%, rgba(18,18,36,0.95) 100%);
+  border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.odo-d.lit {
+  color: #fbbf24; border-color: rgba(245,158,11,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 15px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+  text-shadow: 0 0 10px rgba(245,158,11,0.5);
+}
+.odo-d.dim { color: rgba(139,92,246,0.15); }
+
+/* Stat cards */
+.stat-cards {
+  display: flex; gap: 10px; justify-content: center; margin: 16px 0;
+  position: relative; z-index: 1;
+}
+.stat-card {
+  flex: 1; max-width: 140px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(139,92,246,0.12);
+  border-radius: 14px; padding: 12px 8px;
+  text-align: center; backdrop-filter: blur(4px);
+}
+.stat-card-val {
+  font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 900;
+  color: #c084fc;
+}
+.stat-card-label {
+  font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px;
+}
+
+/* Menu buttons */
+.menu-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  max-width: 320px; margin: 20px auto 0; position: relative; z-index: 1;
+}
+.menu-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 18px 12px;
+  text-align: center; cursor: pointer; transition: all 0.25s;
+  backdrop-filter: blur(4px);
+}
+.menu-card:hover {
+  background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3);
+  transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139,92,246,0.15);
+}
+.menu-card-icon { font-size: 30px; margin-bottom: 6px; }
+.menu-card-label { font-size: 13px; font-weight: 700; }
+.menu-card.primary {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(236,72,153,0.08));
+  border-color: rgba(245,158,11,0.2);
+}
+.menu-card.primary:hover {
+  background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(236,72,153,0.15));
+  border-color: rgba(245,158,11,0.4);
+  box-shadow: 0 8px 30px rgba(245,158,11,0.15);
+}
+
+/* Gacha */
+.gs { display: flex; flex-direction: column; align-items: center; min-height: 350px; justify-content: center; gap: 16px; }
+.cr { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.chest {
+  width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;
+  font-size: 50px; animation: cb 1.5s ease-in-out infinite; transition: transform 0.2s;
+}
+@keyframes cb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.chest.rbw { animation: cb 1.5s ease-in-out infinite, rbs 2s linear infinite; }
+.chest.silver-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)); }
+.chest.gold-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255,215,0,0.5)); }
+
+/* Chest styled boxes */
+.chest-box {
+  width: 56px; height: 56px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 900; position: relative;
+  font-family: 'Orbitron', sans-serif;
+}
+.chest-box.wood-box {
+  background: linear-gradient(135deg, #8B6914, #A0782C, #6B4F10);
+  border: 2px solid #C4A54D; color: #F5E6C4;
+  box-shadow: 0 4px 12px rgba(139,105,20,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.chest-box.silver-box {
+  background: linear-gradient(135deg, #9EABBE, #D5DDE8, #B8C4D4, #E8EDF3, #A8B6C8);
+  border: 2px solid #E8EDF3; color: #fff;
+  box-shadow: 0 4px 18px rgba(200,214,229,0.5), 0 0 12px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.chest-box.gold-box {
+  background: linear-gradient(135deg, #B8860B, #FFD700, #DAA520);
+  border: 2px solid #FFE44D; color: #fff;
+  box-shadow: 0 4px 18px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.chest-box.rainbow-box {
+  background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff);
+  background-size: 300% 300%;
+  border: 2px solid rgba(255,255,255,0.6); color: #fff;
+  box-shadow: 0 4px 20px rgba(255,107,107,0.3), 0 0 30px rgba(107,197,255,0.2);
+  animation: rainbowBg 3s ease infinite;
+}
+@keyframes rainbowBg { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+@keyframes rbs { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
+.rc {
+  background: rgba(15,15,30,0.95); border-radius: 14px; padding: 14px; text-align: center;
+  border: 2px solid; animation: ri 0.25s ease-out; min-width: 80px;
+}
+@keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }
+.god { animation: gp 1s ease-in-out infinite; }
+@keyframes gp { 0%,100%{box-shadow:0 0 20px rgba(255,255,255,0.3),0 0 60px rgba(139,92,246,0.3)} 50%{box-shadow:0 0 40px rgba(255,255,255,0.6),0 0 100px rgba(245,158,11,0.4)} }
+.ci.god { background: rgba(255,215,0,0.08); border-color: rgba(255,255,255,0.4) !important; }
+
+/* Rank color effects */
+.rank-silver { color: #c8d6e5; text-shadow: 0 0 8px rgba(200,214,229,0.5); }
+.rank-gold { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.6); }
+.rank-rainbow {
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: rainbowText 2s linear infinite;
+}
+@keyframes rainbowText { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+.rank-diamond {
+  background: linear-gradient(135deg, #fff, #e0e7ff, #fff, #c7d2fe, #fff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: diamondShift 3s ease infinite;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+}
+@keyframes diamondShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+
+/* Card glow per rank */
+.rc.rank8-card { box-shadow: 0 0 20px rgba(200,214,229,0.3), 0 0 40px rgba(200,214,229,0.1) !important; }
+.rc.rank9-card { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15) !important; }
+.rc.rank10-card {
+  box-shadow: 0 0 30px rgba(255,107,129,0.3), 0 0 60px rgba(107,197,255,0.2), 0 0 90px rgba(208,107,255,0.15) !important;
+  animation: rainbowGlow 2s ease-in-out infinite;
+}
+@keyframes rainbowGlow {
+  0%,100% { box-shadow: 0 0 25px rgba(255,107,107,0.4), 0 0 50px rgba(255,209,61,0.2); }
+  33% { box-shadow: 0 0 25px rgba(107,255,107,0.4), 0 0 50px rgba(107,197,255,0.2); }
+  66% { box-shadow: 0 0 25px rgba(107,197,255,0.4), 0 0 50px rgba(208,107,255,0.2); }
+}
+.rc.rank11-card {
+  box-shadow: 0 0 35px rgba(255,255,255,0.5), 0 0 70px rgba(255,255,255,0.2), 0 0 100px rgba(199,210,254,0.15) !important;
+  animation: gp 1s ease-in-out infinite;
+}
+
+/* Minigames */
+.mgc {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;
+}
+.mgc:hover { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.2); transform: translateX(4px); }
+.tap {
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, #ec4899, #be185d);
+  display: flex; align-items: center; justify-content: center; font-size: 56px;
+  cursor: pointer; box-shadow: 0 8px 40px rgba(236,72,153,0.4);
+  user-select: none; -webkit-user-select: none; transition: transform 0.05s;
+}
+.tap:active { transform: scale(0.92); }
+.ft {
+  position: absolute; font-weight: 900; font-size: 22px;
+  pointer-events: none; animation: fu 0.8s ease-out forwards;
+}
+@keyframes fu { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-70px) scale(1.4)} }
+.md { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; text-align: center; margin: 16px 0; color: #fbbf24; }
+.mi {
+  background: rgba(255,255,255,0.08); border: 2px solid rgba(139,92,246,0.25);
+  border-radius: 12px; padding: 10px 16px; font-size: 22px; color: #fff;
+  text-align: center; width: 180px; font-family: 'Orbitron', sans-serif; outline: none;
+}
+.mi:focus { border-color: #a78bfa; box-shadow: 0 0 20px rgba(139,92,246,0.2); }
+
+/* Collection & Synth */
+.cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.ci {
+  aspect-ratio: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 26px; cursor: pointer; transition: all 0.2s; position: relative;
+}
+.ci:hover { background: rgba(139,92,246,0.1); transform: scale(1.05); }
+.ci.un { opacity: 0.2; cursor: default; }
+.ci.un:hover { transform: none; background: rgba(255,255,255,0.04); }
+.ic { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.7); border-radius: 6px; padding: 1px 4px; font-size: 9px; font-weight: 700; }
+.cn { font-size: 7px; font-weight: 700; margin-top: 1px; text-align: center; line-height: 1.1; max-width: 100%; padding: 0 2px; }
+.tb { width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.tf { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #ec4899); transition: width 0.1s linear; }
+.sr { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
+.sb { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.tf2 { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+.tfb {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 3px 9px; font-size: 11px; cursor: pointer;
+  color: #aaa; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+}
+.tfb.act { background: rgba(139,92,246,0.2); border-color: #a78bfa; color: #c084fc; }
+
+/* Modal */
+.mo {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  backdrop-filter: blur(4px);
+}
+.mc {
+  background: linear-gradient(160deg, rgba(15,15,35,0.98), rgba(20,10,30,0.98));
+  border-radius: 20px; padding: 24px; max-width: 340px; width: 100%;
+  text-align: center; border: 2px solid; animation: ri 0.3s ease-out;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* Synth */
+.ss { display: flex; gap: 14px; align-items: center; justify-content: center; margin: 16px 0; }
+.sl {
+  width: 72px; height: 72px; border: 2px dashed rgba(139,92,246,0.2); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; font-size: 32px;
+  cursor: pointer; background: rgba(255,255,255,0.03); transition: all 0.2s;
+}
+.sl.fl { border-style: solid; background: rgba(139,92,246,0.08); }
+.sgl { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 6px; margin-top: 12px; max-height: 280px; overflow-y: auto; }
+
+/* ===== RESPONSIVE / MOBILE ===== */
+html { -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior: none; }
+.G { -webkit-tap-highlight-color: transparent; max-width: 480px; margin: 0 auto; }
+
+@media (max-width: 380px) {
+  .hero-title { font-size: 22px !important; letter-spacing: 2px !important; }
+  .hero-icon { font-size: 56px !important; }
+  .hero-sub { font-size: 12px !important; letter-spacing: 4px !important; }
+  .odo-d { width: 30px !important; height: 42px !important; font-size: 20px !important; }
+  .stat-cards { gap: 6px !important; }
+  .stat-card { padding: 10px 4px !important; }
+  .stat-card-val { font-size: 15px !important; }
+  .menu-grid { gap: 8px !important; }
+  .menu-card { padding: 14px 8px !important; }
+  .menu-card-icon { font-size: 24px !important; }
+  .menu-card-label { font-size: 12px !important; }
+  .hdr-t { font-size: 12px !important; }
+  .coin { font-size: 12px !important; padding: 3px 10px !important; }
+  .cg { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; }
+  .sgl { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important; }
+  .cr { gap: 8px !important; }
+  .chest { width: 64px !important; height: 64px !important; font-size: 40px !important; }
+  .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }
+  .md { font-size: 28px !important; }
+  .mi { font-size: 20px !important; width: 160px !important; }
+}
+
+@media (min-width: 381px) and (max-width: 480px) {
+  .hero-title { font-size: 26px !important; }
+}
+
+/* Safe area for notched phones */
+.nav { padding-bottom: max(8px, env(safe-area-inset-bottom)) !important; }
+.hdr { padding-top: max(10px, env(safe-area-inset-top)) !important; }
+
+/* Prevent zoom on input focus (iOS) */
+input[type="number"] { font-size: 16px; }
+
+/* Touch targets */
+.btn { min-height: 44px; }
+.nb { min-height: 44px; min-width: 44px; }
+.mgc { min-height: 44px; }
+.menu-card { min-height: 44px; }
+.tfb { min-height: 32px; display: inline-flex; align-items: center; }
+.ci { min-height: 60px; }
+`;
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function MonsterGacha() {
+  const [slotId, setSlotId] = useState(null); // null = slot select screen
+  const [slotPreviews, setSlotPreviews] = useState([null, null, null]);
+  const [screen, setScreen] = useState("home");
+  const [coins, setCoins] = useState(50);
+  const [collection, setCollection] = useState({});
+  const [totalPulls, setTotalPulls] = useState(0);
+  const [modal, setModal] = useState(null);
+  const [gachaPhase, setGachaPhase] = useState("idle");
+  const [gachaResults, setGachaResults] = useState([]);
+  const [gachaChests, setGachaChests] = useState([]);
+  const [opened, setOpened] = useState(new Set());
+  const [miniGame, setMiniGame] = useState(null);
+  const [synthResult, setSynthResult] = useState(null);
+  const [loginDay, setLoginDay] = useState(1);
+  const [spending, setSpending] = useState([]); // [{amount, memo, date}]
+  const [loaded, setLoaded] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+  const saveTimer = useRef(null);
+
+  const slotKey = (id) => `tgacha-s${id}`;
+
+  // ============ STORAGE with diagnostics ============
+  const [storageLog, setStorageLog] = useState([]);
+  const addLog = (msg) => setStorageLog(prev => [...prev.slice(-10), { t: Date.now(), m: msg }]);
+
+  const stSet = async (key, str) => {
+    if (!window.storage) { addLog("SET失敗: window.storage不在"); return false; }
+    if (!window.storage.set) { addLog("SET失敗: set関数不在"); return false; }
+    try {
+      const r = await window.storage.set(key, str);
+      if (r) { addLog("SET成功: " + key + " (" + str.length + "B)"); return true; }
+      addLog("SET失敗: 応答null " + key);
+      return false;
+    } catch(e) {
+      addLog("SET例外: " + (e.message || String(e)).slice(0, 80));
+      return false;
+    }
+  };
+
+  const stGet = async (key) => {
+    if (!window.storage) return null;
+    try {
+      const r = await window.storage.get(key);
+      if (r && r.value) {
+        const d = JSON.parse(r.value);
+        if (d && typeof d === 'object' && d.lastSave) { addLog("GET成功: " + key); return d; }
+      }
+      return null;
+    } catch(e) {
+      // Key not found is normal, don't log as error
+      return null;
+    }
+  };
+
+  const stDel = async (key) => {
+    try { if (window.storage) await window.storage.delete(key); } catch(e) {}
+  };
+
+  // Compress/decompress collection
+  const compressCol = (col) => {
+    const c = {};
+    for (const k in col) { if (col[k] && col[k].count > 0) c[k] = col[k].count; }
+    return c;
+  };
+  const decompressCol = (c) => {
+    if (!c) return {};
+    const col = {};
+    for (const k in c) {
+      const count = typeof c[k] === 'number' ? c[k] : c[k]?.count;
+      if (!count || count <= 0) continue;
+      const [typeId, rankStr] = k.split('_');
+      const rank = parseInt(rankStr);
+      const type = TYPES.find(t => t.id === typeId);
+      if (!type || !MONSTERS[typeId] || !MONSTERS[typeId][rank-1]) continue;
+      const m = MONSTERS[typeId][rank - 1];
+      const rarity = RARITIES[rank - 1];
+      col[k] = { ...m, typeId, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank, rarity, count };
+    }
+    return col;
+  };
+
+  // ---- Load slot previews on mount (with storage test) ----
+  const [storageOk, setStorageOk] = useState(true);
+  useEffect(() => {
+    (async () => {
+      let canSave = false;
+      try {
+        if (window.storage) {
+          addLog("テスト: storage検出 type=" + typeof window.storage.set);
+          const testVal = "test_" + Date.now();
+          const wr = await window.storage.set('tgacha-test', testVal);
+          addLog("テスト書込: result=" + JSON.stringify(wr).slice(0, 50));
+          const rd = await window.storage.get('tgacha-test');
+          addLog("テスト読込: value=" + (rd?.value || "null"));
+          if (rd && rd.value === testVal) {
+            canSave = true;
+            addLog("テスト: ✅ 書込→読込一致");
+          } else {
+            addLog("テスト: ❌ 不一致 wrote=" + testVal + " read=" + (rd?.value));
+          }
+          await window.storage.delete('tgacha-test');
+        } else {
+          addLog("テスト: window.storage = " + typeof window.storage);
+        }
+      } catch(e) {
+        addLog("テスト例外: " + (e.message || String(e)).slice(0, 60));
+      }
+      setStorageOk(canSave);
+
+      // Load slot previews
+      const previews = [null, null, null];
+      for (let i = 0; i < 3; i++) {
+        try {
+          const d = await stGet(slotKey(i + 1));
+          if (d) { previews[i] = d; addLog("スロット" + (i+1) + "読込OK"); }
+        } catch(e) {}
+      }
+      setSlotPreviews(previews);
+      setLoaded(true);
+    })();
+  }, []);
+
+  // ---- Load selected slot ----
+  const loadSlot = useCallback(async (id) => {
+    setSlotId(id);
+    const d = await stGet(slotKey(id));
+    if (d) {
+      setCoins(d.coins ?? 50);
+      setCollection(decompressCol(d.collection));
+      setTotalPulls(d.totalPulls ?? 0);
+      setLoginDay(d.loginDay ?? 1);
+      setSpending(d.spending || []);
+      if (d.lastSave) {
+        const away = Math.floor((Date.now() - d.lastSave) / 3000);
+        if (away > 0) setCoins(c => c + Math.min(away, 10000));
+      }
+    } else {
+      setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]);
+    }
+    setScreen("home");
+  }, []);
+
+  // ---- Delete slot ----
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const deleteSlot = useCallback(async (id) => {
+    await stDel(slotKey(id));
+    setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
+    setConfirmDeleteId(null);
+    if (id === slotId) {
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setScreen("home");
+    }
+    setSaveMsg("🗑 スロット" + id + "を削除しました");
+    setTimeout(() => setSaveMsg(""), 2000);
+    setShowSaveModal(false);
+  }, [slotId]);
+
+  // ---- SAVE: minimal, no lock, no retry ----
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const saveDataRef = useRef(null);
+  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending };
+
+  const saveToSlot = useCallback(async (targetId, silent) => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    const s = saveDataRef.current;
+    if (!s) return;
+    const compressed = {};
+    const col = s.collection || {};
+    for (const k of Object.keys(col)) {
+      if (col[k] && col[k].count > 0) compressed[k] = col[k].count;
+    }
+    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], lastSave: Date.now() };
+    const key = slotKey(targetId);
+    try {
+      const str = JSON.stringify(data);
+      addLog("SAVE書込: key=" + key + " " + str.length + "B");
+      if (!window.storage) { if (!silent) setSaveMsg("⚠️ storage未接続"); addLog("FAIL: window.storage不在"); return; }
+
+      // Step 1: Write
+      const writeResult = await window.storage.set(key, str);
+      addLog("SAVE応答: " + JSON.stringify(writeResult).slice(0, 80));
+
+      // Step 2: Read back immediately to verify
+      let verified = false;
+      let readErr = "";
+      try {
+        const readBack = await window.storage.get(key);
+        if (readBack && readBack.value) {
+          const parsed = JSON.parse(readBack.value);
+          if (parsed && parsed.lastSave === data.lastSave) {
+            verified = true;
+            addLog("VERIFY成功: lastSave一致");
+          } else {
+            addLog("VERIFY失敗: lastSave不一致 saved=" + data.lastSave + " read=" + (parsed?.lastSave));
+          }
+        } else {
+          addLog("VERIFY失敗: 読み返しvalue空 readBack=" + JSON.stringify(readBack).slice(0, 80));
+        }
+      } catch(e) {
+        readErr = (e.message || String(e)).slice(0, 60);
+        addLog("VERIFY例外: " + readErr);
+      }
+
+      if (verified) {
+        setSlotPreviews(prev => { const n = [...prev]; n[targetId - 1] = data; return n; });
+        if (!silent) { setSaveMsg("✅ セーブ完了＆検証OK！"); setShowSaveModal(false); }
+      } else if (writeResult) {
+        // Write appeared to succeed but verify failed
+        setSlotPreviews(prev => { const n = [...prev]; n[targetId - 1] = data; return n; });
+        if (!silent) setSaveMsg("⚠️ 書込OK但し検証NG: " + readErr);
+      } else {
+        if (!silent) setSaveMsg("⚠️ セーブ失敗");
+        addLog("SAVE失敗: writeResult falsy");
+      }
+    } catch(e) {
+      addLog("SAVE例外: " + (e.message || "").slice(0, 60));
+      if (!silent) setSaveMsg("⚠️ " + (e.message || "エラー"));
+    }
+    if (!silent) setTimeout(() => setSaveMsg(""), 5000);
+  }, []);
+
+  // ---- AUTO-SAVE: 5分に1回 ----
+  const prevSig = useRef("");
+  useEffect(() => {
+    if (!loaded || slotId === null) return;
+    const totalItems = Object.values(collection).reduce((s, m) => s + (m.count || 0), 0);
+    const sig = totalItems + '-' + totalPulls + '-' + spending.length;
+    if (sig === prevSig.current) return;
+    prevSig.current = sig;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { addLog("自動セーブ実行"); saveToSlot(slotId, true); }, 300000);
+    return () => clearTimeout(saveTimer.current);
+  }, [collection, totalPulls, spending, loaded, slotId, saveToSlot]);
+
+  // Auto coin recovery: +1 every 3s
+  useEffect(() => {
+    const t = setInterval(() => setCoins(c => c + 1), 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  const addToCollection = useCallback((m) => {
+    const key = `${m.typeId}_${m.rank}`;
+    setCollection(prev => ({
+      ...prev,
+      [key]: { ...m, count: ((prev[key]?.count) || 0) + 1 }
+    }));
+  }, []);
+
+  const colCount = useMemo(() => Object.keys(collection).length, [collection]);
+
+  // ★MAX ownership tracking
+  const maxOwned = useMemo(() => TYPES.map(t => !!collection[`${t.id}_11`]), [collection]);
+  const isComplete = maxOwned.every(Boolean);
+  const COMPLETE_BONUS = 100000000000; // 1,000億円
+
+  const totalSpent = useMemo(() => spending.reduce((s, e) => s + e.amount, 0), [spending]);
+
+  const totalPower = useMemo(() => {
+    const base = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+    return base + (isComplete ? COMPLETE_BONUS : 0);
+  }, [collection, isComplete]);
+
+  // Game clear detection - only when newly completed (not on reload)
+  const [showClear, setShowClear] = useState(false);
+  const prevComplete = useRef(null); // null = not yet initialized
+  useEffect(() => {
+    if (prevComplete.current === null) {
+      // First render after load - just record state, don't trigger
+      prevComplete.current = isComplete;
+      return;
+    }
+    if (isComplete && !prevComplete.current) {
+      setShowClear(true);
+      sfx('reveal10');
+    }
+    prevComplete.current = isComplete;
+  }, [isComplete]);
+
+  // Gacha
+  const autoOpenRef = useRef([]);
+
+  const pull = useCallback((n) => {
+    const cost = n === 1 ? GACHA_COST_1 : GACHA_COST_10;
+    if (coins < cost) return;
+    sfx('gachaPull');
+    setCoins(c => c - cost);
+    setTotalPulls(t => t + n);
+    const res = Array.from({ length: n }, () => rollMonster());
+    setGachaResults(res);
+    setGachaChests(res.map(r => getChestType(r.rank)));
+    setOpened(new Set());
+    setGachaPhase("chests");
+    // Auto open all with fast tempo after brief anticipation
+    autoOpenRef.current.forEach(t => clearTimeout(t));
+    autoOpenRef.current = res.map((_, i) => setTimeout(() => {
+      setOpened(prev => {
+        const next = new Set(prev);
+        next.add(i);
+        return next;
+      });
+      const ct = getChestType(res[i].rank);
+      sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
+      // Reveal sound shortly after
+      const revealDelay = res[i].rank >= 10 ? 400 : res[i].rank >= 8 ? 300 : 250;
+      setTimeout(() => {
+        const r = res[i];
+        const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
+          : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
+        sfx(revealSound);
+        addToCollection(r);
+      }, revealDelay);
+    }, 400 + i * 350)); // 400ms initial, 350ms between each (~3.5s for 10)
+  }, [coins, addToCollection]);
+
+  useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
+
+  // Sell
+  const sell = useCallback((key) => {
+    const item = collection[key];
+    if (!item || item.count <= 0) return;
+    sfx('sell');
+    setCoins(c => c + SELL_VALUES[item.rank - 1]);
+    setCollection(prev => {
+      const n = { ...prev };
+      if (n[key].count <= 1) delete n[key]; else n[key] = { ...n[key], count: n[key].count - 1 };
+      return n;
+    });
+    setModal(null);
+  }, [collection]);
+
+  // Synthesis: same type + same rank × 3 → rank+1. ★10 × 3 → ★MAX
+  // Synthesis: ★1-2=2体, ★3-9=3体(同種同ランク), ★10=異種含む3体→★MAXランダム
+  const getReq = (rank) => rank <= 2 ? 2 : 3;
+
+  const findSynthCandidates = useCallback(() => {
+    const candidates = [];
+    TYPES.forEach(type => {
+      for (let rank = 1; rank <= 9; rank++) {
+        const req = getReq(rank);
+        const key = `${type.id}_${rank}`;
+        const item = collection[key];
+        if (item && item.count >= req) {
+          candidates.push({ key, typeId: type.id, rank, count: item.count, synthCount: Math.floor(item.count / req), targetRank: rank + 1, req });
+        }
+      }
+    });
+    // ★10: total across ALL types
+    let total10 = 0;
+    TYPES.forEach(t => { const it = collection[`${t.id}_10`]; if (it) total10 += it.count; });
+    if (total10 >= 3) {
+      candidates.push({ special: 'star10', rank: 10, total10, synthCount: Math.floor(total10 / 3), targetRank: 11, req: 3 });
+    }
+    return candidates.sort((a, b) => {
+      if (a.rank !== b.rank) return b.rank - a.rank;
+      if (a.special) return -1; if (b.special) return 1;
+      return TYPES.findIndex(t => t.id === a.typeId) - TYPES.findIndex(t => t.id === b.typeId);
+    });
+  }, [collection]);
+
+  const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
+    sfx('synth');
+    if (rank === 10 && targetRank === 11) {
+      // ★10 special: consume 3 from any ★10, produce random ★MAX
+      setCollection(prev => {
+        const n = { ...prev };
+        let rem = 3;
+        for (const tp of TYPES) {
+          if (rem <= 0) break;
+          const k = `${tp.id}_10`;
+          if (n[k] && n[k].count > 0) {
+            const take = Math.min(n[k].count, rem);
+            if (n[k].count <= take) delete n[k]; else n[k] = { ...n[k], count: n[k].count - take };
+            rem -= take;
+          }
+        }
+        const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+        const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
+        const nk = `${rt.id}_11`;
+        if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
+        else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
+        setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
+        return n;
+      });
+    } else {
+      const req = getReq(rank);
+      const item = collection[keyOrSpecial];
+      if (!item || item.count < req) return;
+      setCollection(prev => {
+        const n = { ...prev };
+        if (n[keyOrSpecial].count <= req) delete n[keyOrSpecial]; else n[keyOrSpecial] = { ...n[keyOrSpecial], count: n[keyOrSpecial].count - req };
+        const tp = TYPES.find(t => t.id === typeId);
+        const nm = MONSTERS[typeId][targetRank - 1]; const nr = RARITIES[targetRank - 1];
+        const nk = `${typeId}_${targetRank}`;
+        if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
+        else n[nk] = { ...nm, typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: targetRank, rarity: nr, count: 1 };
+        return n;
+      });
+      setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
+    }
+    setTimeout(() => setSynthResult(null), 2000);
+  }, [collection]);
+
+  const doSynthAll = useCallback(() => {
+    const candidates = findSynthCandidates();
+    if (candidates.length === 0) return;
+    sfx('synth');
+    const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
+    setCollection(prev => {
+      const n = { ...prev };
+      candidates.forEach(c => {
+        if (c.special === 'star10') {
+          let rem = c.synthCount * 3;
+          for (const tp of TYPES) {
+            if (rem <= 0) break;
+            const k = `${tp.id}_10`;
+            if (n[k] && n[k].count > 0) {
+              const take = Math.min(n[k].count, rem);
+              if (n[k].count <= take) delete n[k]; else n[k] = { ...n[k], count: n[k].count - take };
+              rem -= take;
+            }
+          }
+          for (let i = 0; i < c.synthCount; i++) {
+            const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+            const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
+            const nk = `${rt.id}_11`;
+            if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
+            else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
+          }
+        } else {
+          const avail = n[c.key]?.count || 0;
+          const sc = Math.floor(avail / c.req);
+          if (sc <= 0) return;
+          const left = avail - sc * c.req;
+          if (left <= 0) delete n[c.key]; else n[c.key] = { ...n[c.key], count: left };
+          const tp = TYPES.find(t => t.id === c.typeId);
+          const nm = MONSTERS[c.typeId][c.targetRank - 1]; const nr = RARITIES[c.targetRank - 1];
+          const nk = `${c.typeId}_${c.targetRank}`;
+          if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
+          else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
+        }
+      });
+      return n;
+    });
+    setSynthResult({ batch: true, count: totalSynths });
+    setTimeout(() => setSynthResult(null), 2500);
+  }, [findSynthCandidates]);
+
+  const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
+  const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
+
+  // Loading screen
+  // Calculate power from a save data object
+  const calcPower = (col) => {
+    if (!col) return 0;
+    return Object.entries(col).reduce((s, [k, v]) => {
+      const count = typeof v === 'number' ? v : v?.count || 0;
+      const rank = parseInt(k.split('_')[1]) || 0;
+      return s + (POWER_VALUES[rank - 1] || 0) * count;
+    }, 0);
+  };
+
+  // Back to slot select
+  const backToSlots = useCallback(async () => {
+    if (slotId !== null) saveToSlot(slotId, true);
+    setTimeout(() => { setSlotId(null); setScreen("home"); }, 500);
+  }, [slotId, saveToSlot]);
+
+  if (!loaded) {
+    return (
+      <div className="G">
+        <style>{CSS}</style>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: 16 }}>
+          <div style={{ fontSize: 72, animation: 'heroIconFloat 2s ease-in-out infinite', filter: 'drop-shadow(0 0 30px rgba(139,92,246,0.4))' }}>💎</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 700, color: '#a78bfa', letterSpacing: 3 }}>LOADING...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Slot selection screen
+  if (slotId === null) {
+    return (
+      <div className="G">
+        <style>{CSS}</style>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 64, marginBottom: 12, animation: 'heroIconFloat 3s ease-in-out infinite', filter: 'drop-shadow(0 0 30px rgba(139,92,246,0.4))' }}>💎</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 24, fontWeight: 900,
+            background: 'linear-gradient(135deg, #c084fc, #f472b6, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            letterSpacing: 3, marginBottom: 4 }}>
+            TREASURE GACHA
+          </div>
+          <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, color: 'rgba(196,132,252,0.5)', letterSpacing: 5, marginBottom: 32 }}>
+            伝 説 の 宝 探 し
+          </div>
+
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: 'rgba(255,255,255,0.6)' }}>セーブスロットを選択</div>
+          {!storageOk && (
+            <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '8px 12px', marginBottom: 12, fontSize: 11, color: '#f87171', textAlign: 'center' }}>
+              ⚠️ ストレージに接続できません。セーブ機能が制限されています。<br/>Claude.aiにログインした状態でアクセスしてください。
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 340 }}>
+            {[1, 2, 3].map(id => {
+              const data = slotPreviews[id - 1];
+              const pwr = data ? calcPower(data.collection) : 0;
+              const colCnt = data ? Object.keys(data.collection || {}).length : 0;
+              const slotCleared = data ? TYPES.every(t => data.collection[`${t.id}_11`]) : false;
+              return (
+                <div key={id} style={{
+                  background: slotCleared ? 'linear-gradient(135deg, rgba(255,215,0,0.08), rgba(139,92,246,0.08))'
+                    : data ? 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(236,72,153,0.06))' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${slotCleared ? 'rgba(255,215,0,0.3)' : data ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 16, padding: 16,
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }} onClick={() => loadSlot(id)}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = data ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
+                >
+                  {/* Slot number */}
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                    background: data ? 'linear-gradient(135deg, #a78bfa, #ec4899)' : 'rgba(255,255,255,0.06)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900,
+                    color: data ? '#fff' : 'rgba(255,255,255,0.2)',
+                  }}>{id}</div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {data ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>
+                            💰 {formatYen(pwr)}
+                          </span>
+                          {slotCleared && <span className="rank-rainbow" style={{ fontSize: 9, fontWeight: 900, fontFamily: "'Orbitron',sans-serif" }}>🏆CLEAR</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, fontSize: 11, opacity: 0.5 }}>
+                          <span>📖 {colCnt}/55</span>
+                          <span>🎰 {(data.totalPulls || 0).toLocaleString()}回</span>
+                          <span>🪙 {(data.coins || 0).toLocaleString()}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 13, opacity: 0.3 }}>— 空きスロット —</div>
+                    )}
+                  </div>
+
+                  {/* Delete button for slots with data */}
+                  {data && (
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(id); }}
+                      style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 8px',
+                        fontSize: 10, color: '#ef4444', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", fontWeight: 700 }}>
+                      削除
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Delete confirmation modal */}
+        {confirmDeleteId && (
+          <div className="mo" onClick={() => setConfirmDeleteId(null)}>
+            <div className="mc" style={{ borderColor: 'rgba(239,68,68,0.4)' }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>⚠️</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#ef4444', marginBottom: 8 }}>データ削除</div>
+              <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 20 }}>
+                スロット{confirmDeleteId}のデータを<br/>本当に削除しますか？
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button className="btn" onClick={() => deleteSlot(confirmDeleteId)}
+                  style={{ fontSize: 13, padding: '10px 20px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}>
+                  削除する
+                </button>
+                <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
+                  onClick={() => setConfirmDeleteId(null)}>
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="G">
+      <style>{CSS}</style>
+      <div className="hdr">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="hdr-t">TREASURE GACHA</div>
+          <div style={{ fontSize: 9, color: 'rgba(167,139,250,0.6)', fontWeight: 700, background: 'rgba(139,92,246,0.15)', borderRadius: 6, padding: '2px 6px' }}>
+            SLOT {slotId}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
+            title="セーブ">💾</button>
+          <div className="coin">🪙 {coins.toLocaleString()}</div>
+        </div>
+      </div>
+      {saveMsg && (
+        <div style={{ position: 'fixed', top: 54, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
+          background: 'linear-gradient(135deg, rgba(139,92,246,0.95), rgba(167,139,250,0.95))', color: '#fff', padding: '6px 20px', borderRadius: 20,
+          fontSize: 13, fontWeight: 700, animation: 'ri 0.3s ease-out' }}>
+          {saveMsg}
+        </div>
+      )}
+      <div className="cnt">
+        {/* HOME */}
+        {screen === "home" && (
+          <div>
+            {/* Hero section */}
+            <div className="hero-bg">
+              <div className="hero-orb" style={{ width: 120, height: 120, background: 'rgba(139,92,246,0.3)', top: -20, left: -20 }} />
+              <div className="hero-orb" style={{ width: 80, height: 80, background: 'rgba(236,72,153,0.25)', top: 40, right: 10, animationDelay: '2s' }} />
+              <div className="hero-orb" style={{ width: 60, height: 60, background: 'rgba(245,158,11,0.2)', bottom: 10, left: '40%', animationDelay: '4s' }} />
+
+              <div style={{ textAlign: 'center' }}>
+                <div className="hero-icon">💎</div>
+                <div className="hero-title">TREASURE<br/>GACHA</div>
+                <div className="hero-sub">伝 説 の 宝 探 し</div>
+                {isComplete && (
+                  <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
+                    <div style={{
+                      display: 'inline-block', padding: '4px 20px', borderRadius: 20, position: 'relative',
+                      background: 'linear-gradient(135deg, rgba(255,215,0,0.2), rgba(236,72,153,0.15))',
+                      boxShadow: '0 0 20px rgba(255,215,0,0.2)',
+                    }}>
+                      <div style={{ position: 'absolute', inset: -1, borderRadius: 20,
+                        background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+                        backgroundSize: '200% 100%', animation: 'rainbowText 2s linear infinite',
+                        WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                        WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
+                      }} />
+                      <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 11, fontWeight: 900, letterSpacing: 2 }}>
+                        <span className="rank-rainbow">🏆 GAME CLEAR</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Odometer */}
+              <div className="odo-wrap" style={{ textAlign: 'center' }}>
+                <div className="odo-label">TOTAL GACHA</div>
+                <div className="odo-digits">
+                  {String(Math.min(totalPulls, 99999)).padStart(5, '0').split('').map((d, i) => (
+                    <div key={i} className={`odo-d ${totalPulls > 0 && i >= 5 - String(totalPulls).length ? 'lit' : 'dim'}`}>
+                      {d}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Stat cards */}
+            <div style={{ textAlign: 'center', margin: '16px 0 8px', position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: 10, color: 'rgba(167,139,250,0.5)', letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>TOTAL ASSETS</div>
+              <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 18, fontWeight: 900,
+                background: totalPower >= 8000000000 ? 'linear-gradient(135deg,#fbbf24,#f472b6,#c084fc)' :
+                            totalPower >= 300000000 ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' :
+                            totalPower >= 1000000 ? 'linear-gradient(135deg,#a78bfa,#ec4899)' :
+                            'linear-gradient(135deg,#a78bfa,#c084fc)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                textShadow: 'none',
+              }}>
+                {formatYen(totalPower)}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                {totalPower < 30000 ? '🌱 拾い屋見習い' :
+                 totalPower < 100000 ? '🪙 古銭集め' :
+                 totalPower < 500000 ? '💰 骨董好き' :
+                 totalPower < 2000000 ? '🔍 トレジャーハンター' :
+                 totalPower < 5000000 ? '🗝️ 熟練ハンター' :
+                 totalPower < 10000000 ? '🏺 遺跡探検家' :
+                 totalPower < 30000000 ? '💎 宝石鑑定士' :
+                 totalPower < 100000000 ? '🏆 財宝コレクター' :
+                 totalPower < 300000000 ? '🎖️ 大富豪' :
+                 totalPower < 500000000 ? '👑 宝物庫の主' :
+                 totalPower < 1000000000 ? '🌙 伝説の蒐集家' :
+                 totalPower < 3000000000 ? '⭐ 王室鑑定官' :
+                 totalPower < 5000000000 ? '🌟 世界の大富豪' :
+                 totalPower < 10000000000 ? '🔱 財閥の長' :
+                 totalPower < 30000000000 ? '💫 秘宝の守護者' :
+                 totalPower < 50000000000 ? '🔮 古代遺産の主' :
+                 totalPower < 100000000000 ? '🌠 全大陸の富者' :
+                 totalPower < 200000000000 ? '👁️ 超越蒐集家' :
+                 totalPower < 300000000000 ? '🕊️ 万物の所有者' :
+                 '☀️ 伝説のトレジャーマスター'}
+              </div>
+            </div>
+
+            <div className="stat-cards">
+              <div className="stat-card">
+                <div className="stat-card-val">{colCount}<span style={{ fontSize: 11, opacity: 0.5 }}>/55</span></div>
+                <div className="stat-card-label">📖 コレクション</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-card-val" style={{ color: '#fbbf24' }}>{coins.toLocaleString()}</div>
+                <div className="stat-card-label">🪙 コイン</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-card-val">{loginDay}</div>
+                <div className="stat-card-label">📅 日目</div>
+              </div>
+            </div>
+
+            {/* ★MAX Showcase */}
+            <div style={{
+              margin: '16px 0', padding: '12px 14px', borderRadius: 14, position: 'relative', zIndex: 1,
+              background: isComplete
+                ? 'linear-gradient(135deg, rgba(255,107,107,0.1), rgba(255,209,61,0.1), rgba(107,255,107,0.1), rgba(107,197,255,0.1), rgba(208,107,255,0.1))'
+                : 'rgba(255,255,255,0.03)',
+              border: isComplete
+                ? '2px solid transparent'
+                : '1px solid rgba(255,255,255,0.06)',
+              backgroundClip: isComplete ? 'padding-box' : undefined,
+              boxShadow: isComplete ? '0 0 20px rgba(255,215,0,0.15), inset 0 0 0 2px rgba(255,255,255,0.3)' : 'none',
+            }}>
+              {isComplete && (
+                <div style={{ position: 'absolute', inset: -2, borderRadius: 16, border: '2px solid transparent',
+                  background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+                  WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                  WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+                  backgroundSize: '200% 100%', animation: 'rainbowText 3s linear infinite',
+                  pointerEvents: 'none',
+                }} />
+              )}
+              <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.4, marginBottom: 8,
+                fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>
+                ★MAX TREASURE
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+                {TYPES.map((type, i) => {
+                  const owned = maxOwned[i];
+                  const monster = MONSTERS[type.id][10]; // ★MAX data
+                  return (
+                    <div key={type.id} style={{
+                      width: 48, height: 56, borderRadius: 10,
+                      background: owned ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${owned ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.3s',
+                      boxShadow: owned ? `0 0 12px ${type.color}30` : 'none',
+                    }}>
+                      <div style={{ fontSize: owned ? 22 : 16, opacity: owned ? 1 : 0.15,
+                        filter: owned ? `drop-shadow(0 0 4px ${type.color})` : 'none',
+                      }}>
+                        {owned ? monster.icon : '?'}
+                      </div>
+                      <div style={{ fontSize: 7, fontWeight: 700, marginTop: 2,
+                        color: owned ? type.color : 'rgba(255,255,255,0.15)',
+                      }}>
+                        {type.emoji}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, fontWeight: 700 }}>
+                {isComplete ? (
+                  <span className="rank-rainbow" style={{ fontSize: 12 }}>✨ COMPLETE ✨</span>
+                ) : (
+                  <span style={{ opacity: 0.3 }}>{maxOwned.filter(Boolean).length} / 5</span>
+                )}
+              </div>
+            </div>
+
+            {/* Menu grid */}
+            <div className="menu-grid">
+              <div className="menu-card primary" onClick={() => nav("gacha")}>
+                <div className="menu-card-icon">✨</div>
+                <div className="menu-card-label">ガチャを引く</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("minigame")}>
+                <div className="menu-card-icon">🎮</div>
+                <div className="menu-card-label">コイン稼ぎ</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("synth")}>
+                <div className="menu-card-icon">⚗️</div>
+                <div className="menu-card-label">合成</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("collection")}>
+                <div className="menu-card-icon">📖</div>
+                <div className="menu-card-label">コレクション</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("spend")} style={{ background: 'linear-gradient(135deg, rgba(236,72,153,0.12), rgba(245,158,11,0.08))' }}>
+                <div className="menu-card-icon">🍽️</div>
+                <div className="menu-card-label">資産を使う</div>
+              </div>
+              <div className="menu-card" onClick={() => setShowSaveModal(true)}>
+                <div className="menu-card-icon">💾</div>
+                <div className="menu-card-label">セーブ</div>
+              </div>
+              <div className="menu-card" onClick={backToSlots}>
+                <div className="menu-card-icon">🔄</div>
+                <div className="menu-card-label">スロット変更</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.2, marginTop: 20 }}>
+              🪙 3秒ごとに1コイン自動回復 ／ 離脱時最大10,000コイン
+            </div>
+
+            {/* Storage diagnostics */}
+            <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: storageOk ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.08)', border: `1px solid ${storageOk ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.2)'}` }}>
+              <div style={{ fontSize: 10, marginBottom: 4 }}>
+                💾 {storageOk ? '✅ ストレージ接続OK' : '❌ ストレージ未接続'} ／ スロット: {slotId ?? '-'}
+              </div>
+              {!storageOk && (
+                <button onClick={async () => {
+                  addLog("手動テスト...");
+                  try {
+                    if (!window.storage) { addLog("window.storage = " + typeof window.storage); return; }
+                    const tv = "manual_" + Date.now();
+                    const wr = await window.storage.set('tgacha-manual', tv);
+                    addLog("手動SET: " + JSON.stringify(wr).slice(0, 50));
+                    const rd = await window.storage.get('tgacha-manual');
+                    addLog("手動GET: " + (rd?.value || "null") + " expect=" + tv);
+                    addLog(rd?.value === tv ? "手動テスト✅成功" : "手動テスト❌失敗");
+                  } catch(e) { addLog("手動テスト例外: " + e.message); }
+                }} style={{ fontSize: 10, padding: '6px 12px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', marginBottom: 6, display: 'block' }}>
+                  🔧 ストレージテスト実行
+                </button>
+              )}
+              {storageLog.length > 0 && (
+                <div style={{ fontSize: 9, opacity: 0.5, maxHeight: 120, overflowY: 'auto', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: 6, borderRadius: 6, lineHeight: 1.6 }}>
+                  {storageLog.map((l, i) => (
+                    <div key={i}>{new Date(l.t).toLocaleTimeString('ja-JP')} {l.m}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* GACHA */}
+        {screen === "gacha" && (
+          <div>
+            {gachaPhase === "idle" && (
+              <div style={{ textAlign: 'center' }}>
+                {/* Hero chest display */}
+                <div style={{ position: 'relative', margin: '0 -16px', padding: '28px 16px 24px',
+                  background: 'linear-gradient(160deg, rgba(139,92,246,0.12) 0%, rgba(236,72,153,0.08) 50%, rgba(245,158,11,0.06) 100%)',
+                  borderBottom: '1px solid rgba(139,92,246,0.1)', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', width: 100, height: 100, background: 'rgba(255,215,0,0.15)', borderRadius: '50%', filter: 'blur(40px)', top: -20, right: 20 }} />
+                  <div style={{ position: 'absolute', width: 70, height: 70, background: 'rgba(139,92,246,0.2)', borderRadius: '50%', filter: 'blur(30px)', bottom: 0, left: 30 }} />
+
+                  {/* 4 chest showcase */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 16, position: 'relative', zIndex: 1 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box wood-box">📦</div>
+                      <div style={{ fontSize: 8, opacity: 0.4, marginTop: 4 }}>★1-2</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box silver-box">🪙</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#c8d6e5', marginTop: 4 }}>★3-4</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box gold-box">👑</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#ffd700', marginTop: 4 }}>★5-7</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box rainbow-box">💎</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#ff6b81', marginTop: 4 }}>★8+</div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900,
+                    background: 'linear-gradient(135deg, #c084fc, #f472b6, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    position: 'relative', zIndex: 1 }}>
+                    GACHA
+                  </div>
+                  <div style={{ fontSize: 11, opacity: 0.4, marginTop: 4, position: 'relative', zIndex: 1 }}>
+                    宝箱を開けてトレジャーを手に入れよう！
+                  </div>
+                </div>
+
+                {/* Pull buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300, margin: '20px auto', padding: '0 8px' }}>
+                  <button className="btn bp" disabled={coins < GACHA_COST_1} onClick={() => pull(1)}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 24px' }}>
+                    ✨ 1回引く（🪙{GACHA_COST_1}）
+                  </button>
+                  <button className="btn bp" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 24px',
+                      background: 'linear-gradient(135deg, #ec4899, #a78bfa)',
+                      boxShadow: '0 4px 20px rgba(236,72,153,0.3), 0 0 40px rgba(167,139,250,0.15)' }}>
+                    💎 10回引く（🪙{GACHA_COST_10}）
+                  </button>
+                </div>
+
+                {/* Probability table */}
+                <div style={{ maxWidth: 320, margin: '0 auto' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textAlign: 'center', marginBottom: 8, opacity: 0.5 }}>出現確率</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {[
+                      { label: "★10 ゴッド", rate: "1/8192", color: "#ff6b81", bg: "rgba(255,107,129,0.08)", icon: "💎", cls: "rank-rainbow" },
+                      { label: "★9 ミシカル", rate: "≈3/8192", color: "#ffd700", bg: "rgba(255,215,0,0.08)", icon: "💎", cls: "rank-gold" },
+                      { label: "★8 レジェンド", rate: "0.33%", color: "#c8d6e5", bg: "rgba(200,214,229,0.08)", icon: "💎", cls: "rank-silver" },
+                      { label: "★7 エピック", rate: "0.5%", color: "#ff4757", bg: "rgba(255,71,87,0.06)", icon: "👑", cls: "" },
+                      { label: "★6 ウルトラ", rate: "1%", color: "#e67e22", bg: "rgba(230,126,34,0.06)", icon: "👑", cls: "" },
+                      { label: "★5 SSレア", rate: "3%", color: "#9b59b6", bg: "rgba(155,89,182,0.06)", icon: "👑", cls: "" },
+                      { label: "★4 Sレア", rate: "8%", color: "#3498db", bg: "rgba(52,152,219,0.05)", icon: "🪙", cls: "" },
+                      { label: "★3 レア", rate: "21%", color: "#2ecc71", bg: "rgba(46,204,113,0.04)", icon: "🪙", cls: "" },
+                      { label: "★1〜2", rate: "66%", color: "rgba(255,255,255,0.35)", bg: "rgba(255,255,255,0.02)", icon: "📦", cls: "" },
+                    ].map((r, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', padding: '5px 10px',
+                        background: r.bg, borderRadius: 8,
+                        borderLeft: `3px solid ${r.color}`,
+                      }}>
+                        <span style={{ fontSize: 10, marginRight: 6 }}>{r.icon}</span>
+                        <span className={r.cls} style={{ fontSize: 11, fontWeight: 700, color: r.cls ? undefined : r.color, flex: 1 }}>{r.label}</span>
+                        <span className={r.cls} style={{ fontSize: 11, fontFamily: "'Orbitron',sans-serif", fontWeight: 700, color: r.cls ? undefined : r.color }}>{r.rate}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            {gachaPhase === "chests" && (
+              <div className="gs">
+                {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
+                {allOpened && <p style={{ fontSize: 16, fontWeight: 900 }}>🎉 結果</p>}
+                <div className="cr">
+                  {gachaChests.map((ct, i) => (
+                    <div key={i}>
+                      {!opened.has(i) ? (
+                        <div className="chest" style={{ width: 70, height: 70 }}>
+                          <div className={`chest-box ${ct === 'rainbow' ? 'rainbow-box' : ct === 'gold' ? 'gold-box' : ct === 'silver' ? 'silver-box' : 'wood-box'}`}>
+                            {ct === 'rainbow' ? '💎' : ct === 'gold' ? '👑' : ct === 'silver' ? '🪙' : '📦'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : ''}`}
+                          style={{ borderColor: gachaResults[i].rarity.color, cursor: 'pointer' }}
+                          onClick={() => setModal(gachaResults[i])}>
+                          <div style={{ fontSize: 34 }}>{gachaResults[i].icon}</div>
+                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
+                            style={{ fontSize: 9, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 3 }}>{gachaResults[i].name}</div>
+                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
+                            style={{ fontSize: 9, color: gachaResults[i].rarity.color }}>{renderStars(gachaResults[i].rank)}</div>
+                          {allOpened && <div style={{ fontSize: 8, marginTop: 1, color: gachaResults[i].typeColor }}>{gachaResults[i].typeName}</div>}
+                          {allOpened && gachaResults[i].rank >= 6 && (
+                            <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : ''}
+                              style={{ fontSize: 7, marginTop: 2, fontWeight: 700, fontFamily: "'Orbitron',sans-serif",
+                              color: gachaResults[i].rarity.color, opacity: 0.8,
+                            }}>
+                              {gachaResults[i].rank === 10 ? '1/8192' : gachaResults[i].rank === 9 ? '≈3/8192' : gachaResults[i].rank === 8 ? '0.33%' : gachaResults[i].rank === 7 ? '0.5%' : '1%'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Best pull highlight */}
+                {allOpened && (() => {
+                  const best = gachaResults.reduce((a, b) => a.rank > b.rank ? a : b);
+                  if (best.rank >= 6) {
+                    const msgs = {
+                      6: "✨ ウルトラ発見！",
+                      7: "⚡ エピック級の財宝！",
+                      8: "🔥 レジェンド級降臨！！",
+                      9: "💜 ミシカル...!? 奇跡の発掘！！",
+                      10: "👑✨ G O D 級 発 見 ✨👑",
+                    };
+                    return (
+                      <div style={{
+                        marginTop: 8, padding: '6px 16px', borderRadius: 10,
+                        background: `linear-gradient(135deg, ${best.rarity.color}20, ${best.rarity.color}08)`,
+                        border: `1px solid ${best.rarity.color}40`,
+                        fontSize: 13, fontWeight: 900, color: best.rarity.color,
+                        textAlign: 'center',
+                      }}>
+                        {msgs[best.rank] || ""}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                {allOpened && (
+                  <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                    <button className="btn bp" disabled={coins < GACHA_COST_1} onClick={() => pull(1)}>
+                      1回（🪙{GACHA_COST_1}）
+                    </button>
+                    <button className="btn bp" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}>
+                      10回（🪙{GACHA_COST_10}）
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MINIGAME SELECT */}
+        {screen === "minigame" && !miniGame && (
+          <div>
+            <div className="st">🎮 ミニゲーム</div>
+            <p style={{ fontSize: 12, opacity: 0.5, marginBottom: 14 }}>コインを稼いでガチャを回そう！</p>
+            {[
+              { id: "tap", icon: "👊", name: "連打バトル", desc: "10秒間ひたすら連打！たまにボーナスも..." },
+              { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
+              { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
+              { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙20（4連続+10）" },
+              { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙20（4連続+10）" },
+              { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙30（4連続+15）" },
+            ].map(g => (
+              <div key={g.id} className="mgc" onClick={() => { sfx('click'); setMiniGame(g.id); }}>
+                <div style={{ fontSize: 26, marginBottom: 6 }}>{g.icon}</div>
+                <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 3 }}>{g.name}</div>
+                <div style={{ fontSize: 11, opacity: 0.6 }}>{g.desc}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+
+        {/* COLLECTION */}
+        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} />}
+
+        {/* SYNTH */}
+        {screen === "synth" && (
+          <SynthView collection={collection} synthResult={synthResult}
+            onFindCandidates={findSynthCandidates}
+            onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
+        )}
+
+        {/* SPEND */}
+        {screen === "spend" && (() => {
+          const grossAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0) + (isComplete ? COMPLETE_BONUS : 0);
+          const available = grossAssets - totalSpent;
+          return (
+            <div>
+              <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
+                background: 'linear-gradient(160deg, rgba(236,72,153,0.1) 0%, rgba(245,158,11,0.06) 100%)',
+                borderBottom: '1px solid rgba(236,72,153,0.1)', marginBottom: 16 }}>
+                <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🍽️ 資産を使う</div>
+                <div style={{ fontSize: 11, opacity: 0.4 }}>集めた資産で家族へのご褒美に</div>
+              </div>
+
+              {/* Balance summary */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <div style={{ flex: 1, padding: '10px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, opacity: 0.4 }}>総資産額</div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#fbbf24' }}>{formatYen(grossAssets)}</div>
+                </div>
+                <div style={{ flex: 1, padding: '10px 8px', borderRadius: 12, background: 'rgba(236,72,153,0.06)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, opacity: 0.4 }}>使用済み</div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: '#ec4899' }}>{totalSpent > 0 ? '-' + formatYen(totalSpent) : '0円'}</div>
+                </div>
+                <div style={{ flex: 1, padding: '10px 8px', borderRadius: 12, background: 'rgba(74,222,128,0.06)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, opacity: 0.4 }}>残り</div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: available >= 0 ? '#4ade80' : '#ef4444' }}>{formatYen(available)}</div>
+                </div>
+              </div>
+
+              {/* Input form */}
+              <SpendForm available={available} onSpend={(amount, memo) => {
+                setSpending(prev => [...prev, { amount, memo, date: Date.now() }]);
+                setSaveMsg("🍽️ " + formatYen(amount) + " を使用しました");
+                setTimeout(() => setSaveMsg(""), 2500);
+              }} />
+
+              {/* History */}
+              {spending.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>利用履歴（{spending.length}件）</div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {[...spending].reverse().map((e, i) => {
+                      const icon = e.memo?.includes('Amazon') ? '🎁' : e.memo?.includes('食事') ? '🍽️' : e.memo?.includes('家具') ? '🏠' : e.memo?.includes('旅費') ? '✈️' : '💰';
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
+                        }}>
+                          <span style={{ fontSize: 16 }}>{icon}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700 }}>{e.memo}</div>
+                            <div style={{ fontSize: 10, opacity: 0.4 }}>{new Date(e.date).toLocaleDateString('ja-JP')} {new Date(e.date).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})}</div>
+                          </div>
+                          <span style={{ color: '#ec4899', fontWeight: 900, fontFamily: "'Orbitron',sans-serif", fontSize: 11 }}>
+                            -{formatYen(e.amount)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* NAV */}
+      <div className="nav">
+        {[
+          { id: "home", ic: "🏠", lb: "ホーム" },
+          { id: "gacha", ic: "📦", lb: "ガチャ" },
+          { id: "minigame", ic: "🎮", lb: "ゲーム" },
+          { id: "collection", ic: "📖", lb: "図鑑" },
+          { id: "synth", ic: "⚗️", lb: "合成" },
+        ].map(n => (
+          <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}>
+            <span>{n.ic}</span><span>{n.lb}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* MODAL */}
+      {modal && (() => {
+        const rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : '';
+        const cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : '';
+        return (
+        <div className="mo" onClick={() => setModal(null)}>
+          <div className={`mc ${cardCls}`} style={{ borderColor: modal.rarity.color }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 64 }}>{modal.icon}</div>
+            <div className={rkCls} style={{ fontSize: 20, fontWeight: 900, color: rkCls ? undefined : modal.rarity.color, marginTop: 8 }}>{modal.name}</div>
+            <div className={rkCls} style={{ color: rkCls ? undefined : modal.rarity.color, letterSpacing: 2, marginTop: 4, fontSize: 14 }}>
+              {renderStars(modal.rank)}
+            </div>
+            <div className={rkCls} style={{ fontSize: 12, color: rkCls ? undefined : modal.rarity.color, fontWeight: 700 }}>{modal.rarity.label}</div>
+            <div style={{ fontSize: 12, opacity: 0.6, margin: '8px 0' }}>{modal.desc}</div>
+            <div style={{ fontSize: 12 }}>
+              <span style={{ color: modal.typeColor }}>{modal.typeEmoji} {modal.typeName}</span>
+              {modal.count && <span style={{ marginLeft: 10, opacity: 0.5 }}>×{modal.count}</span>}
+            </div>
+            <div style={{ margin: '10px 0', padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 10, opacity: 0.4, marginBottom: 3 }}>資産価値</div>
+              <span style={{ fontFamily: "'Noto Sans JP',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
+                {formatYen(POWER_VALUES[modal.rank - 1])}
+              </span>
+              {modal.count > 1 && (
+                <span style={{ fontSize: 11, opacity: 0.4, marginLeft: 8 }}>
+                  (合計: {formatYen(POWER_VALUES[modal.rank - 1] * modal.count)})
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.4 }}>売却: 🪙{SELL_VALUES[modal.rank - 1]}</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+              {modal.count > 0 && (
+                <button className="btn bd" style={{ fontSize: 12, padding: '8px 14px' }}
+                  onClick={() => sell(`${modal.typeId}_${modal.rank}`)}>売却</button>
+              )}
+              <button className="btn bs" style={{ fontSize: 12, padding: '8px 14px' }} onClick={() => setModal(null)}>閉じる</button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* GAME CLEAR */}
+      {showClear && (
+        <div className="mo" onClick={() => setShowClear(false)}>
+          <div style={{
+            background: 'linear-gradient(160deg, rgba(15,15,35,0.98), rgba(30,15,40,0.98))',
+            borderRadius: 24, padding: '32px 24px', maxWidth: 360, width: '100%',
+            textAlign: 'center', animation: 'ri 0.5s ease-out',
+            border: '2px solid transparent',
+            boxShadow: '0 0 40px rgba(255,215,0,0.3), 0 0 80px rgba(139,92,246,0.2)',
+            position: 'relative', overflow: 'hidden',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ position: 'absolute', inset: -2, borderRadius: 26,
+              background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+              backgroundSize: '200% 100%', animation: 'rainbowText 2s linear infinite',
+              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+              WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
+            }} />
+            <div style={{ fontSize: 56, marginBottom: 8 }}>🏆</div>
+            <div className="rank-rainbow" style={{
+              fontFamily: "'Orbitron',sans-serif", fontSize: 28, fontWeight: 900,
+              letterSpacing: 4, marginBottom: 8,
+            }}>
+              COMPLETE
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 16 }}>
+              ★MAX 全5種コンプリート！
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+              {TYPES.map((type, i) => (
+                <div key={type.id} style={{
+                  fontSize: 32,
+                  filter: `drop-shadow(0 0 8px ${type.color})`,
+                  animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite`,
+                }}>
+                  {MONSTERS[type.id][10].icon}
+                </div>
+              ))}
+            </div>
+            <div style={{
+              background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.25)',
+              borderRadius: 12, padding: '10px 16px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>コンプリートボーナス</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900, color: '#fbbf24' }}>
+                💰 +100,000,000,000円
+              </div>
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
+              おめでとうございます！<br/>全ての伝説のトレジャーを集めました。
+            </div>
+            <button className="btn bp" style={{ fontSize: 14, padding: '12px 32px' }}
+              onClick={() => setShowClear(false)}>
+              ゲームに戻る
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE MODAL */}
+      {showSaveModal && (
+        <div className="mo" onClick={() => setShowSaveModal(false)}>
+          <div className="mc" style={{ borderColor: 'rgba(139,92,246,0.4)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>💾</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#c084fc', marginBottom: 4 }}>セーブ</div>
+            <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 16 }}>保存するスロットを選んでください</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[1, 2, 3].map(id => {
+                const data = slotPreviews[id - 1];
+                const isCurrent = id === slotId;
+                const pwr = data ? calcPower(data.collection) : 0;
+                return (
+                  <div key={id} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12,
+                    background: isCurrent ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(236,72,153,0.1))' : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${isCurrent ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                  }}>
+                    <span style={{ fontFamily: "'Orbitron',sans-serif", fontWeight: 900, fontSize: 16,
+                      color: isCurrent ? '#c084fc' : 'rgba(255,255,255,0.3)' }}>{id}</span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>
+                      {data ? (
+                        <>
+                          <span style={{ color: '#fbbf24', fontWeight: 700 }}>💰{formatYen(pwr)}</span>
+                          <span style={{ opacity: 0.4, marginLeft: 6 }}>📖{Object.keys(data.collection || {}).length}/55</span>
+                        </>
+                      ) : (
+                        <span style={{ opacity: 0.3 }}>空きスロット</span>
+                      )}
+                      {isCurrent && <span style={{ marginLeft: 6, fontSize: 9, color: '#a78bfa', fontWeight: 700 }}>現在</span>}
+                    </span>
+                    <button className="btn bp" style={{ fontSize: 10, padding: '6px 10px' }} onClick={() => saveToSlot(id)}>保存</button>
+                    {data && (
+                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(id); }}
+                        style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '6px 8px',
+                          fontSize: 10, color: '#ef4444', cursor: 'pointer', fontWeight: 700 }}>
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Delete confirmation */}
+            {confirmDeleteId && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 12,
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', textAlign: 'center' }}>
+                <div style={{ fontSize: 12, color: '#ef4444', fontWeight: 700, marginBottom: 8 }}>
+                  スロット{confirmDeleteId}を削除しますか？
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <button onClick={() => deleteSlot(confirmDeleteId)}
+                    style={{ background: 'rgba(239,68,68,0.3)', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 8,
+                      padding: '6px 16px', fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
+                    削除する
+                  </button>
+                  <button onClick={() => setConfirmDeleteId(null)}
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
+                      padding: '6px 16px', fontSize: 12, color: '#fff', cursor: 'pointer' }}>
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button className="btn bs" style={{ marginTop: 14, fontSize: 12, padding: '8px 20px' }}
+              onClick={() => setShowSaveModal(false)}>
+              戻る
+            </button>
+
+            {/* Storage diagnostic */}
+            <div style={{ marginTop: 12, fontSize: 9, opacity: 0.3 }}>
+              storage: {window.storage ? '✅' : '❌'}
+            </div>
+            {storageLog.length > 0 && (
+              <div style={{ marginTop: 6, maxHeight: 80, overflowY: 'auto', fontSize: 8, opacity: 0.3, textAlign: 'left', padding: '4px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 6 }}>
+                {storageLog.slice(-5).map((l, i) => (
+                  <div key={i}>{new Date(l.t).toLocaleTimeString('ja-JP')} {l.m}</div>
+                ))}
+              </div>
+            )}
+
+            {/* Emergency force save */}
+            <button style={{ marginTop: 6, fontSize: 9, opacity: 0.3, background: 'none', border: 'none', color: '#a78bfa', cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => saveToSlot(slotId || 1)}>
+              ⚙️ 強制セーブ（トラブル時用）
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// TAP GAME
+// ============================================================
+function TapGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [earned, setEarned] = useState(0);
+  const [taps, setTaps] = useState(0);
+  const [floats, setFloats] = useState([]);
+  const fid = useRef(0);
+  const timer = useRef(null);
+  const start0 = useRef(null);
+
+  const startGame = () => {
+    setPhase("play"); setTimeLeft(10); setEarned(0); setTaps(0);
+    bgm.playLoop(BGM_TAP, 160);
+    start0.current = Date.now();
+    timer.current = setInterval(() => {
+      const rem = Math.max(0, 10 - (Date.now() - start0.current) / 1000);
+      setTimeLeft(rem);
+      if (rem <= 0) { clearInterval(timer.current); bgm.stop(); sfx('gameFinish'); setPhase("done"); }
+    }, 50);
+  };
+  useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+
+  const handleTap = () => {
+    if (phase !== "play") return;
+    setTaps(t => t + 1);
+    const r = Math.random();
+    let bonus = 1, label = "+1", snd = "tap", color = "#fff";
+    if (r < 0.0005) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; }
+    else if (r < 0.0105) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; }
+    else if (r < 0.0505) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; }
+    else if (r < 0.1305) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; }
+    else if (r < 0.2805) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; }
+    sfx(snd);
+    setEarned(e => e + bonus);
+    const id = ++fid.current;
+    setFloats(p => [...p, { id, label, color, x: 20 + Math.random() * 60 }]);
+    setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 800);
+  };
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>👊 連打バトル</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>10秒間で連打してコインを稼ごう！</p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ position: 'relative' }}>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">🪙 {earned}</div>
+            <div className="sb">👊 {taps}</div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 10) * 100}%` }} /></div>
+          <div style={{ position: 'relative', display: 'inline-block', marginTop: 16 }}>
+            <div className="tap" onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}>👊</div>
+            {floats.map(f => (
+              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '20%' }}>{f.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🎉</div>
+          <p style={{ fontSize: 18, fontWeight: 900, color: '#f1c40f' }}>🪙 {earned} コイン獲得！</p>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>タップ数: {taps}回</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// KUKU GAME (計算ゲーム【初級】九九)
+// ============================================================
+function KukuGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [prob, setProb] = useState(null);
+  const [ans, setAns] = useState("");
+  const [correct, setCorrect] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [earned, setEarned] = useState(0);
+  const [fb, setFb] = useState("");
+  const inp = useRef(null);
+  const timer = useRef(null);
+  const st = useRef(null);
+
+  const gen = () => {
+    const a = 1 + Math.floor(Math.random() * 9); // 1-9
+    const b = 1 + Math.floor(Math.random() * 9); // 1-9
+    return { text: `${a} × ${b}`, answer: a * b };
+  };
+
+  const startGame = () => {
+    setPhase("play"); setTimeLeft(20); setCorrect(0); setStreak(0); setEarned(0); setAns(""); setProb(gen()); setFb("");
+    bgm.playLoop(BGM_CALC, 120);
+    st.current = Date.now();
+    timer.current = setInterval(() => {
+      const rem = Math.max(0, 20 - (Date.now() - st.current) / 1000);
+      setTimeLeft(rem);
+      if (rem <= 0) { clearInterval(timer.current); bgm.stop(); sfx('gameFinish'); setPhase("done"); }
+    }, 50);
+    setTimeout(() => inp.current?.focus(), 100);
+  };
+  useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+
+  const check = (v) => {
+    if (!prob) return;
+    const n = parseInt(v);
+    if (isNaN(n)) return;
+    if (n === prob.answer) {
+      const ns = streak + 1;
+      const bonus = ns >= 4 ? 10 : 0;
+      if (ns >= 4) sfx('correctStreak'); else sfx('correct');
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 20 + bonus); setFb(bonus > 0 ? "⭕+10" : "⭕");
+    } else { sfx('wrong'); setStreak(0); setFb("❌"); }
+    setAns(""); setProb(gen());
+    setTimeout(() => setFb(""), 400);
+    setTimeout(() => inp.current?.focus(), 50);
+  };
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🔢 計算ゲーム【初級】九九</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で九九を解こう！<br/>1問正解 = 🪙20コイン（4連続で+10）</p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">✅ {correct}</div>
+            <div className="sb">🔥 {streak}連続</div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 20) * 100}%` }} /></div>
+          <div style={{ position: 'relative', marginTop: 16 }}>
+            {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
+            {prob && <div className="md">{prob.text} = ?</div>}
+            <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
+              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
+            </div>
+          </div>
+        </>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
+          <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MATH MID GAME (計算ゲーム【中級】足し算引き算)
+// ============================================================
+function MathMidGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [prob, setProb] = useState(null);
+  const [ans, setAns] = useState("");
+  const [correct, setCorrect] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [earned, setEarned] = useState(0);
+  const [fb, setFb] = useState("");
+  const inp = useRef(null);
+  const timer = useRef(null);
+  const st = useRef(null);
+
+  const gen = () => {
+    const a = 10 + Math.floor(Math.random() * 90);
+    const b = 10 + Math.floor(Math.random() * 90);
+    if (Math.random() > 0.5) {
+      return { text: `${a} + ${b}`, answer: a + b };
+    } else {
+      const big = Math.max(a, b);
+      const small = Math.min(a, b);
+      return { text: `${big} − ${small}`, answer: big - small };
+    }
+  };
+
+  const startGame = () => {
+    setPhase("play"); setTimeLeft(20); setCorrect(0); setStreak(0); setEarned(0); setAns(""); setProb(gen()); setFb("");
+    bgm.playLoop(BGM_CALC, 110);
+    st.current = Date.now();
+    timer.current = setInterval(() => {
+      const rem = Math.max(0, 20 - (Date.now() - st.current) / 1000);
+      setTimeLeft(rem);
+      if (rem <= 0) { clearInterval(timer.current); bgm.stop(); sfx('gameFinish'); setPhase("done"); }
+    }, 50);
+    setTimeout(() => inp.current?.focus(), 100);
+  };
+  useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+
+  const check = (v) => {
+    if (!prob) return;
+    const n = parseInt(v);
+    if (isNaN(n)) return;
+    if (n === prob.answer) {
+      const ns = streak + 1;
+      const bonus = ns >= 4 ? 15 : 0;
+      if (ns >= 4) sfx('correctStreak'); else sfx('correct');
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 30 + bonus); setFb(bonus > 0 ? "⭕+15" : "⭕");
+    } else { sfx('wrong'); setStreak(0); setFb("❌"); }
+    setAns(""); setProb(gen());
+    setTimeout(() => setFb(""), 400);
+    setTimeout(() => inp.current?.focus(), 50);
+  };
+
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>📐 計算ゲーム【中級】足し算引き算</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁の足し算・引き算を解こう！<br/>1問正解 = 🪙30コイン（4連続で+15）</p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">✅ {correct}</div>
+            <div className="sb">🔥 {streak}連続</div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 20) * 100}%` }} /></div>
+          <div style={{ position: 'relative', marginTop: 16 }}>
+            {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
+            {prob && <div className="md">{prob.text} = ?</div>}
+            <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
+              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
+            </div>
+          </div>
+        </>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
+          <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MATH EASY GAME (計算ゲーム【初級】足し算引き算 2桁±1桁)
+// ============================================================
+function MathEasyGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [prob, setProb] = useState(null);
+  const [ans, setAns] = useState("");
+  const [correct, setCorrect] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [earned, setEarned] = useState(0);
+  const [fb, setFb] = useState("");
+  const inp = useRef(null);
+  const timer = useRef(null);
+  const st = useRef(null);
+
+  const gen = () => {
+    const a = 10 + Math.floor(Math.random() * 90); // 10-99
+    const b = 1 + Math.floor(Math.random() * 9);   // 1-9
+    if (Math.random() > 0.5) {
+      return { text: `${a} + ${b}`, answer: a + b };
+    } else {
+      return { text: `${a} − ${b}`, answer: a - b };
+    }
+  };
+
+  const startGame = () => {
+    setPhase("play"); setTimeLeft(20); setCorrect(0); setStreak(0); setEarned(0); setAns(""); setProb(gen()); setFb("");
+    bgm.playLoop(BGM_CALC, 120);
+    st.current = Date.now();
+    timer.current = setInterval(() => {
+      const rem = Math.max(0, 20 - (Date.now() - st.current) / 1000);
+      setTimeLeft(rem);
+      if (rem <= 0) { clearInterval(timer.current); bgm.stop(); sfx('gameFinish'); setPhase("done"); }
+    }, 50);
+    setTimeout(() => inp.current?.focus(), 100);
+  };
+  useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+
+  const check = (v) => {
+    if (!prob) return;
+    const n = parseInt(v);
+    if (isNaN(n)) return;
+    if (n === prob.answer) {
+      const ns = streak + 1;
+      const bonus = ns >= 4 ? 10 : 0;
+      if (ns >= 4) sfx('correctStreak'); else sfx('correct');
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 20 + bonus); setFb(bonus > 0 ? "⭕+10" : "⭕");
+    } else { sfx('wrong'); setStreak(0); setFb("❌"); }
+    setAns(""); setProb(gen());
+    setTimeout(() => setFb(""), 400);
+    setTimeout(() => inp.current?.focus(), 50);
+  };
+
+  
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>➕ 計算ゲーム【初級】足し算引き算</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±1桁を解こう！<br/>1問正解 = 🪙20コイン（4連続で+10）</p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">✅ {correct}</div>
+            <div className="sb">🔥 {streak}連続</div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 20) * 100}%` }} /></div>
+          <div style={{ position: 'relative', marginTop: 16 }}>
+            {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
+            {prob && <div className="md">{prob.text} = ?</div>}
+            <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
+              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
+            </div>
+          </div>
+        </>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
+          <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// TIMING GAME (ルパンタイマー) - 体内時計チャレンジ
+// ============================================================
+const TIMING_TARGETS = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+const TIMING_BGM = [
+  {n:220,b:0,d:0.2,t:'sine',v:0.03},{n:277,b:1,d:0.2,t:'sine',v:0.03},
+  {n:330,b:2,d:0.2,t:'sine',v:0.03},{n:277,b:3,d:0.2,t:'sine',v:0.03},
+  {n:247,b:4,d:0.2,t:'sine',v:0.03},{n:311,b:5,d:0.2,t:'sine',v:0.03},
+  {n:370,b:6,d:0.3,t:'sine',v:0.035},{n:330,b:7,d:0.2,t:'sine',v:0.03},
+  {n:147,b:0,d:0.6,t:'triangle',v:0.025},{n:165,b:4,d:0.6,t:'triangle',v:0.025},
+];
+const TOTAL_TAPS = 10;
+
+function TimingGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [taps, setTaps] = useState([]);
+  const [tapCount, setTapCount] = useState(0);
+  const startRef = useRef(null);
+  const endTimerRef = useRef(null);
+  const tapsRef = useRef([]);
+  tapsRef.current = taps;
+  const lastTapTime = useRef(0);
+
+  const getScore = (diff) => {
+    if (diff === 0) return { coins: 80, label: "PERFECT!", color: "#fbbf24" };
+    if (diff <= 0.1) return { coins: 40, label: "GREAT!", color: "#4ade80" };
+    if (diff <= 0.2) return { coins: 30, label: "GOOD!", color: "#60a5fa" };
+    if (diff <= 0.4) return { coins: 20, label: "OK", color: "#a78bfa" };
+    if (diff <= 0.5) return { coins: 10, label: "CLOSE", color: "#94a3b8" };
+    return { coins: 0, label: "MISS", color: "#ef4444" };
+  };
+
+  const calcPerfectBonus = (tapList) => {
+    const pc = tapList.filter(t => t.diff === 0).length;
+    if (pc >= 10) return { bonus: 1000, label: "ALL PERFECT!! +1000" };
+    if (pc >= 8) return { bonus: 200, label: "8 PERFECT! +200" };
+    if (pc >= 5) return { bonus: 100, label: "5 PERFECT! +100" };
+    if (pc >= 3) return { bonus: 50, label: "3 PERFECT +50" };
+    return { bonus: 0, label: "" };
+  };
+
+  const finishGame = (tapList) => {
+    clearTimeout(endTimerRef.current);
+    bgm.stop(); sfx('gameFinish');
+    while (tapList.length < TOTAL_TAPS) {
+      const target = TIMING_TARGETS[tapList.length];
+      tapList.push({ time: -1, target, diff: 99, coins: 0, label: "MISS", color: "#ef4444" });
+    }
+    setTaps(tapList);
+    setPhase("done");
+  };
+
+  const startGame = () => {
+    setPhase("playing"); setTaps([]); setTapCount(0);
+    tapsRef.current = []; lastTapTime.current = 0;
+    startRef.current = Date.now();
+    bgm.playLoop(TIMING_BGM, 80);
+    endTimerRef.current = setTimeout(() => finishGame([...tapsRef.current]), 12000);
+  };
+
+  const handleTap = () => {
+    if (phase !== "playing") return;
+    const now = Date.now();
+    if (now - lastTapTime.current < 150) return;
+    lastTapTime.current = now;
+    const current = tapsRef.current;
+    if (current.length >= TOTAL_TAPS) return;
+
+    const elapsed = (now - startRef.current) / 1000;
+    const tapTime = Math.round(elapsed * 10) / 10;
+    const target = TIMING_TARGETS[current.length];
+    const diff = Math.round(Math.abs(tapTime - target) * 10) / 10;
+    const score = getScore(diff);
+
+    if (diff === 0) sfx('reveal10');
+    else if (diff <= 0.1) sfx('correctStreak');
+    else if (diff <= 0.2) sfx('correct');
+    else if (diff <= 0.5) playNote(330, 0.1, 'sine', 0.08);
+    else sfx('wrong');
+
+    const entry = { time: tapTime, target, diff, ...score };
+    const newTaps = [...current, entry];
+    setTaps(newTaps);
+    tapsRef.current = newTaps;
+    setTapCount(newTaps.length);
+
+    if (newTaps.length >= TOTAL_TAPS) {
+      setTimeout(() => finishGame(newTaps), 800);
+    }
+  };
+
+  useEffect(() => () => { clearTimeout(endTimerRef.current); bgm.stop(); }, []);
+
+  const baseCoins = taps.reduce((s, t) => s + t.coins, 0);
+  const { bonus: perfectBonus, label: bonusLabel } = calcPerfectBonus(taps);
+  const totalCoins = baseCoins + (phase === "done" ? perfectBonus : 0);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>⏱️ ルパンタイマー</div>
+
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            スタートから頭の中で秒数を数えて<br/>
+            1秒〜10秒のタイミングで10回タップ！<br/>
+            表示は一切ナシ！体内時計勝負！
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            ぴったり=🪙80 / ±0.1s=🪙40 / ±0.2s=🪙30 / ±0.4s=🪙20 / ±0.5s=🪙10<br/>
+            PERFECT 3個+50 / 5個+100 / 8個+200 / ALL+1000
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+
+      {phase === "playing" && (
+        <div>
+          {/* Target indicators - 2 rows of 5 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 20, maxWidth: 300, margin: '0 auto 20px' }}>
+            {TIMING_TARGETS.map((t, i) => {
+              const result = taps[i];
+              const current = i === tapCount;
+              return (
+                <div key={i} style={{
+                  width: 50, height: 42, borderRadius: 10,
+                  background: result ? `${result.color}20` : current ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `2px solid ${result ? result.color : current ? '#a78bfa' : 'rgba(255,255,255,0.08)'}`,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}>
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900,
+                    color: result ? result.color : current ? '#c084fc' : 'rgba(255,255,255,0.2)' }}>
+                    {t}s
+                  </div>
+                  {result && <div style={{ fontSize: 6, color: result.color, fontWeight: 700 }}>{result.label}</div>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Tap button */}
+          <div style={{
+            width: 180, height: 180, borderRadius: '50%', margin: '0 auto 16px',
+            background: tapCount < TOTAL_TAPS ? 'linear-gradient(135deg, rgba(167,139,250,0.15), rgba(236,72,153,0.1))' : 'rgba(255,255,255,0.05)',
+            border: `3px solid ${tapCount < TOTAL_TAPS ? 'rgba(167,139,250,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            cursor: tapCount < TOTAL_TAPS ? 'pointer' : 'default',
+            userSelect: 'none',
+          }}
+            onClick={handleTap}
+            onTouchStart={e => { e.preventDefault(); handleTap(); }}>
+            <div style={{ fontSize: 36, marginBottom: 4 }}>👆</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#a78bfa' }}>
+              {tapCount < TOTAL_TAPS ? `TAP (${tapCount}/${TOTAL_TAPS})` : '完了！'}
+            </div>
+          </div>
+
+          {/* Last tap result */}
+          {taps.length > 0 && (() => {
+            const last = taps[taps.length - 1];
+            return (
+              <div style={{ fontSize: 15, fontWeight: 900, color: last.color, animation: 'ri 0.3s ease-out' }}>
+                {last.time}秒 → {last.label} +🪙{last.coins}
+              </div>
+            );
+          })()}
+
+          <div style={{ fontSize: 11, opacity: 0.3, marginTop: 12 }}>
+            目を閉じて、心の中で数えよう...
+          </div>
+        </div>
+      )}
+
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>⏱️</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {totalCoins} コイン獲得！</p>
+
+          {/* Perfect bonus */}
+          {perfectBonus > 0 && (
+            <div style={{ margin: '8px auto', padding: '6px 16px', borderRadius: 12, display: 'inline-block',
+              background: perfectBonus >= 1000 ? 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(236,72,153,0.15))' : 'rgba(251,191,36,0.1)',
+              border: `1px solid ${perfectBonus >= 1000 ? '#fbbf24' : 'rgba(251,191,36,0.3)'}`,
+            }}>
+              <span className={perfectBonus >= 1000 ? 'rank-rainbow' : ''} style={{ fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>
+                🏆 {bonusLabel}
+              </span>
+            </div>
+          )}
+
+          <div style={{ maxWidth: 340, margin: '12px auto' }}>
+            {taps.map((r, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
+              }}>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontWeight: 700, width: 32, color: '#a78bfa', fontSize: 11 }}>
+                  {r.target}s
+                </span>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", width: 42, fontSize: 11 }}>
+                  {r.time >= 0 ? r.time + 's' : '-'}
+                </span>
+                <span style={{ width: 44, fontSize: 10, opacity: 0.5 }}>
+                  {r.time >= 0 ? (r.diff === 0 ? '±0.0s' : `±${r.diff}s`) : '-'}
+                </span>
+                <span style={{ color: r.color, fontWeight: 700, flex: 1, textAlign: 'right', fontSize: 11 }}>
+                  {r.label}
+                </span>
+                <span style={{ color: '#fbbf24', fontWeight: 700, width: 32, textAlign: 'right', fontSize: 11 }}>
+                  +{r.coins}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 11, opacity: 0.5, marginTop: 8 }}>
+            PERFECT: {taps.filter(r => r.diff === 0).length} ／
+            GREAT: {taps.filter(r => r.diff > 0 && r.diff <= 0.1).length} ／
+            GOOD: {taps.filter(r => r.diff > 0.1 && r.diff <= 0.2).length}
+          </p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(totalCoins)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// GEM CATCH GAME (ジュエルキャッチ)
+// ============================================================
+const GEM_BGM = [
+  {n:196,b:0,d:0.15,t:'sine',v:0.04},{n:262,b:0.5,d:0.15,t:'sine',v:0.035},
+  {n:330,b:1,d:0.15,t:'sine',v:0.04},{n:262,b:1.5,d:0.15,t:'sine',v:0.035},
+  {n:220,b:2,d:0.15,t:'sine',v:0.04},{n:294,b:2.5,d:0.15,t:'sine',v:0.035},
+  {n:349,b:3,d:0.15,t:'sine',v:0.04},{n:294,b:3.5,d:0.15,t:'sine',v:0.035},
+  {n:247,b:4,d:0.15,t:'sine',v:0.04},{n:330,b:4.5,d:0.15,t:'sine',v:0.035},
+  {n:392,b:5,d:0.2,t:'sine',v:0.045},{n:330,b:5.5,d:0.15,t:'sine',v:0.035},
+  {n:262,b:6,d:0.15,t:'sine',v:0.04},{n:349,b:6.5,d:0.15,t:'sine',v:0.035},
+  {n:392,b:7,d:0.3,t:'sine',v:0.045},
+  {n:131,b:0,d:0.4,t:'triangle',v:0.03},{n:147,b:2,d:0.4,t:'triangle',v:0.03},
+  {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
+];
+
+function GemCatchGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [earned, setEarned] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [stats, setStats] = useState({ perfect: 0, good: 0, miss: 0 });
+  const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  const [floats, setFloats] = useState([]);
+
+  const gemsRef = useRef([]);
+  const earnedRef = useRef(0);
+  const statsRef = useRef({ perfect: 0, good: 0, miss: 0 });
+  const comboRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const rafRef = useRef(null);
+  const startRef = useRef(null);
+  const spawnRef = useRef(null);
+  const fid = useRef(0);
+  const canvasRef = useRef(null);
+  const lastFrameRef = useRef(0);
+
+  const LANES = 3;
+  const GAME_H = 380;
+  const HIT_Y = GAME_H - 100;
+  const PERFECT_RANGE = 20;
+  const GOOD_RANGE = 44;
+  const PERFECT_COIN = 8;
+  const GOOD_COIN = 4;
+  const DURATION = 20;
+
+  // Gem colors for bright glow
+  const GEM_DATA = [
+    { icon: '💎', glow: '#60a5fa' },
+    { icon: '🔴', glow: '#f87171' },
+    { icon: '🔵', glow: '#3b82f6' },
+    { icon: '💚', glow: '#4ade80' },
+    { icon: '🟣', glow: '#c084fc' },
+    { icon: '✨', glow: '#fbbf24' },
+    { icon: '💫', glow: '#f472b6' },
+  ];
+
+  const startGame = () => {
+    setPhase("play"); setEarned(0); setTimeLeft(DURATION); setCombo(0); setMaxCombo(0);
+    setStats({ perfect: 0, good: 0, miss: 0 });
+    earnedRef.current = 0; statsRef.current = { perfect: 0, good: 0, miss: 0 };
+    comboRef.current = 0; maxComboRef.current = 0;
+    gemsRef.current = []; lastFrameRef.current = Date.now();
+    startRef.current = Date.now();
+    bgm.playLoop(GEM_BGM, 130);
+
+    let beatCount = 0;
+    const beatMs = 60000 / 130;
+    const spawn = () => {
+      if (!startRef.current) return;
+      const elapsed = (Date.now() - startRef.current) / 1000;
+      if (elapsed > DURATION - 1.5) return;
+
+      const phase = elapsed / DURATION; // 0→1 progress
+      const difficulty = Math.min(phase * 1.5, 1); // ramp up
+
+      // Speed: huge variation. Slow=80, fast=380. More fast ones later.
+      const baseMin = 80 + difficulty * 60;
+      const baseMax = 200 + difficulty * 180;
+      const speed = baseMin + Math.random() * (baseMax - baseMin);
+
+      // Choose lanes - sometimes spawn 2 or 3 simultaneously
+      const lanes = [Math.floor(Math.random() * LANES)];
+      if (difficulty > 0.3 && Math.random() < 0.25 + difficulty * 0.2) {
+        // Add a second lane (different from first)
+        let l2;
+        do { l2 = Math.floor(Math.random() * LANES); } while (l2 === lanes[0]);
+        lanes.push(l2);
+      }
+      if (difficulty > 0.7 && Math.random() < 0.1) {
+        // Rare triple spawn
+        const missing = [0, 1, 2].filter(l => !lanes.includes(l));
+        if (missing.length > 0) lanes.push(missing[0]);
+      }
+
+      lanes.forEach(lane => {
+        const gd = GEM_DATA[Math.floor(Math.random() * GEM_DATA.length)];
+        // Each gem in a multi-spawn can have different speed
+        const gemSpeed = lanes.length > 1 ? speed * (0.7 + Math.random() * 0.6) : speed;
+        gemsRef.current.push({
+          id: ++fid.current, lane, y: -30, speed: gemSpeed,
+          icon: gd.icon, glow: gd.glow, size: 30 + Math.random() * 6,
+          hit: false, missed: false
+        });
+      });
+
+      beatCount++;
+      // Rhythm variation: skip, double, normal
+      let nextDelay;
+      if (beatCount % 8 === 0) nextDelay = beatMs * 0.35; // double tap
+      else if (beatCount % 5 === 3) nextDelay = beatMs * 1.4; // breath
+      else if (beatCount % 3 === 0 && difficulty > 0.5) nextDelay = beatMs * 0.6; // fast section
+      else nextDelay = beatMs * (0.8 + Math.random() * 0.4);
+      spawnRef.current = setTimeout(spawn, nextDelay);
+    };
+    spawnRef.current = setTimeout(spawn, 400);
+
+    // Game loop
+    const loop = () => {
+      const now = Date.now();
+      const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+      lastFrameRef.current = now;
+      const elapsed = (now - startRef.current) / 1000;
+      const rem = Math.max(0, DURATION - elapsed);
+      setTimeLeft(rem);
+
+      // Update gems
+      gemsRef.current.forEach(g => {
+        if (!g.hit && !g.missed) g.y += g.speed * dt;
+        if (!g.hit && !g.missed && g.y > HIT_Y + GOOD_RANGE + 25) {
+          g.missed = true;
+          statsRef.current.miss++;
+          comboRef.current = 0;
+          setCombo(0);
+          setStats({ ...statsRef.current });
+        }
+      });
+      gemsRef.current = gemsRef.current.filter(g => !(g.missed && g.y > GAME_H + 40) && !(g.hit && g.y < -50));
+
+      // Draw
+      const cvs = canvasRef.current;
+      if (cvs) {
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width, h = cvs.height;
+        ctx.clearRect(0, 0, w, h);
+        const lw = w / LANES;
+
+        // Lane backgrounds (subtle)
+        for (let i = 0; i < LANES; i++) {
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.005)';
+          ctx.fillRect(i * lw, 0, lw, h);
+        }
+
+        // Hit zone glow
+        const grad = ctx.createLinearGradient(0, HIT_Y - 30, 0, HIT_Y + 30);
+        grad.addColorStop(0, 'rgba(167,139,250,0)');
+        grad.addColorStop(0.4, 'rgba(167,139,250,0.12)');
+        grad.addColorStop(0.5, 'rgba(167,139,250,0.18)');
+        grad.addColorStop(0.6, 'rgba(167,139,250,0.12)');
+        grad.addColorStop(1, 'rgba(167,139,250,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, HIT_Y - 30, w, 60);
+
+        // Hit line
+        ctx.strokeStyle = 'rgba(167,139,250,0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, HIT_Y); ctx.lineTo(w, HIT_Y); ctx.stroke();
+
+        // Lane dividers
+        for (let i = 1; i < LANES; i++) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(i * lw, 0); ctx.lineTo(i * lw, h); ctx.stroke();
+        }
+
+        // Gems with glow
+        gemsRef.current.forEach(g => {
+          if (g.hit) return;
+          const x = (g.lane + 0.5) * lw;
+          const alpha = g.missed ? 0.15 : 1;
+
+          // Glow circle
+          if (!g.missed) {
+            ctx.save();
+            ctx.globalAlpha = 0.35;
+            ctx.shadowColor = g.glow;
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(x, g.y, 14, 0, Math.PI * 2);
+            ctx.fillStyle = g.glow;
+            ctx.fill();
+            ctx.restore();
+          }
+
+          // Gem emoji
+          ctx.globalAlpha = alpha;
+          ctx.font = `${g.size}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(g.icon, x, g.y);
+          ctx.globalAlpha = 1;
+        });
+
+        // Lane tap indicators
+        for (let i = 0; i < LANES; i++) {
+          ctx.fillStyle = 'rgba(167,139,250,0.15)';
+          ctx.beginPath();
+          ctx.arc((i + 0.5) * lw, HIT_Y, 18, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(167,139,250,0.3)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      if (rem > 0) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        bgm.stop(); sfx('gameFinish');
+        setPhase("done");
+        setEarned(earnedRef.current);
+        setStats({ ...statsRef.current });
+        setMaxCombo(maxComboRef.current);
+      }
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  // Tap handler
+  const handleTap = (e) => {
+    if (phase !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const rect = cvs.getBoundingClientRect();
+    const tapX = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
+    const scaleX = cvs.width / rect.width;
+    const tapLane = Math.min(Math.floor(tapX * scaleX / (cvs.width / LANES)), LANES - 1);
+
+    let closest = null, closestDist = Infinity;
+    gemsRef.current.forEach(g => {
+      if (g.hit || g.missed || g.lane !== tapLane) return;
+      const dist = Math.abs(g.y - HIT_Y);
+      if (dist < GOOD_RANGE + 10 && dist < closestDist) { closest = g; closestDist = dist; }
+    });
+    if (!closest) return;
+    closest.hit = true;
+
+    let coins = 0, label = '', color = '';
+    if (closestDist <= PERFECT_RANGE) {
+      coins = PERFECT_COIN; label = 'PERFECT'; color = '#fbbf24';
+      statsRef.current.perfect++;
+      playNote(523, 0.08, 'sine', 0.12); playNote(784, 0.12, 'sine', 0.1, 0.04);
+    } else {
+      coins = GOOD_COIN; label = 'GOOD'; color = '#a78bfa';
+      statsRef.current.good++;
+      playNote(440, 0.08, 'sine', 0.08);
+    }
+
+    comboRef.current++;
+    if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
+    if (comboRef.current >= 15) { coins += 4; }
+    else if (comboRef.current >= 10) { coins += 2; }
+    else if (comboRef.current >= 5) { coins += 1; }
+
+    earnedRef.current += coins;
+    setEarned(earnedRef.current);
+    setCombo(comboRef.current);
+    setStats({ ...statsRef.current });
+
+    const id = ++fid.current;
+    const fx = (tapLane + 0.5) * (100 / LANES);
+    label += ' +' + coins;
+    if (comboRef.current >= 10) label += '🔥';
+    setFloats(p => [...p, { id, label, color, x: fx }]);
+    setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 600);
+  };
+
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current);
+    clearTimeout(spawnRef.current);
+    bgm.stop();
+  }, []);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>💎 ジュエルキャッチ</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            落ちてくる宝石をリズムよくキャッチ！20秒<br/>
+            PERFECT = 🪙8 ／ GOOD = 🪙4 ／ コンボで追加ボーナス
+          </p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ position: 'relative' }}>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">🪙 {earned}</div>
+            <div className="sb" style={{ color: combo >= 15 ? '#fbbf24' : combo >= 10 ? '#f472b6' : combo >= 5 ? '#ec4899' : '#a78bfa' }}>
+              {combo > 0 ? `🔥${combo}` : '-'}
+            </div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / DURATION) * 100}%` }} /></div>
+          <div style={{ position: 'relative', marginTop: 8, display: 'inline-block' }}>
+            <canvas ref={canvasRef} width={300} height={GAME_H}
+              style={{ borderRadius: 14, background: 'rgba(6,6,15,0.85)', border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', marginBottom: 20 }}
+              onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(e); }} />
+            {floats.map(f => (
+              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '70%', fontSize: 12, fontWeight: 900 }}>{f.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>💎</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, margin: '12px 0', fontSize: 13 }}>
+            <div><span style={{ color: '#fbbf24', fontWeight: 700 }}>PERFECT</span><br/>{stats.perfect}</div>
+            <div><span style={{ color: '#a78bfa', fontWeight: 700 }}>GOOD</span><br/>{stats.good}</div>
+            <div><span style={{ color: '#ef4444', fontWeight: 700 }}>MISS</span><br/>{stats.miss}</div>
+          </div>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>最大コンボ: 🔥{maxCombo}</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// SPEND FORM
+// ============================================================
+function SpendForm({ available, onSpend }) {
+  const [confirm, setConfirm] = useState(null); // null | {amount, label}
+
+  const options = [
+    { amount: 10000000000, label: "🎁 Amazonギフトカード 1,000円分", desc: "100億円の資産を使用" },
+    { amount: 50000000000, label: "🍽️ 家族で食事ごちそう 5,000円分", desc: "500億円の資産を使用" },
+    { amount: 200000000000, label: "🏠 家庭用の家具サポート 20,000円分", desc: "2,000億円の資産を使用" },
+    { amount: 500000000000, label: "✈️ 国内旅費サポート 50,000円分", desc: "5,000億円の資産を使用" },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {options.map((opt, i) => {
+        const canAfford = available >= opt.amount;
+        return (
+          <button key={i} disabled={!canAfford}
+            onClick={() => setConfirm(opt)}
+            style={{
+              padding: '16px', borderRadius: 14, textAlign: 'left', cursor: canAfford ? 'pointer' : 'default',
+              background: canAfford ? 'linear-gradient(135deg, rgba(236,72,153,0.12), rgba(245,158,11,0.08))' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${canAfford ? 'rgba(236,72,153,0.3)' : 'rgba(255,255,255,0.06)'}`,
+              opacity: canAfford ? 1 : 0.4, color: '#fff', transition: 'all 0.2s',
+            }}>
+            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>{opt.label}</div>
+            <div style={{ fontSize: 11, opacity: 0.5 }}>{opt.desc}</div>
+          </button>
+        );
+      })}
+
+      {confirm && (
+        <div style={{ textAlign: 'center', padding: 16, borderRadius: 14, background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.25)' }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: '#ec4899', marginBottom: 4 }}>
+            {confirm.label}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 12 }}>
+            資産から {formatYen(confirm.amount)} を使用します
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn" onClick={() => { onSpend(confirm.amount, confirm.label); setConfirm(null); }}
+              style={{ fontSize: 13, padding: '10px 24px', background: 'rgba(236,72,153,0.25)', border: '1px solid rgba(236,72,153,0.5)', color: '#ec4899', fontWeight: 700 }}>
+              使用する
+            </button>
+            <button className="btn bs" style={{ fontSize: 13, padding: '10px 24px' }}
+              onClick={() => setConfirm(null)}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// COLLECTION VIEW
+// ============================================================
+function CollectionView({ collection, onSelect }) {
+  const [filter, setFilter] = useState("all");
+  const all = useMemo(() => {
+    const list = [];
+    TYPES.forEach(type => {
+      RARITIES.forEach(r => {
+        const key = `${type.id}_${r.rank}`;
+        const d = MONSTERS[type.id][r.rank - 1];
+        const ow = collection[key];
+        list.push({ key, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, ...d, owned: !!ow, count: ow?.count || 0 });
+      });
+    });
+    return list;
+  }, [collection]);
+  const shown = filter === "all" ? all : all.filter(m => m.typeId === filter);
+  const ownCount = all.filter(m => m.owned).length;
+  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+
+  return (
+    <div>
+      <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/55</span></div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div style={{ flex: 1, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#c084fc' }}>{totalPwr.toLocaleString()}</div>
+        </div>
+        <div style={{ flex: 1, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 9, opacity: 0.4 }}>総保有数</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
+        </div>
+      </div>
+      <div className="tf2">
+        <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
+        {TYPES.map(t => (
+          <button key={t.id} className={`tfb ${filter === t.id ? 'act' : ''}`} onClick={() => setFilter(t.id)}>
+            {t.emoji}{t.name}
+          </button>
+        ))}
+      </div>
+      <div className="cg">
+        {shown.map(m => {
+          const rkCls = m.owned ? (m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : m.rank === 8 ? 'rank-silver' : '') : '';
+          return (
+          <div key={m.key} className={`ci ${!m.owned ? 'un' : ''} ${m.owned && m.rank >= 10 ? 'god' : ''}`}
+            style={{ borderColor: m.owned ? m.rarity.color + '60' : 'transparent' }}
+            onClick={() => m.owned && onSelect(m)}>
+            <div>{m.owned ? m.icon : "❓"}</div>
+            {m.owned && m.count > 1 && <div className="ic">×{m.count}</div>}
+            <div className={`cn ${rkCls}`} style={{ color: rkCls ? undefined : (m.owned ? m.rarity.color : '#444') }}>
+              {m.owned ? m.name : m.rank === 11 ? "★MAX" : `★${m.rank}`}
+            </div>
+            {m.owned && <div style={{ fontSize: 6, color: '#a78bfa', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[m.rank - 1])}</div>}
+          </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SYNTHESIS VIEW
+// ============================================================
+function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, onSynthAll }) {
+  const [filter, setFilter] = useState("all");
+  const [confirmAll, setConfirmAll] = useState(false);
+
+  const candidates = useMemo(() => onFindCandidates(), [collection, onFindCandidates]);
+  const totalSynthable = candidates.reduce((sum, c) => sum + c.synthCount, 0);
+
+  // All owned monsters sorted by type then rank
+  const owned = useMemo(() => {
+    return Object.entries(collection).map(([k, v]) => ({ key: k, ...v }))
+      .sort((a, b) => {
+        if (a.rank !== b.rank) return b.rank - a.rank; // レアリティ高い順
+        return TYPES.findIndex(t => t.id === a.typeId) - TYPES.findIndex(t => t.id === b.typeId); // 同ランク内は獣→竜→精霊→魔族→神獣
+      });
+  }, [collection]);
+
+  const shown = filter === "all" ? owned : owned.filter(m => m.typeId === filter);
+
+  return (
+    <div>
+      {/* Header with gradient */}
+      <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
+        background: 'linear-gradient(160deg, rgba(167,139,250,0.1) 0%, rgba(236,72,153,0.06) 100%)',
+        borderBottom: '1px solid rgba(139,92,246,0.1)', marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>⚗️ 合成</div>
+        <div style={{ fontSize: 11, opacity: 0.4 }}>
+          同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム
+        </div>
+      </div>
+
+      {/* Synth result animation */}
+      {synthResult && (
+        <div style={{ textAlign: 'center', margin: '16px 0', animation: 'ri 0.4s ease-out',
+          background: 'rgba(139,92,246,0.08)', borderRadius: 14, padding: 16 }}>
+          {synthResult.batch ? (
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>
+              ✨ {synthResult.count}件の合成完了！
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 48 }}>{synthResult.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: synthResult.rarity.color }}>
+                {synthResult.name} 獲得！
+              </div>
+              <div style={{ fontSize: 12, color: synthResult.rarity.color }}>
+                {renderStars(synthResult.rank)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Batch synth button */}
+      {totalSynthable > 0 && (
+        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(236,72,153,0.06))',
+          border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24', marginBottom: 10 }}>
+            🔥 合成可能: {totalSynthable}件
+          </div>
+          <button className="btn bp" style={{ fontSize: 14 }} onClick={() => setConfirmAll(true)}>
+            ⚡ 一斉合成（{totalSynthable}件）
+          </button>
+        </div>
+      )}
+
+      {/* Confirmation dialog */}
+      {confirmAll && (
+        <div className="mo" onClick={() => setConfirmAll(false)}>
+          <div className="mc" style={{ borderColor: '#f1c40f' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>⚗️</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#f1c40f', marginBottom: 12 }}>
+              一斉合成の確認
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>以下の該当トレジャーを全て合成します：</div>
+            <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16, textAlign: 'left' }}>
+              {candidates.map((c, ci) => {
+                if (c.special === 'star10') {
+                  return (
+                    <div key="star10" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                      <span>💎</span>
+                      <span style={{ color: '#ff6b81', fontWeight: 700 }}>★10 全種 ×{c.synthCount * 3}</span>
+                      <span style={{ color: '#fbbf24' }}>→</span>
+                      <span>🌟</span>
+                      <span className="rank-diamond" style={{ fontWeight: 700 }}>★MAX ×{c.synthCount}(ランダム)</span>
+                    </div>
+                  );
+                }
+                const item = collection[c.key];
+                if (!item) return null;
+                const target = MONSTERS[c.typeId][c.targetRank - 1];
+                const tRarity = RARITIES[c.targetRank - 1];
+                return (
+                  <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                    <span>{item.icon}</span>
+                    <span style={{ color: item.rarity.color, fontWeight: 700 }}>
+                      {item.name} ×{c.synthCount * c.req}
+                    </span>
+                    <span style={{ color: '#fbbf24' }}>→</span>
+                    <span>{target.icon}</span>
+                    <span style={{ color: tRarity.color, fontWeight: 700 }}>
+                      {target.name} ×{c.synthCount}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px' }}
+                onClick={() => { setConfirmAll(false); onSynthAll(); }}>
+                ⚡ 合成する！
+              </button>
+              <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
+                onClick={() => setConfirmAll(false)}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Individual candidates */}
+      {candidates.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>合成可能なトレジャー</div>
+          {candidates.map((c, ci) => {
+            if (c.special === 'star10') {
+              return (
+                <div key="star10" style={{
+                  background: 'linear-gradient(135deg, rgba(255,107,129,0.1), rgba(255,215,0,0.06))',
+                  border: '1px solid rgba(255,107,129,0.2)',
+                  borderRadius: 12, padding: 12, marginBottom: 8,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{ textAlign: 'center', minWidth: 56 }}>
+                    <div style={{ fontSize: 28 }}>💎</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: '#ff6b81' }}>★10 全種</div>
+                    <div style={{ fontSize: 8, color: '#ff6b81' }}>計{c.total10}体</div>
+                  </div>
+                  <div style={{ fontSize: 18, color: '#fbbf24' }}>→</div>
+                  <div style={{ textAlign: 'center', minWidth: 56 }}>
+                    <div style={{ fontSize: 28 }}>🌟</div>
+                    <div className="rank-diamond" style={{ fontSize: 8, fontWeight: 700 }}>★MAX</div>
+                    <div style={{ fontSize: 8, color: '#fff', opacity: 0.6 }}>ランダム</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    <button className="btn bp" style={{ fontSize: 11, padding: '6px 12px' }}
+                      onClick={() => onSynthSingle('star10', null, 10, 11)}>
+                      合成{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            const item = collection[c.key];
+            if (!item) return null;
+            const targetMonster = MONSTERS[c.typeId][c.targetRank - 1];
+            const targetRarity = RARITIES[c.targetRank - 1];
+            return (
+              <div key={c.key} style={{
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 12, padding: 12, marginBottom: 8,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ textAlign: 'center', minWidth: 56 }}>
+                  <div style={{ fontSize: 28 }}>{item.icon}</div>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: item.rarity.color }}>{item.name}</div>
+                  <div style={{ fontSize: 8, color: item.rarity.color }}>
+                    ★{item.rank} ×{item.count}（{c.req}体で合成）
+                  </div>
+                </div>
+                <div style={{ fontSize: 18, color: '#fbbf24' }}>→</div>
+                <div style={{ textAlign: 'center', minWidth: 56 }}>
+                  <div style={{ fontSize: 28 }}>{targetMonster.icon}</div>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: targetRarity.color }}>{targetMonster.name}</div>
+                  <div style={{ fontSize: 8, color: targetRarity.color }}>★{c.targetRank}</div>
+                </div>
+                <div style={{ marginLeft: 'auto' }}>
+                  <button className="btn bp" style={{ fontSize: 11, padding: '6px 12px' }}
+                    onClick={() => onSynthSingle(c.key, c.typeId, c.rank, c.targetRank)}>
+                    合成{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full inventory */}
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>保有トレジャー一覧</div>
+      <div className="tf2">
+        <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
+        {TYPES.map(t => (
+          <button key={t.id} className={`tfb ${filter === t.id ? 'act' : ''}`} onClick={() => setFilter(t.id)}>
+            {t.emoji}{t.name}
+          </button>
+        ))}
+      </div>
+      <div className="sgl">
+        {shown.map(item => {
+          const synthable = candidates.find(c => c.key === item.key);
+          const rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : '';
+          return (
+            <div key={item.key} className={`ci ${item.rank >= 10 ? 'god' : ''}`}
+              style={{
+                borderColor: item.rarity.color + '60',
+                background: synthable ? 'rgba(241,196,15,0.1)' : 'rgba(255,255,255,0.03)',
+              }}>
+              <div style={{ fontSize: 22 }}>{item.icon}</div>
+              {item.count > 0 && <div className="ic">×{item.count}</div>}
+              <div className={rkCls} style={{ fontSize: 7, fontWeight: 700, color: rkCls ? undefined : item.rarity.color }}>{item.name}</div>
+              <div className={rkCls} style={{ fontSize: 6, color: rkCls ? undefined : item.rarity.color }}>
+                {item.rank === 11 ? "MAX" : "★" + item.rank}
+              </div>
+              {synthable && <div style={{ fontSize: 6, color: '#fbbf24', fontWeight: 700 }}>合成可</div>}
+            </div>
+          );
+        })}
+        {shown.length === 0 && (
+          <div style={{ gridColumn: '1/-1', textAlign: 'center', opacity: 0.4, padding: 30, fontSize: 13 }}>
+            まだトレジャーがありません。ガチャを引こう！
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(MonsterGacha));
+  </script>
+</body>
+</html>
