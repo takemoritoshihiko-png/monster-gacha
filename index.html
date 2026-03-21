@@ -1891,7 +1891,8 @@ function MonsterGacha() {
   const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
-    const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
+    const boosted = nickname === 'ココミ' ? Math.round(earned * 1.2) : earned;
+    const capped = Math.min(boosted, SCORE_CAPS[gameId] || 9999);
     setCoins(p => p + capped);
     setBestScores(prev => {
       const isNewBest = capped > (prev[gameId] || 0);
