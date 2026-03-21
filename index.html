@@ -768,16 +768,45 @@ const CSS = `
 @keyframes gp { 0%,100%{box-shadow:0 0 20px rgba(255,255,255,0.3),0 0 60px rgba(139,92,246,0.3)} 50%{box-shadow:0 0 40px rgba(255,255,255,0.6),0 0 100px rgba(245,158,11,0.4)} }
 .ci.god { background: rgba(255,215,0,0.08); border-color: rgba(255,255,255,0.4) !important; }
 
-/* Rank color effects */
-.rank-silver { color: #c8d6e5; text-shadow: 0 0 8px rgba(200,214,229,0.5); }
-.rank-gold { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.6); }
+/* Rank color effects - ★6 Ultra */
+.rank-ultra {
+  color: #e67e22;
+  text-shadow: 0 0 6px rgba(230,126,34,0.4), 0 0 12px rgba(230,126,34,0.2);
+}
+/* ★7 Epic */
+.rank-epic {
+  background: linear-gradient(90deg, #ff4757, #ff6b81, #ff4757);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: rainbowText 3s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(255,71,87,0.4));
+}
+/* ★8 Legend */
+.rank-silver {
+  background: linear-gradient(90deg, #a8b6c8, #e8edf3, #c8d6e5, #e8edf3, #a8b6c8);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: rainbowText 4s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)) drop-shadow(0 0 12px rgba(200,214,229,0.2));
+}
+/* ★9 Mythic */
+.rank-gold {
+  background: linear-gradient(90deg, #b8860b, #ffd700, #fff8dc, #ffd700, #b8860b);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: rainbowText 3s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)) drop-shadow(0 0 16px rgba(255,215,0,0.2));
+}
+/* ★10 God */
 .rank-rainbow {
   background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b);
   background-size: 200% 100%;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  animation: rainbowText 2s linear infinite;
+  animation: rainbowText 1.5s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(255,215,0,0.5));
 }
 @keyframes rainbowText { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+/* ★MAX */
 .rank-diamond {
   background: linear-gradient(135deg, #fff, #ffd700, #fff, #ff69b4, #fff, #7b68ee, #fff);
   background-size: 400% 400%;
@@ -788,8 +817,37 @@ const CSS = `
 @keyframes diamondShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
 
 /* Card glow per rank */
-.rc.rank8-card { box-shadow: 0 0 20px rgba(200,214,229,0.3), 0 0 40px rgba(200,214,229,0.1) !important; }
-.rc.rank9-card { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15) !important; }
+.rc.rank6-card {
+  border-color: #e67e22 !important;
+  box-shadow: 0 0 12px rgba(230,126,34,0.25), 0 0 24px rgba(230,126,34,0.1) !important;
+}
+.rc.rank7-card {
+  border-color: #ff4757 !important;
+  box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1) !important;
+  animation: rank7Pulse 2s ease-in-out infinite;
+}
+@keyframes rank7Pulse {
+  0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1); }
+  50% { box-shadow: 0 0 24px rgba(255,71,87,0.4), 0 0 40px rgba(255,71,87,0.15); }
+}
+.rc.rank8-card {
+  border-color: #c8d6e5 !important;
+  box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15) !important;
+  animation: rank8Shine 3s ease-in-out infinite;
+}
+@keyframes rank8Shine {
+  0%,100% { box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15); border-color: #a8b6c8; }
+  50% { box-shadow: 0 0 30px rgba(232,237,243,0.5), 0 0 50px rgba(200,214,229,0.25); border-color: #e8edf3; }
+}
+.rc.rank9-card {
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15), 0 0 80px rgba(255,215,0,0.05) !important;
+  animation: rank9Glow 2.5s ease-in-out infinite;
+}
+@keyframes rank9Glow {
+  0%,100% { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15); border-color: #b8860b; }
+  50% { box-shadow: 0 0 35px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.25), 0 0 90px rgba(255,215,0,0.1); border-color: #ffd700; }
+}
 .rc.rank10-card {
   box-shadow: 0 0 30px rgba(255,107,129,0.4), 0 0 60px rgba(107,197,255,0.3), 0 0 90px rgba(208,107,255,0.2) !important;
   animation: rainbowGlow 2s ease-in-out infinite;
@@ -797,8 +855,9 @@ const CSS = `
 }
 @keyframes rainbowGlow {
   0%,100% { box-shadow: 0 0 30px rgba(255,107,107,0.5), 0 0 60px rgba(255,209,61,0.3); border-color: #ff6b6b; }
-  33% { box-shadow: 0 0 30px rgba(107,255,107,0.5), 0 0 60px rgba(107,197,255,0.3); border-color: #6bff6b; }
-  66% { box-shadow: 0 0 30px rgba(107,197,255,0.5), 0 0 60px rgba(208,107,255,0.3); border-color: #6bc5ff; }
+  25% { box-shadow: 0 0 30px rgba(255,209,61,0.5), 0 0 60px rgba(107,255,107,0.3); border-color: #ffd93d; }
+  50% { box-shadow: 0 0 30px rgba(107,255,107,0.5), 0 0 60px rgba(107,197,255,0.3); border-color: #6bff6b; }
+  75% { box-shadow: 0 0 30px rgba(107,197,255,0.5), 0 0 60px rgba(208,107,255,0.3); border-color: #6bc5ff; }
 }
 .rc.rank11-card {
   box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2) !important;
@@ -2543,13 +2602,13 @@ function MonsterGacha() {
                           </div>
                         </div>
                       ) : (
-                        <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : ''}`}
+                        <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : gachaResults[i].rank === 7 ? 'rank7-card' : gachaResults[i].rank === 6 ? 'rank6-card' : ''}`}
                           style={{ borderColor: gachaResults[i].rarity.color, cursor: 'pointer' }}
                           onClick={() => setModal(gachaResults[i])}>
                           <div style={{ fontSize: 26 }}>{gachaResults[i].icon}</div>
-                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
+                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : gachaResults[i].rank === 7 ? 'rank-epic' : gachaResults[i].rank === 6 ? 'rank-ultra' : ''}
                             style={{ fontSize: 8, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 2, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', padding: '0 1px' }}>{gachaResults[i].name}</div>
-                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
+                          <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : gachaResults[i].rank === 7 ? 'rank-epic' : gachaResults[i].rank === 6 ? 'rank-ultra' : ''}
                             style={{ fontSize: 8, color: gachaResults[i].rarity.color }}>{renderStars(gachaResults[i].rank)}</div>
                         </div>
                       )}
@@ -2787,8 +2846,8 @@ function MonsterGacha() {
 
       {/* MODAL */}
       {modal && (() => {
-        const rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : '';
-        const cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : '';
+        const rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
+        const cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : modal.rank === 7 ? 'rank7-card' : modal.rank === 6 ? 'rank6-card' : '';
         return (
         <div className="mo" onClick={() => setModal(null)}>
           <div className={`mc ${cardCls}`} style={{ borderColor: modal.rarity.color }} onClick={e => e.stopPropagation()}>
@@ -5534,7 +5593,7 @@ function CollectionView({ collection, onSelect }) {
       </div>
       <div className="cg">
         {shown.map(m => {
-          const rkCls = m.owned ? (m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : m.rank === 8 ? 'rank-silver' : '') : '';
+          const rkCls = m.owned ? (m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : m.rank === 8 ? 'rank-silver' : m.rank === 7 ? 'rank-epic' : m.rank === 6 ? 'rank-ultra' : '') : '';
           return (
           <div key={m.key} className={`ci ${!m.owned ? 'un' : ''} ${m.owned && m.rank >= 10 ? 'god' : ''}`}
             style={{ borderColor: m.owned ? m.rarity.color + '60' : 'transparent' }}
@@ -5757,7 +5816,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
       <div className="sgl">
         {shown.map(item => {
           const synthable = candidates.find(c => c.key === item.key);
-          const rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : '';
+          const rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
           return (
             <div key={item.key} className={`ci ${item.rank >= 10 ? 'god' : ''}`}
               style={{
