@@ -5932,7 +5932,7 @@ function GameHistoryScreen() {
       .sort((a, b) => (b.playCounts?.[gameTab] || 0) - (a.playCounts?.[gameTab] || 0));
   }, [rankings, gameTab]);
 
-  const medal = (i) => i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
+  const medal = (i) => `${i + 1}`;
 
   return (
     <div>
@@ -5977,8 +5977,8 @@ function GameHistoryScreen() {
                 : 'rgba(255,255,255,0.04)',
               border: `1px solid ${i === 0 ? 'rgba(96,165,250,0.25)' : i < 3 ? 'rgba(200,214,229,0.15)' : 'rgba(255,255,255,0.06)'}`,
             }}>
-              <div style={{ fontSize: i < 3 ? 24 : 14, width: 32, textAlign: 'center', fontWeight: 900,
-                color: i >= 3 ? 'rgba(255,255,255,0.3)' : undefined }}>
+              <div style={{ fontSize: 14, width: 28, textAlign: 'center', fontWeight: 900,
+                fontFamily: "'Orbitron',sans-serif", color: 'rgba(255,255,255,0.6)' }}>
                 {medal(i)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -6056,7 +6056,7 @@ function RankingScreen() {
     return list;
   }, [rankings, tab, gameTab]);
 
-  const medal = (i) => i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
+  const medal = (i) => `${i + 1}`;
 
   return (
     <div>
@@ -6110,12 +6110,12 @@ function RankingScreen() {
                 : 'rgba(255,255,255,0.04)',
               border: `1px solid ${i === 0 ? 'rgba(255,215,0,0.25)' : i < 3 ? 'rgba(200,214,229,0.15)' : 'rgba(255,255,255,0.06)'}`,
             }}>
-              <div style={{ fontSize: i < 3 ? 24 : 14, width: 32, textAlign: 'center', fontWeight: 900,
-                color: i >= 3 ? 'rgba(255,255,255,0.3)' : undefined }}>
+              <div style={{ fontSize: 14, width: 28, textAlign: 'center', fontWeight: 900,
+                fontFamily: "'Orbitron',sans-serif", color: 'rgba(255,255,255,0.6)' }}>
                 {medal(i)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: i === 0 ? '#fbbf24' : '#e0e0e0' }}>{r.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: '#e0e0e0' }}>{r.name}</div>
                 <div style={{ fontSize: 11, opacity: 0.5, display: 'flex', gap: 8 }}>
                   <span>💰{formatYen(r.totalAssets || 0)}</span>
                   <span>📖{r.colCount || 0}/66</span>
