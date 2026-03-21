@@ -1274,12 +1274,13 @@ function MonsterGacha() {
     autoOpenRef.current.forEach(t => clearTimeout(t));
     // Calculate cumulative delays: higher rarity = slower open + dramatic pause
     const getOpenInterval = (rank) => {
-      if (rank >= 10) return 2500; // ★10 GOD: very dramatic pause
-      if (rank === 9) return 1800;  // ★9 Mythic: long pause
-      if (rank === 8) return 1300;  // ★8 Legend: significant pause
-      if (rank === 7) return 900;   // ★7 Epic: noticeable pause
-      if (rank === 6) return 600;   // ★6 Ultra: slight pause
-      return 225;                   // ★1-5: normal speed
+      if (rank >= 10) return 3000; // ★10 GOD: very dramatic pause
+      if (rank === 9) return 2160;  // ★9 Mythic: long pause
+      if (rank === 8) return 1560;  // ★8 Legend: significant pause
+      if (rank === 7) return 1080;  // ★7 Epic: noticeable pause
+      if (rank === 6) return 720;   // ★6 Ultra: slight pause
+      if (rank === 5) return 450;   // ★5 SSRare: small pause
+      return 225;                   // ★1-4: normal speed
     };
     // Build cumulative timing
     let cumTime = 250;
@@ -1298,34 +1299,46 @@ function MonsterGacha() {
       });
       // Pre-open tension sound for rare items
       if (rank >= 10) {
-        // Deep rumble before GOD chest opens
-        playNote(60, 0.5, 'sawtooth', 0.1);
-        playNote(80, 0.4, 'triangle', 0.08, 0.1);
-        playNoise(0.15, 0.06);
+        // Deep rumble + rising sweep before GOD
+        playNote(50, 0.6, 'sawtooth', 0.12);
+        playNote(70, 0.5, 'triangle', 0.1, 0.08);
+        playNoise(0.2, 0.08);
+        playSweep(80, 400, 0.8, 'sine', 0.06, 0.3);
+        playNote(200, 0.4, 'triangle', 0.05, 0.5);
       } else if (rank === 9) {
-        // Ethereal sweep before Mythic
-        playSweep(150, 800, 0.4, 'sine', 0.08);
-        playNote(220, 0.3, 'triangle', 0.06);
+        // Ethereal sweep + deep tone before Mythic
+        playSweep(100, 900, 0.5, 'sine', 0.1);
+        playNote(150, 0.4, 'triangle', 0.08);
+        playNote(300, 0.3, 'sine', 0.06, 0.2);
+        playNoise(0.1, 0.04);
       } else if (rank === 8) {
-        // Metallic shimmer before Legend
-        playNote(600, 0.1, 'square', 0.04);
-        playNote(900, 0.15, 'sine', 0.06, 0.05);
+        // Metallic shimmer + ascending before Legend
+        playNote(500, 0.12, 'square', 0.05);
+        playNote(750, 0.15, 'sine', 0.07, 0.04);
+        playNote(1000, 0.12, 'sine', 0.05, 0.1);
+        playSweep(300, 800, 0.3, 'sine', 0.04);
       } else if (rank === 7) {
-        // Brief sparkle before Epic
-        playNote(800, 0.06, 'sine', 0.05);
-        playNote(1000, 0.08, 'sine', 0.04, 0.03);
+        // Sparkle cascade before Epic
+        playNote(700, 0.08, 'sine', 0.06);
+        playNote(900, 0.1, 'sine', 0.06, 0.04);
+        playNote(1100, 0.08, 'sine', 0.05, 0.08);
       } else if (rank === 6) {
-        // Subtle chime before Ultra
-        playNote(700, 0.05, 'sine', 0.04);
+        // Bright chime before Ultra
+        playNote(600, 0.08, 'sine', 0.05);
+        playNote(800, 0.1, 'sine', 0.05, 0.04);
+      } else if (rank === 5) {
+        // Soft sparkle before SSRare
+        playNote(900, 0.06, 'sine', 0.04);
+        playNote(1100, 0.06, 'sine', 0.03, 0.03);
       }
-      // Chest open sound (delayed slightly for rank 7+)
-      const chestSoundDelay = rank >= 10 ? 500 : rank === 9 ? 350 : rank === 8 ? 250 : rank === 7 ? 150 : rank === 6 ? 80 : 0;
+      // Chest open sound (delayed for rank 5+)
+      const chestSoundDelay = rank >= 10 ? 600 : rank === 9 ? 420 : rank === 8 ? 300 : rank === 7 ? 180 : rank === 6 ? 100 : rank === 5 ? 50 : 0;
       setTimeout(() => {
         const ct = getChestType(rank);
         sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
       }, chestSoundDelay);
       // Reveal sound + collection add + rare effects
-      const revealDelay = rank >= 10 ? 800 : rank === 9 ? 600 : rank === 8 ? 450 : rank === 7 ? 300 : rank === 6 ? 200 : 150;
+      const revealDelay = rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
       setTimeout(() => {
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
@@ -1335,23 +1348,44 @@ function MonsterGacha() {
         // Rare visual effects
         if (r.rank >= 10) {
           setRareEffect({ type: 'god', rank: r.rank });
-          playNote(523, 0.3, 'sine', 0.15);
-          playNote(659, 0.3, 'sine', 0.13, 0.05);
-          playNote(784, 0.3, 'sine', 0.15, 0.1);
-          playNote(1046, 0.5, 'sine', 0.12, 0.2);
+          playNote(523, 0.4, 'sine', 0.15);
+          playNote(659, 0.4, 'sine', 0.14, 0.05);
+          playNote(784, 0.4, 'sine', 0.15, 0.1);
+          playNote(1046, 0.6, 'sine', 0.13, 0.2);
+          playNote(1319, 0.5, 'sine', 0.1, 0.3);
           playNote(523, 0.5, 'triangle', 0.08);
-          setTimeout(() => setRareEffect(null), 3000);
+          playChord([1047, 1319, 1568, 2093], 1.0, 'sine', 0.06, 0.5);
+          setTimeout(() => setRareEffect(null), 3500);
         } else if (r.rank === 9) {
           setRareEffect({ type: 'mythic', rank: 9 });
-          playNote(523, 0.2, 'sine', 0.15);
-          playNote(659, 0.2, 'sine', 0.13, 0.1);
-          playNote(784, 0.3, 'sine', 0.15, 0.2);
-          setTimeout(() => setRareEffect(null), 2000);
+          playNote(440, 0.3, 'sine', 0.15);
+          playNote(554, 0.3, 'sine', 0.14, 0.08);
+          playNote(659, 0.3, 'sine', 0.15, 0.16);
+          playNote(831, 0.4, 'sine', 0.12, 0.24);
+          playChord([659, 831, 1047], 0.6, 'sine', 0.07, 0.4);
+          setTimeout(() => setRareEffect(null), 2500);
         } else if (r.rank === 8) {
           setRareEffect({ type: 'legend', rank: 8 });
-          playNote(880, 0.15, 'sine', 0.12);
-          playNote(1108, 0.2, 'sine', 0.1, 0.08);
-          setTimeout(() => setRareEffect(null), 1000);
+          playNote(660, 0.15, 'sine', 0.12);
+          playNote(880, 0.18, 'sine', 0.12, 0.06);
+          playNote(1108, 0.22, 'sine', 0.1, 0.12);
+          playChord([880, 1108, 1319], 0.4, 'sine', 0.06, 0.25);
+          setTimeout(() => setRareEffect(null), 1500);
+        } else if (r.rank === 7) {
+          setRareEffect({ type: 'epic', rank: 7 });
+          playNote(659, 0.12, 'sine', 0.1);
+          playNote(831, 0.15, 'sine', 0.1, 0.06);
+          playNote(1047, 0.12, 'sine', 0.08, 0.12);
+          setTimeout(() => setRareEffect(null), 800);
+        } else if (r.rank === 6) {
+          setRareEffect({ type: 'ultra', rank: 6 });
+          playNote(523, 0.1, 'sine', 0.08);
+          playNote(659, 0.12, 'sine', 0.08, 0.05);
+          setTimeout(() => setRareEffect(null), 600);
+        } else if (r.rank === 5) {
+          setRareEffect({ type: 'ssrare', rank: 5 });
+          playNote(600, 0.08, 'sine', 0.06);
+          setTimeout(() => setRareEffect(null), 400);
         }
       }, revealDelay);
     }, o.time));
@@ -1445,23 +1479,30 @@ function MonsterGacha() {
       [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.12, 0.2 + i * 0.08));
       playChord([1047, 1319, 1568], 0.6, 'sine', 0.07, 0.55);
     } else if (targetRank === 9) {
-      // ★9 Mythic: 荘厳なスウィープ + 和音
-      playSweep(200, 1000, 0.4, 'sine', 0.09);
-      [554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.1 + i * 0.07));
-      playChord([831, 1047, 1319], 0.5, 'sine', 0.06, 0.4);
+      // ★9 Mythic: 荘厳なスウィープ + 豪華和音
+      playSweep(150, 1100, 0.5, 'sine', 0.1);
+      [440, 554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.1, 0.1 + i * 0.07));
+      playChord([831, 1047, 1319], 0.6, 'sine', 0.07, 0.5);
+      playNoise(0.05, 0.03);
     } else if (targetRank === 8) {
-      // ★8 Legend: 金属的シマー + 上昇音
-      playNote(600, 0.1, 'square', 0.05);
-      [659, 831, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, 0.05 + i * 0.07));
-      playNote(1047, 0.3, 'triangle', 0.06, 0.3);
+      // ★8 Legend: シマー + 上昇アルペジオ + 和音
+      playNote(500, 0.12, 'square', 0.06);
+      [554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.22, 'sine', 0.1, 0.05 + i * 0.07));
+      playChord([831, 1047, 1319], 0.4, 'sine', 0.06, 0.35);
     } else if (targetRank === 7) {
-      // ★7 Epic: きらめく3音
-      [523, 659, 784].forEach((f, i) => playNote(f, 0.18, 'sine', 0.1, i * 0.06));
-      playNoise(0.03, 0.04);
+      // ★7 Epic: きらめく4音 + 残響
+      [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, i * 0.06));
+      playNote(1047, 0.3, 'triangle', 0.05, 0.3);
+      playNoise(0.04, 0.04);
     } else if (targetRank === 6) {
-      // ★6 Ultra: 明るい2音
+      // ★6 Ultra: 明るい3音
       playNote(523, 0.12, 'sine', 0.1);
-      playNote(784, 0.15, 'sine', 0.1, 0.08);
+      playNote(659, 0.12, 'sine', 0.09, 0.06);
+      playNote(784, 0.15, 'sine', 0.1, 0.12);
+    } else if (targetRank === 5) {
+      // ★5 SSRare: きらめく2音
+      playNote(523, 0.1, 'sine', 0.08);
+      playNote(784, 0.12, 'sine', 0.08, 0.06);
     } else {
       sfx('synth');
     }
@@ -2437,7 +2478,16 @@ function MonsterGacha() {
         <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.4), transparent 70%)' }} />
       )}
       {rareEffect && rareEffect.type === 'legend' && (
-        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(200,214,229,0.3), transparent 70%)' }} />
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(200,214,229,0.4), transparent 60%)' }} />
+      )}
+      {rareEffect && rareEffect.type === 'epic' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,71,87,0.25), transparent 65%)', animationDuration: '0.35s' }} />
+      )}
+      {rareEffect && rareEffect.type === 'ultra' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(230,126,34,0.2), transparent 70%)', animationDuration: '0.3s' }} />
+      )}
+      {rareEffect && rareEffect.type === 'ssrare' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(155,89,182,0.15), transparent 70%)', animationDuration: '0.25s' }} />
       )}
       {rareEffect && rareEffect.type === 'synthMax' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
