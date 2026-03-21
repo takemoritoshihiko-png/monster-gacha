@@ -1229,13 +1229,7 @@ function MonsterGacha() {
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
       setNickname(d.nickname || "");
-      const bs = d.bestScores || {};
-      bs.timing = 0; // Reset all timing scores for new scoring system
-      // One-time reset for ゆと's tap/timing/tower
-      if ((d.nickname || '') === 'ゆと') {
-        bs.tap = 0; bs.timing = 0; bs.tower = 0;
-      }
-      setBestScores(bs);
+      setBestScores(d.bestScores || {});
       setPlayCounts(d.playCounts || {});
       setLastLoginDate(d.lastLoginDate || null);
       setLoginStreak(d.loginStreak || 0);
@@ -1383,8 +1377,10 @@ function MonsterGacha() {
   }, [loaded, slotId]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
+  const loginStreakRef = useRef(0);
+  loginStreakRef.current = loginStreak;
   useEffect(() => {
-    const t = setInterval(() => setCoins(c => c + 1 + Math.floor(loginStreak * 0.01)), 2000);
+    const t = setInterval(() => setCoins(c => c + 1 + Math.floor(loginStreakRef.current * 0.01)), 2000);
     return () => clearInterval(t);
   }, []);
 
