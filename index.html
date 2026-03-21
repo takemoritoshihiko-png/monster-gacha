@@ -657,8 +657,8 @@ const CSS = `
 }
 
 /* Gacha */
-.gs { display: flex; flex-direction: column; align-items: center; min-height: 350px; justify-content: center; gap: 16px; }
-.cr { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.gs { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.cr { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; max-width: 400px; }
 .chest {
   width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;
   font-size: 50px; animation: cb 1.5s ease-in-out infinite; transition: transform 0.2s;
@@ -701,8 +701,8 @@ const CSS = `
 @keyframes rainbowBg { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
 @keyframes rbs { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
 .rc {
-  background: rgba(15,15,30,0.95); border-radius: 14px; padding: 14px; text-align: center;
-  border: 2px solid; animation: ri 0.25s ease-out; min-width: 80px;
+  background: rgba(15,15,30,0.95); border-radius: 10px; padding: 6px 4px; text-align: center;
+  border: 2px solid; animation: ri 0.25s ease-out; min-width: 0; overflow: hidden;
 }
 @keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }
 .god { animation: gp 1s ease-in-out infinite; }
@@ -1181,7 +1181,7 @@ function MonsterGacha() {
         sfx(revealSound);
         addToCollection(r);
       }, revealDelay);
-    }, 320 + i * 280)); // 320ms initial, 280ms between each (~2.8s for 10)
+    }, 250 + i * 225)); // 250ms initial, 225ms between each (~2.3s for 10)
   }, [coins, addToCollection]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
@@ -1805,7 +1805,7 @@ function MonsterGacha() {
                   {gachaChests.map((ct, i) => (
                     <div key={i}>
                       {!opened.has(i) ? (
-                        <div className="chest" style={{ width: 70, height: 70 }}>
+                        <div className="chest" style={{ width: 56, height: 56 }}>
                           <div className={`chest-box ${ct === 'rainbow' ? 'rainbow-box' : ct === 'gold' ? 'gold-box' : ct === 'silver' ? 'silver-box' : 'wood-box'}`}>
                             {ct === 'rainbow' ? '💎' : ct === 'gold' ? '👑' : ct === 'silver' ? '🪙' : '📦'}
                           </div>
@@ -1814,20 +1814,11 @@ function MonsterGacha() {
                         <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : ''}`}
                           style={{ borderColor: gachaResults[i].rarity.color, cursor: 'pointer' }}
                           onClick={() => setModal(gachaResults[i])}>
-                          <div style={{ fontSize: 34 }}>{gachaResults[i].icon}</div>
+                          <div style={{ fontSize: 26 }}>{gachaResults[i].icon}</div>
                           <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
-                            style={{ fontSize: 9, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 3 }}>{gachaResults[i].name}</div>
+                            style={{ fontSize: 8, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 2, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', padding: '0 1px' }}>{gachaResults[i].name}</div>
                           <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : ''}
-                            style={{ fontSize: 9, color: gachaResults[i].rarity.color }}>{renderStars(gachaResults[i].rank)}</div>
-                          {allOpened && <div style={{ fontSize: 8, marginTop: 1, color: gachaResults[i].typeColor }}>{gachaResults[i].typeName}</div>}
-                          {allOpened && gachaResults[i].rank >= 6 && (
-                            <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : ''}
-                              style={{ fontSize: 7, marginTop: 2, fontWeight: 700, fontFamily: "'Orbitron',sans-serif",
-                              color: gachaResults[i].rarity.color, opacity: 0.8,
-                            }}>
-                              {gachaResults[i].rank === 10 ? '1/8192' : gachaResults[i].rank === 9 ? '≈3/8192' : gachaResults[i].rank === 8 ? '0.33%' : gachaResults[i].rank === 7 ? '0.5%' : '1%'}
-                            </div>
-                          )}
+                            style={{ fontSize: 8, color: gachaResults[i].rarity.color }}>{renderStars(gachaResults[i].rank)}</div>
                         </div>
                       )}
                     </div>
