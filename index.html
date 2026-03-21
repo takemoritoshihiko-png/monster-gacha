@@ -4759,7 +4759,7 @@ function BubbleGame({ onDone }) {
       const b = next[id];
       if (b.popped) return prev;
       b.taps++;
-      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.1;
+      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.08;
       if (Math.random() < chance) {
         b.popped = true;
         sfx('wrong');
@@ -4848,7 +4848,7 @@ function BubbleGame({ onDone }) {
                     )}
                     {b.taps >= 5 && !b.popped && (
                       <div style={{ position: 'absolute', bottom: -14, fontSize: 8, color: b.taps >= 9 ? '#ef4444' : '#fbbf24', fontWeight: 700 }}>
-                        ⚠️{(b.taps - 4) * 10}%
+                        ⚠️{(b.taps - 4) * 8}%
                       </div>
                     )}
                   </div>
