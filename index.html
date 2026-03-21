@@ -2779,10 +2779,16 @@ function KukuGame({ onDone }) {
             {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
             {prob && <div className="md">{prob.text} = ?</div>}
             <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
-              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
-            </div>
+              onChange={e => {
+                const v = e.target.value;
+                setAns(v);
+                if (v.length > 0 && prob) {
+                  const ansStr = String(prob.answer);
+                  if (v.length >= ansStr.length) {
+                    check(v);
+                  }
+                }
+              }} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
           </div>
         </>
       )}
@@ -2876,10 +2882,16 @@ function MathMidGame({ onDone }) {
             {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
             {prob && <div className="md">{prob.text} = ?</div>}
             <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
-              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
-            </div>
+              onChange={e => {
+                const v = e.target.value;
+                setAns(v);
+                if (v.length > 0 && prob) {
+                  const ansStr = String(prob.answer);
+                  if (v.length >= ansStr.length) {
+                    check(v);
+                  }
+                }
+              }} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
           </div>
         </>
       )}
@@ -2972,10 +2984,16 @@ function MathEasyGame({ onDone }) {
             {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
             {prob && <div className="md">{prob.text} = ?</div>}
             <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
-              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
-            </div>
+              onChange={e => {
+                const v = e.target.value;
+                setAns(v);
+                if (v.length > 0 && prob) {
+                  const ansStr = String(prob.answer);
+                  if (v.length >= ansStr.length) {
+                    check(v);
+                  }
+                }
+              }} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
           </div>
         </>
       )}
@@ -3068,10 +3086,16 @@ function MathHardAddGame({ onDone }) {
             {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
             {prob && <div className="md">{prob.text} = ?</div>}
             <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
-              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
-            </div>
+              onChange={e => {
+                const v = e.target.value;
+                setAns(v);
+                if (v.length > 0 && prob) {
+                  const ansStr = String(prob.answer);
+                  if (v.length >= ansStr.length) {
+                    check(v);
+                  }
+                }
+              }} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
           </div>
         </>
       )}
@@ -3167,10 +3191,16 @@ function MathHardMultGame({ onDone }) {
             {fb && <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)', fontSize: 36 }}>{fb}</div>}
             {prob && <div className="md">{prob.text} = ?</div>}
             <input ref={inp} className="mi" type="number" inputMode="numeric" value={ans}
-              onChange={e => setAns(e.target.value)} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn bp" style={{ fontSize: 13, padding: '10px 28px' }} onClick={() => check(ans)}>回答</button>
-            </div>
+              onChange={e => {
+                const v = e.target.value;
+                setAns(v);
+                if (v.length > 0 && prob) {
+                  const ansStr = String(prob.answer);
+                  if (v.length >= ansStr.length) {
+                    check(v);
+                  }
+                }
+              }} onKeyDown={e => e.key === 'Enter' && check(ans)} placeholder="答え" autoComplete="off" />
           </div>
         </>
       )}
