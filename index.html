@@ -636,26 +636,26 @@ const CSS = `
   margin: 20px 0 16px; position: relative; z-index: 1;
 }
 .odo-label {
-  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(251,191,36,0.5);
-  letter-spacing: 4px; margin-bottom: 8px;
+  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(232,213,163,0.6);
+  letter-spacing: 4px; margin-bottom: 8px; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 .odo-digits { display: flex; justify-content: center; gap: 5px; }
 .odo-d {
   width: 36px; height: 50px;
-  background: linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(22,22,44,0.95) 49%, rgba(10,10,25,0.95) 50%, rgba(18,18,36,0.95) 100%);
-  border: 1px solid rgba(139,92,246,0.25);
+  background: linear-gradient(180deg, rgba(50,38,15,0.95) 0%, rgba(35,25,10,0.95) 49%, rgba(25,18,5,0.95) 50%, rgba(40,30,12,0.95) 100%);
+  border: 1px solid rgba(212,168,67,0.3);
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
   transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 .odo-d.lit {
-  color: #fbbf24; border-color: rgba(245,158,11,0.4);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 15px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
-  text-shadow: 0 0 10px rgba(245,158,11,0.5);
+  color: #e8d5a3; border-color: rgba(212,168,67,0.5);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 0 15px rgba(212,168,67,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+  text-shadow: 0 0 10px rgba(212,168,67,0.5);
 }
-.odo-d.dim { color: rgba(139,92,246,0.15); }
+.odo-d.dim { color: rgba(212,168,67,0.15); }
 
 /* Stat cards */
 .stat-cards {
@@ -664,8 +664,8 @@ const CSS = `
 }
 .stat-card {
   flex: 1; max-width: 140px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(139,92,246,0.12);
+  background: linear-gradient(180deg, rgba(50,38,15,0.6), rgba(30,22,8,0.8));
+  border: 1px solid rgba(212,168,67,0.2);
   border-radius: 14px; padding: 12px 8px;
   text-align: center; backdrop-filter: blur(4px);
 }
@@ -2027,12 +2027,12 @@ function MonsterGacha() {
             {/* Hero section */}
             <div className="hero-bg">
 
-              <div style={{ textAlign: 'center', paddingTop: 120 }}>
-                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 26, fontWeight: 900,
-                  background: 'linear-gradient(180deg, #e8d5a3, #c9a84c, #e8d5a3)',
+              <div style={{ textAlign: 'center', paddingTop: 140 }}>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 28, fontWeight: 900,
+                  background: 'linear-gradient(180deg, #f0e4c0, #d4a843, #f0e4c0)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  letterSpacing: 4, lineHeight: 1.2,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                  letterSpacing: 5, lineHeight: 1.2,
+                  filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(201,168,76,0.3))',
                   position: 'relative', zIndex: 1 }}>
                   TREASURE<br/>GACHA
                 </div>
@@ -2113,12 +2113,13 @@ function MonsterGacha() {
                   fontSize: 12, color: 'rgba(255,255,255,0.6)',
                 };
                 return (
-                  <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3,
-                      color: 'rgba(232,213,163,0.7)' }}>
+                  <div style={{ marginTop: 12, position: 'relative', zIndex: 1 }}>
+                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 4,
+                      color: 'rgba(232,213,163,0.8)', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
                       Rank {rn} / 25
                     </div>
-                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 6, marginTop: 2, ...rankStyle }}>
+                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 6, marginTop: 3,
+                      textShadow: '0 2px 6px rgba(0,0,0,0.6)', ...rankStyle }}>
                       {r.icon} {r.name}
                     </div>
                   </div>
@@ -2126,24 +2127,26 @@ function MonsterGacha() {
               })()}
 
                 {/* Total Assets - with decorative line */}
-                <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 6 }}>
-                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4))' }} />
-                    <div style={{ fontSize: 10, color: 'rgba(232,213,163,0.6)', letterSpacing: 4, fontFamily: "'Rajdhani',sans-serif" }}>TOTAL ASSETS</div>
-                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.4), transparent)' }} />
+                <div style={{ marginTop: 16, position: 'relative', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 8 }}>
+                    <div style={{ flex: 1, maxWidth: 50, height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,168,67,0.5))' }} />
+                    <div style={{ fontSize: 11, color: 'rgba(240,228,192,0.7)', letterSpacing: 5, fontFamily: "'Rajdhani',sans-serif",
+                      textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>TOTAL ASSETS</div>
+                    <div style={{ flex: 1, maxWidth: 50, height: 1, background: 'linear-gradient(90deg, rgba(212,168,67,0.5), transparent)' }} />
                   </div>
-                  <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 20, fontWeight: 900,
-                    background: 'linear-gradient(180deg, #e8d5a3, #c9a84c)',
+                  <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 22, fontWeight: 900,
+                    background: 'linear-gradient(180deg, #f0e4c0, #c9a84c)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }}>
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>
                     {formatYen(totalPower)}
                   </div>
                 </div>
 
                 {/* Medal Bar */}
                 <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 0, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.6), rgba(50,35,15,0.8))',
-                    border: '1px solid rgba(201,168,76,0.3)', borderRadius: 20, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.75), rgba(40,28,10,0.9))',
+                    border: '1px solid rgba(212,168,67,0.4)', borderRadius: 20, overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
                       borderRight: '1px solid rgba(201,168,76,0.2)' }}
                       title={crowns.goldGames.join(', ')}>
