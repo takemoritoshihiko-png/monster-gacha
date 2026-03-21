@@ -2097,7 +2097,7 @@ function MonsterGacha() {
               <div className="gs">
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
                 {allOpened && <p style={{ fontSize: 16, fontWeight: 900 }}>🎉 結果</p>}
-                <div className="cr" style={{ gridTemplateColumns: `repeat(${gachaResults.length <= 20 ? 5 : 6}, 1fr)` }}>
+                <div className="cr" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                   {gachaChests.map((ct, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {!opened.has(i) ? (
