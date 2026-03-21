@@ -2553,6 +2553,7 @@ function TapGame({ onDone }) {
     }, 50);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   const handleTap = () => {
     if (phase !== "play") return;
@@ -2601,7 +2602,6 @@ function TapGame({ onDone }) {
           <div style={{ fontSize: 44, margin: '16px 0' }}>🎉</div>
           <p style={{ fontSize: 18, fontWeight: 900, color: '#f1c40f' }}>🪙 {earned} コイン獲得！</p>
           <p style={{ fontSize: 12, opacity: 0.5 }}>タップ数: {taps}回</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -2642,6 +2642,7 @@ function KukuGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -2691,7 +2692,6 @@ function KukuGame({ onDone }) {
           <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
           <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
           <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -2738,6 +2738,7 @@ function MathMidGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -2788,7 +2789,6 @@ function MathMidGame({ onDone }) {
           <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
           <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
           <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -2833,6 +2833,7 @@ function MathEasyGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -2849,7 +2850,7 @@ function MathEasyGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 50);
   };
 
-  
+
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -2884,7 +2885,6 @@ function MathEasyGame({ onDone }) {
           <div style={{ fontSize: 44, margin: '16px 0' }}>🧠</div>
           <p style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
           <p style={{ fontSize: 12, opacity: 0.5 }}>正解数: {correct}問</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -2987,6 +2987,8 @@ function TimingGame({ onDone }) {
   const baseCoins = taps.reduce((s, t) => s + t.coins, 0);
   const { bonus: perfectBonus, label: bonusLabel } = calcPerfectBonus(taps);
   const totalCoins = baseCoins + (phase === "done" ? perfectBonus : 0);
+
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 1500); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -3111,7 +3113,6 @@ function TimingGame({ onDone }) {
             GREAT: {taps.filter(r => r.diff > 0 && r.diff <= 0.1).length} ／
             GOOD: {taps.filter(r => r.diff > 0.1 && r.diff <= 0.2).length}
           </p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(totalCoins)}>受け取る</button>
         </>
       )}
     </div>
@@ -3435,6 +3436,7 @@ function ShootingGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -3483,7 +3485,6 @@ function ShootingGame({ onDone }) {
             <div><span style={{ fontSize: 18 }}>⭐</span><br/>{stats.gold}</div>
           </div>
           <p style={{ fontSize: 12, opacity: 0.5 }}>最大コンボ: 🔥{maxCombo}</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -3764,6 +3765,7 @@ function CoinTowerGame({ onDone }) {
   };
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current); bgm.stop(); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -3806,7 +3808,6 @@ function CoinTowerGame({ onDone }) {
             <div><span style={{ color: '#fbbf24', fontWeight: 700 }}>PERFECT</span><br/>{perfects}</div>
             <div><span style={{ color: '#f472b6', fontWeight: 700 }}>最大連続P</span><br/>{maxStreak}</div>
           </div>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
@@ -4082,6 +4083,7 @@ function GemCatchGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -4125,7 +4127,6 @@ function GemCatchGame({ onDone }) {
             <div><span style={{ color: '#ef4444', fontWeight: 700 }}>MISS</span><br/>{stats.miss}</div>
           </div>
           <p style={{ fontSize: 12, opacity: 0.5 }}>最大コンボ: 🔥{maxCombo}</p>
-          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
         </>
       )}
     </div>
