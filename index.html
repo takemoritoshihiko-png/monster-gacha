@@ -1105,7 +1105,7 @@ function MonsterGacha() {
     if (!silent) setTimeout(() => setSaveMsg(""), 5000);
   }, []);
 
-  // ---- AUTO-SAVE: 5分に1回 ----
+  // ---- AUTO-SAVE: 1分に1回 ----
   const prevSig = useRef("");
   useEffect(() => {
     if (!loaded || slotId === null) return;
@@ -1114,7 +1114,7 @@ function MonsterGacha() {
     if (sig === prevSig.current) return;
     prevSig.current = sig;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { addLog("自動セーブ実行"); saveToSlot(slotId, true); }, 300000);
+    saveTimer.current = setTimeout(() => { addLog("自動セーブ実行"); saveToSlot(slotId, true); }, 60000);
     return () => clearTimeout(saveTimer.current);
   }, [collection, totalPulls, spending, loaded, slotId, saveToSlot]);
 
