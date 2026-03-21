@@ -1087,6 +1087,10 @@ function MonsterGacha() {
       setNickname(d.nickname || "");
       const bs = d.bestScores || {};
       if (bs.timing && bs.timing > 1600) bs.timing = 1600;
+      // One-time reset for ゆと's tap/timing/tower
+      if ((d.nickname || '') === 'ゆと') {
+        bs.tap = 0; bs.timing = 0; bs.tower = 0;
+      }
       setBestScores(bs);
       setPlayCounts(d.playCounts || {});
       if (d.lastSave) {
