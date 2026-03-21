@@ -1692,7 +1692,7 @@ function MonsterGacha() {
     }).catch(() => {});
   }, [nickname, bestScores]);
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2700, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
+  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
@@ -3617,7 +3617,7 @@ const BUBBLE_BGM = [
   {n:247,b:4,d:0.5,t:'triangle',v:0.015},{n:196,b:6,d:0.5,t:'triangle',v:0.015},
 ];
 
-const BUBBLE_REWARDS = [0, 5, 10, 15, 20, 30, 50, 75, 110, 160, 220, 300];
+const BUBBLE_REWARDS = [0, 4, 8, 12, 16, 24, 40, 60, 88, 128, 176, 240];
 
 const MEMORY_BGM = [
   {n:330,b:0,d:0.15,t:'sine',v:0.025},{n:392,b:0.5,d:0.1,t:'sine',v:0.02},
@@ -4508,7 +4508,7 @@ function BubbleGame({ onDone }) {
 
   const BUBBLE_COLORS_SAFE = ['#93c5fd','#60a5fa','#3b82f6','#2563eb','#1d4ed8','#1e40af'];
   const BUBBLE_COLORS_DANGER = ['#fbbf24','#f59e0b','#ef4444','#dc2626','#b91c1c','#991b1b'];
-  const bubbleColor = (taps) => taps <= 5 ? BUBBLE_COLORS_SAFE[taps] : BUBBLE_COLORS_DANGER[Math.min(taps - 6, 5)];
+  const bubbleColor = (taps) => taps <= 4 ? BUBBLE_COLORS_SAFE[Math.min(taps, 5)] : BUBBLE_COLORS_DANGER[Math.min(taps - 5, 5)];
   const bubbleSize = (taps) => 50 + taps * 8;
 
   const startGame = () => {
@@ -4536,12 +4536,12 @@ function BubbleGame({ onDone }) {
       const b = next[id];
       if (b.popped) return prev;
       b.taps++;
-      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.1;
+      const chance = b.taps <= 4 ? 0 : (b.taps - 4) * 0.1;
       if (Math.random() < chance) {
         b.popped = true;
         sfx('wrong');
       } else {
-        if (b.taps <= 5) {
+        if (b.taps <= 4) {
           playNote(300 + b.taps * 80, 0.06, 'sine', 0.06);
         } else {
           playNote(400 + b.taps * 60, 0.08, 'triangle', 0.08);
@@ -4571,11 +4571,11 @@ function BubbleGame({ onDone }) {
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
             9個のバブルをタップで膨らませろ！<br/>
-            5回までは安全。6回目から破裂リスク！<br/>
+            4回までは安全。5回目から破裂リスク！<br/>
             大きいほど高報酬。でも破裂したら0点！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            ×5=🪙30 ／ ×7=🪙75 ／ ×9=🪙160 ／ ×11=🪙300
+            ×4=🪙16 ／ ×6=🪙40 ／ ×8=🪙88 ／ ×10=🪙176
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
@@ -4594,7 +4594,7 @@ function BubbleGame({ onDone }) {
               return (
                 <div key={b.id} style={{ width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
                   <div onClick={() => handleBubbleTap(b.id)}
-                    className={b.popped ? 'bubble-pop' : (growId === b.id ? 'bubble-grow' : '') + (b.taps >= 6 && !b.popped ? ' bubble-danger' : '')}
+                    className={b.popped ? 'bubble-pop' : (growId === b.id ? 'bubble-grow' : '') + (b.taps >= 5 && !b.popped ? ' bubble-danger' : '')}
                     style={{
                       width: sz, height: sz, borderRadius: '50%',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -4617,15 +4617,15 @@ function BubbleGame({ onDone }) {
                       <>
                         <span style={{ fontSize: 12 + b.taps * 2 }}>🫧</span>
                         <span style={{ fontSize: 10, fontWeight: 900, fontFamily: "'Orbitron',sans-serif",
-                          color: b.taps >= 6 ? '#fff' : 'rgba(255,255,255,0.7)' }}>×{b.taps}</span>
-                        {b.taps >= 6 && (
+                          color: b.taps >= 5 ? '#fff' : 'rgba(255,255,255,0.7)' }}>×{b.taps}</span>
+                        {b.taps >= 5 && (
                           <span style={{ fontSize: 8, color: '#fbbf24', marginTop: 1 }}>🪙{BUBBLE_REWARDS[Math.min(b.taps, BUBBLE_REWARDS.length - 1)]}</span>
                         )}
                       </>
                     )}
-                    {b.taps >= 6 && !b.popped && (
+                    {b.taps >= 5 && !b.popped && (
                       <div style={{ position: 'absolute', bottom: -14, fontSize: 8, color: b.taps >= 9 ? '#ef4444' : '#fbbf24', fontWeight: 700 }}>
-                        ⚠️{(b.taps - 5) * 10}%
+                        ⚠️{(b.taps - 4) * 10}%
                       </div>
                     )}
                   </div>
