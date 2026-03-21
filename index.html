@@ -1476,22 +1476,29 @@ function MonsterGacha() {
   }, [nickname, collection, giftsSentToday, lastGiftDate]);
 
   // Daily login bonus check
+  const loginCheckedRef = useRef(false);
   useEffect(() => {
     if (!loaded || slotId === null) return;
-    const today = new Date().toISOString().slice(0, 10);
-    if (lastLoginDate === today) return; // Already logged in today
+    if (loginCheckedRef.current) return;
+    // Wait a tick for state to settle after loadSlot
+    const timer = setTimeout(() => {
+      loginCheckedRef.current = true;
+      const today = new Date().toISOString().slice(0, 10);
+      if (lastLoginDate === today) return;
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
-    const bonusCoins = newStreak * 400;
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
+      const bonusCoins = newStreak * 400;
 
-    setLoginStreak(newStreak);
-    setLastLoginDate(today);
-    setCoins(c => c + bonusCoins);
-    setLoginBonusInfo({ streak: newStreak, coins: bonusCoins });
-    setShowLoginBonus(true);
-    setTimeout(() => setShowLoginBonus(false), 4000);
-  }, [loaded, slotId]);
+      setLoginStreak(newStreak);
+      setLastLoginDate(today);
+      setCoins(c => c + bonusCoins);
+      setLoginBonusInfo({ streak: newStreak, coins: bonusCoins });
+      setShowLoginBonus(true);
+      setTimeout(() => setShowLoginBonus(false), 4000);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [loaded, slotId, lastLoginDate, loginStreak]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
   const loginStreakRef = useRef(0);
