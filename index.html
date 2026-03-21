@@ -2012,7 +2012,7 @@ function MonsterGacha() {
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
-  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', rhythm: 'リズムジュエル', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase
@@ -2093,7 +2093,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
+  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, rhythm: 900, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -3030,6 +3030,7 @@ function MonsterGacha() {
               { id: "memory", icon: "🃏", name: "神経衰弱", isAction: true },
               { id: "mathHardAdd", icon: "🧮", name: "上級 足し引き", isAction: false },
               { id: "bubble", icon: "🫧", name: "バブルポップ", isAction: true },
+              { id: "rhythm", icon: "🎵", name: "リズムジュエル", isAction: true },
               { id: "mathHardMult", icon: "✖️", name: "上級 掛け割り", isAction: false },
             ].map((g, gi) => (
               <div key={g.id} onClick={() => { sfx('click'); setMiniGame(g.id); }}
@@ -3075,6 +3076,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
         {screen === "minigame" && miniGame === "memory" && <MemoryGame onDone={(c) => handleMiniGameDone('memory', c)} />}
         {screen === "minigame" && miniGame === "bubble" && <BubbleGame onDone={(c) => handleMiniGameDone('bubble', c)} />}
+        {screen === "minigame" && miniGame === "rhythm" && <RhythmGame onDone={(c) => handleMiniGameDone('rhythm', c)} />}
         {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => handleMiniGameDone('shooting', c)} />}
         {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => handleMiniGameDone('mathEasy', c)} />}
         {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => handleMiniGameDone('kuku', c)} />}
@@ -4550,6 +4552,26 @@ const BUBBLE_BGM = [
 
 const BUBBLE_REWARDS = [0, 4, 8, 12, 16, 24, 40, 60, 88, 128, 176, 240];
 
+const RHYTHM_BGM = [
+  {n:262,b:0,d:0.15,t:'square',v:0.04},{n:330,b:0.25,d:0.1,t:'square',v:0.03},
+  {n:392,b:0.5,d:0.15,t:'square',v:0.04},{n:330,b:0.75,d:0.1,t:'square',v:0.03},
+  {n:440,b:1,d:0.15,t:'square',v:0.04},{n:392,b:1.25,d:0.1,t:'square',v:0.03},
+  {n:494,b:1.5,d:0.2,t:'square',v:0.045},{n:440,b:1.75,d:0.1,t:'square',v:0.03},
+  {n:392,b:2,d:0.15,t:'square',v:0.04},{n:330,b:2.25,d:0.1,t:'square',v:0.03},
+  {n:349,b:2.5,d:0.15,t:'square',v:0.04},{n:294,b:2.75,d:0.1,t:'square',v:0.03},
+  {n:330,b:3,d:0.15,t:'square',v:0.04},{n:392,b:3.25,d:0.1,t:'square',v:0.03},
+  {n:440,b:3.5,d:0.2,t:'square',v:0.045},{n:392,b:3.75,d:0.1,t:'square',v:0.03},
+  {n:262,b:4,d:0.15,t:'square',v:0.04},{n:330,b:4.25,d:0.1,t:'square',v:0.03},
+  {n:392,b:4.5,d:0.15,t:'square',v:0.04},{n:494,b:4.75,d:0.1,t:'square',v:0.03},
+  {n:523,b:5,d:0.2,t:'square',v:0.045},{n:494,b:5.25,d:0.1,t:'square',v:0.03},
+  {n:440,b:5.5,d:0.15,t:'square',v:0.04},{n:392,b:5.75,d:0.1,t:'square',v:0.03},
+  {n:349,b:6,d:0.15,t:'square',v:0.04},{n:330,b:6.25,d:0.1,t:'square',v:0.03},
+  {n:294,b:6.5,d:0.15,t:'square',v:0.04},{n:262,b:6.75,d:0.1,t:'square',v:0.03},
+  {n:330,b:7,d:0.3,t:'square',v:0.05},
+  {n:131,b:0,d:0.4,t:'triangle',v:0.025},{n:165,b:2,d:0.4,t:'triangle',v:0.025},
+  {n:147,b:4,d:0.4,t:'triangle',v:0.025},{n:131,b:6,d:0.4,t:'triangle',v:0.025},
+];
+
 const MEMORY_BGM = [
   {n:330,b:0,d:0.15,t:'sine',v:0.025},{n:392,b:0.5,d:0.1,t:'sine',v:0.02},
   {n:440,b:1,d:0.15,t:'sine',v:0.025},{n:392,b:1.5,d:0.1,t:'sine',v:0.02},
@@ -5595,6 +5617,317 @@ function BubbleGame({ onDone }) {
 }
 
 // ============================================================
+// RHYTHM JEWEL GAME (リズムジュエル)
+// ============================================================
+function RhythmGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [earned, setEarned] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  const [stats, setStats] = useState({ perfect: 0, great: 0, good: 0, miss: 0 });
+  const [floats, setFloats] = useState([]);
+  const [lastJudge, setLastJudge] = useState(null);
+
+  const notesRef = useRef([]);
+  const earnedRef = useRef(0);
+  const comboRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const statsRef = useRef({ perfect: 0, great: 0, good: 0, miss: 0 });
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const startRef = useRef(null);
+  const spawnRef = useRef(null);
+  const fid = useRef(0);
+  const lastFrameRef = useRef(0);
+
+  const DURATION = 20;
+  const CANVAS_W = 300;
+  const CANVAS_H = 400;
+  const LANES = 3;
+  const HIT_Y = CANVAS_H - 70;
+  const PERFECT_RANGE = 15;
+  const GREAT_RANGE = 30;
+  const GOOD_RANGE = 50;
+
+  const JEWELS = ['💎', '🔮', '⭐', '💫', '🪙', '✨'];
+  const LANE_COLORS = ['#60a5fa', '#c084fc', '#f472b6'];
+
+  const startGame = () => {
+    setPhase("play"); setEarned(0); setTimeLeft(DURATION); setCombo(0); setMaxCombo(0);
+    setStats({ perfect: 0, great: 0, good: 0, miss: 0 }); setLastJudge(null);
+    earnedRef.current = 0; comboRef.current = 0; maxComboRef.current = 0;
+    statsRef.current = { perfect: 0, great: 0, good: 0, miss: 0 };
+    notesRef.current = []; lastFrameRef.current = Date.now();
+    startRef.current = Date.now();
+    bgm.playLoop(RHYTHM_BGM, 140);
+
+    let beatCount = 0;
+    const beatMs = 60000 / 140;
+    const spawn = () => {
+      if (!startRef.current) return;
+      const elapsed = (Date.now() - startRef.current) / 1000;
+      if (elapsed > DURATION - 1) return;
+      const progress = elapsed / DURATION;
+
+      // Spawn 1-2 notes per beat
+      const count = progress > 0.6 ? (Math.random() < 0.4 ? 2 : 1) : 1;
+      const usedLanes = [];
+      for (let i = 0; i < count; i++) {
+        let lane;
+        do { lane = Math.floor(Math.random() * LANES); } while (usedLanes.includes(lane));
+        usedLanes.push(lane);
+        const speed = 150 + progress * 100;
+        notesRef.current.push({
+          id: ++fid.current, lane, y: -20,
+          speed, icon: JEWELS[Math.floor(Math.random() * JEWELS.length)],
+          hit: false, missed: false
+        });
+      }
+      beatCount++;
+      const nextDelay = beatMs * (beatCount % 4 === 3 ? 0.5 : 1);
+      spawnRef.current = setTimeout(spawn, nextDelay);
+    };
+    spawnRef.current = setTimeout(spawn, 500);
+
+    const loop = () => {
+      const now = Date.now();
+      const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+      lastFrameRef.current = now;
+      const elapsed = (now - startRef.current) / 1000;
+      const rem = Math.max(0, DURATION - elapsed);
+      setTimeLeft(rem);
+
+      // Update notes
+      notesRef.current.forEach(n => {
+        if (!n.hit && !n.missed) n.y += n.speed * dt;
+        if (!n.hit && !n.missed && n.y > HIT_Y + GOOD_RANGE + 20) {
+          n.missed = true;
+          statsRef.current.miss++;
+          comboRef.current = 0;
+          setCombo(0);
+          setStats({ ...statsRef.current });
+          setLastJudge({ label: 'MISS', color: '#ef4444' });
+        }
+      });
+      notesRef.current = notesRef.current.filter(n => !(n.missed && n.y > CANVAS_H + 30) && !(n.hit));
+
+      // Draw
+      const cvs = canvasRef.current;
+      if (cvs) {
+        const ctx = cvs.getContext('2d');
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        const lw = CANVAS_W / LANES;
+
+        // Lane backgrounds
+        for (let i = 0; i < LANES; i++) {
+          ctx.fillStyle = `rgba(${i === 0 ? '96,165,250' : i === 1 ? '192,132,252' : '244,114,182'},0.03)`;
+          ctx.fillRect(i * lw, 0, lw, CANVAS_H);
+        }
+
+        // Lane dividers
+        for (let i = 1; i < LANES; i++) {
+          ctx.strokeStyle = 'rgba(139,92,246,0.1)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(i * lw, 0); ctx.lineTo(i * lw, CANVAS_H); ctx.stroke();
+        }
+
+        // Hit zone
+        const grad = ctx.createLinearGradient(0, HIT_Y - 25, 0, HIT_Y + 25);
+        grad.addColorStop(0, 'rgba(139,92,246,0)');
+        grad.addColorStop(0.4, 'rgba(139,92,246,0.1)');
+        grad.addColorStop(0.5, 'rgba(139,92,246,0.15)');
+        grad.addColorStop(0.6, 'rgba(139,92,246,0.1)');
+        grad.addColorStop(1, 'rgba(139,92,246,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, HIT_Y - 25, CANVAS_W, 50);
+
+        ctx.strokeStyle = 'rgba(167,139,250,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, HIT_Y); ctx.lineTo(CANVAS_W, HIT_Y); ctx.stroke();
+
+        // Lane tap indicators
+        for (let i = 0; i < LANES; i++) {
+          ctx.fillStyle = LANE_COLORS[i] + '20';
+          ctx.beginPath();
+          ctx.arc((i + 0.5) * lw, HIT_Y, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = LANE_COLORS[i] + '40';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Draw notes
+        notesRef.current.forEach(n => {
+          if (n.hit) return;
+          const x = (n.lane + 0.5) * lw;
+          const alpha = n.missed ? 0.2 : 1;
+
+          if (!n.missed) {
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.shadowColor = LANE_COLORS[n.lane];
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(x, n.y, 12, 0, Math.PI * 2);
+            ctx.fillStyle = LANE_COLORS[n.lane];
+            ctx.fill();
+            ctx.restore();
+          }
+
+          ctx.globalAlpha = alpha;
+          ctx.font = '28px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(n.icon, x, n.y);
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      if (rem > 0) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        clearTimeout(spawnRef.current);
+        bgm.stop(); sfx('gameFinish');
+        setPhase("done");
+        setEarned(earnedRef.current);
+        setStats({ ...statsRef.current });
+        setMaxCombo(maxComboRef.current);
+      }
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  const handleTap = (e) => {
+    if (phase !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const rect = cvs.getBoundingClientRect();
+    const tapX = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
+    const scaleX = CANVAS_W / rect.width;
+    const tapLane = Math.min(Math.floor(tapX * scaleX / (CANVAS_W / LANES)), LANES - 1);
+
+    let closest = null, closestDist = Infinity;
+    notesRef.current.forEach(n => {
+      if (n.hit || n.missed || n.lane !== tapLane) return;
+      const dist = Math.abs(n.y - HIT_Y);
+      if (dist < GOOD_RANGE + 10 && dist < closestDist) { closest = n; closestDist = dist; }
+    });
+
+    if (!closest) {
+      comboRef.current = 0;
+      setCombo(0);
+      setLastJudge({ label: 'MISS', color: '#ef4444' });
+      statsRef.current.miss++;
+      setStats({ ...statsRef.current });
+      return;
+    }
+
+    closest.hit = true;
+    let coins = 0, label = '', color = '';
+    if (closestDist <= PERFECT_RANGE) {
+      coins = 12; label = 'PERFECT'; color = '#fbbf24';
+      statsRef.current.perfect++;
+      playNote(523, 0.08, 'sine', 0.12); playNote(784, 0.12, 'sine', 0.1, 0.04);
+    } else if (closestDist <= GREAT_RANGE) {
+      coins = 8; label = 'GREAT'; color = '#4ade80';
+      statsRef.current.great++;
+      playNote(440, 0.08, 'sine', 0.1);
+    } else {
+      coins = 4; label = 'GOOD'; color = '#60a5fa';
+      statsRef.current.good++;
+      playNote(330, 0.06, 'sine', 0.06);
+    }
+
+    comboRef.current++;
+    if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
+    // Combo bonus
+    if (comboRef.current >= 20) coins += 6;
+    else if (comboRef.current >= 10) coins += 3;
+    else if (comboRef.current >= 5) coins += 1;
+
+    earnedRef.current += coins;
+    setEarned(earnedRef.current);
+    setCombo(comboRef.current);
+    setStats({ ...statsRef.current });
+    setLastJudge({ label, color });
+
+    const id = ++fid.current;
+    const fx = (tapLane + 0.5) * (100 / LANES);
+    setFloats(p => [...p, { id, label: label + ' +' + coins, color, x: fx }]);
+    setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 500);
+  };
+
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current);
+    clearTimeout(spawnRef.current);
+    bgm.stop();
+  }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🎵 リズムジュエル</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            落ちてくるジュエルをリズムよくタップ！20秒<br/>
+            PERFECT=🪙12 GREAT=🪙8 GOOD=🪙4
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            5コンボ+1 ／ 10コンボ+3 ／ 20コンボ+6<br/>空タップでコンボリセット
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ position: 'relative' }}>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">🪙 {earned}</div>
+            <div className="sb" style={{ color: combo >= 20 ? '#fbbf24' : combo >= 10 ? '#f472b6' : combo >= 5 ? '#c084fc' : '#a78bfa' }}>
+              {combo > 0 ? `🔥${combo}` : '-'}
+            </div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / DURATION) * 100}%` }} /></div>
+          {/* Judge display */}
+          {lastJudge && (
+            <div style={{ fontSize: 18, fontWeight: 900, color: lastJudge.color, height: 24,
+              animation: 'ri 0.2s ease-out' }}>{lastJudge.label}</div>
+          )}
+          <div style={{ position: 'relative', marginTop: 4, display: 'inline-block' }}>
+            <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
+              style={{ borderRadius: 14, background: 'rgba(6,6,15,0.85)', border: '1px solid rgba(139,92,246,0.2)',
+                touchAction: 'none', maxWidth: '100%' }}
+              onClick={handleTap}
+              onTouchStart={e => { e.preventDefault();
+                const touches = e.changedTouches || e.touches;
+                for (let i = 0; i < touches.length; i++) handleTap({ clientX: touches[i].clientX });
+              }} />
+            {floats.map(f => (
+              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '75%', fontSize: 11, fontWeight: 900 }}>{f.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🎵</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '12px 0', fontSize: 13 }}>
+            <div><span style={{ color: '#fbbf24', fontWeight: 700 }}>PERFECT</span><br/>{stats.perfect}</div>
+            <div><span style={{ color: '#4ade80', fontWeight: 700 }}>GREAT</span><br/>{stats.great}</div>
+            <div><span style={{ color: '#60a5fa', fontWeight: 700 }}>GOOD</span><br/>{stats.good}</div>
+            <div><span style={{ color: '#ef4444', fontWeight: 700 }}>MISS</span><br/>{stats.miss}</div>
+          </div>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>最大コンボ: 🔥{maxCombo}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
 function GemCatchGame({ onDone }) {
@@ -6326,7 +6659,7 @@ function GameHistoryScreen() {
 
   const HISTORY_GAMES = {
     tap: '👊 連打バトル', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー', tower: '🪙 コインタワー',
-    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', bubble: '🫧 バブルポップ', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
+    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', bubble: '🫧 バブルポップ', rhythm: '🎵 リズムジュエル', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
@@ -6338,6 +6671,7 @@ function GameHistoryScreen() {
     { id: "shooting", icon: "🎯", name: "射的" },
     { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "bubble", icon: "🫧", name: "バブル" },
+    { id: "rhythm", icon: "🎵", name: "リズム" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
@@ -6490,6 +6824,7 @@ function RankingScreen() {
     { id: "shooting", icon: "🎯", name: "射的" },
     { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "bubble", icon: "🫧", name: "バブル" },
+    { id: "rhythm", icon: "🎵", name: "リズム" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
