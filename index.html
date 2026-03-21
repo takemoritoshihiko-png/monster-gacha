@@ -1068,6 +1068,13 @@ input[type="number"] { font-size: 16px; }
 .bubble-danger { animation: bubbleDanger 1s ease-in-out infinite; }
 `;
 
+function getWeekId() {
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - d.getDay());
+  return d.toISOString().slice(0, 10);
+}
+
 // ============================================================
 // MAIN APP
 // ============================================================
@@ -1094,6 +1101,12 @@ function MonsterGacha() {
   const [bestScores, setBestScores] = useState({});
   const [playCounts, setPlayCounts] = useState({});
   const [rareEffect, setRareEffect] = useState(null);
+  const [lastLoginDate, setLastLoginDate] = useState(null);
+  const [loginStreak, setLoginStreak] = useState(0);
+  const [showLoginBonus, setShowLoginBonus] = useState(false);
+  const [loginBonusInfo, setLoginBonusInfo] = useState(null);
+  const [rareNotifs, setRareNotifs] = useState([]);
+  const [weeklyScores, setWeeklyScores] = useState({});
   const saveTimer = useRef(null);
 
   const slotKey = (id) => `tgacha-s${id}`;
@@ -1224,12 +1237,16 @@ function MonsterGacha() {
       }
       setBestScores(bs);
       setPlayCounts(d.playCounts || {});
+      setLastLoginDate(d.lastLoginDate || null);
+      setLoginStreak(d.loginStreak || 0);
+      setWeeklyScores(d.weeklyScores || {});
       if (d.lastSave) {
         const away = Math.floor((Date.now() - d.lastSave) / 2000);
         if (away > 0) setCoins(c => c + Math.min(away, 5000));
       }
     } else {
       setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({}); setPlayCounts({});
+      setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({});
       // Preserve global nickname for new slots
       try {
         const nk = await window.storage.get('tgacha-nickname');
@@ -1247,7 +1264,7 @@ function MonsterGacha() {
     setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
     setConfirmDeleteId(null);
     if (id === slotId) {
-      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setScreen("home");
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({}); setScreen("home");
     }
     setSaveMsg("🗑 スロット" + id + "を削除しました");
     setTimeout(() => setSaveMsg(""), 2000);
@@ -1257,7 +1274,7 @@ function MonsterGacha() {
   // ---- SAVE: minimal, no lock, no retry ----
   const [showSaveModal, setShowSaveModal] = useState(false);
   const saveDataRef = useRef(null);
-  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores, playCounts };
+  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores, playCounts, lastLoginDate, loginStreak, weeklyScores };
 
   const saveToSlot = useCallback(async (targetId, silent) => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -1268,7 +1285,7 @@ function MonsterGacha() {
     for (const k of Object.keys(col)) {
       if (col[k] && col[k].count > 0) compressed[k] = col[k].count;
     }
-    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, playCounts: s.playCounts || {}, lastSave: Date.now() };
+    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, playCounts: s.playCounts || {}, lastLoginDate: s.lastLoginDate, loginStreak: s.loginStreak, weeklyScores: s.weeklyScores || {}, lastSave: Date.now() };
     const key = slotKey(targetId);
     try {
       const str = JSON.stringify(data);
@@ -1325,7 +1342,7 @@ function MonsterGacha() {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, updated: Date.now() };
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
         }
@@ -1347,9 +1364,27 @@ function MonsterGacha() {
     return () => clearTimeout(saveTimer.current);
   }, [collection, totalPulls, spending, loaded, slotId, saveToSlot]);
 
-  // Auto coin recovery: +1 every 3s
+  // Daily login bonus check
   useEffect(() => {
-    const t = setInterval(() => setCoins(c => c + 1), 2000);
+    if (!loaded || slotId === null) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (lastLoginDate === today) return; // Already logged in today
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
+    const bonusCoins = newStreak * 1000;
+
+    setLoginStreak(newStreak);
+    setLastLoginDate(today);
+    setCoins(c => c + bonusCoins);
+    setLoginBonusInfo({ streak: newStreak, coins: bonusCoins });
+    setShowLoginBonus(true);
+    setTimeout(() => setShowLoginBonus(false), 4000);
+  }, [loaded, slotId]);
+
+  // Auto coin recovery: +1 every 2s (+1% per login streak day)
+  useEffect(() => {
+    const t = setInterval(() => setCoins(c => c + 1 + Math.floor(loginStreak * 0.01)), 2000);
     return () => clearInterval(t);
   }, []);
 
@@ -1557,6 +1592,13 @@ function MonsterGacha() {
           // SSレア: きらめく3音
           [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.07, i * 0.04));
           setTimeout(() => setRareEffect(null), 400);
+        }
+        // Notify family of rare pull
+        if (r.rank >= 8 && nickname && window.fbDb) {
+          window.fbDb.ref('notifications').push({
+            name: nickname, rank: r.rank, item: r.name, icon: r.icon,
+            rarity: r.rarity.label, timestamp: Date.now()
+          });
         }
       }, revealDelay);
     }, Number(time)));
@@ -1873,9 +1915,13 @@ function MonsterGacha() {
   const [crowns, setCrowns] = useState({ gold: 0, silver: 0, bronze: 0, goldGames: [], silverGames: [], bronzeGames: [] });
   useEffect(() => {
     if (!nickname || !window.fbDb) return;
-    window.fbDb.ref('rankings').once('value').then(snapshot => {
+    const weekId = getWeekId();
+    window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
       const entries = [];
-      snapshot.forEach(child => { const d = child.val(); if (d && d.name) entries.push(d); });
+      snapshot.forEach(child => {
+        const scores = child.val();
+        if (scores) entries.push({ name: child.key, bestScores: scores });
+      });
       let gold = 0, silver = 0, bronze = 0, goldGames = [], silverGames = [], bronzeGames = [];
       GAME_IDS.forEach(gid => {
         const scores = entries.filter(e => (e.bestScores?.[gid] || 0) > 0).sort((a, b) => (b.bestScores?.[gid] || 0) - (a.bestScores?.[gid] || 0));
@@ -1887,6 +1933,21 @@ function MonsterGacha() {
     }).catch(() => {});
   }, [nickname, bestScores]);
   const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
+
+  // Listen for rare pull notifications
+  useEffect(() => {
+    if (!window.fbDb) return;
+    const ref = window.fbDb.ref('notifications').orderByChild('timestamp').limitToLast(5);
+    const handler = ref.on('value', snapshot => {
+      const notifs = [];
+      snapshot.forEach(child => { const d = child.val(); if (d && d.name) notifs.push(d); });
+      notifs.reverse();
+      // Only show notifications from last 24 hours
+      const cutoff = Date.now() - 86400000;
+      setRareNotifs(notifs.filter(n => n.timestamp > cutoff));
+    });
+    return () => ref.off('value', handler);
+  }, []);
   // Score caps per game to prevent illegitimate scores
   const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
@@ -1908,6 +1969,17 @@ function MonsterGacha() {
       // Also update play count in Firebase immediately
       if (nickname && window.fbDb) {
         window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).set(updated[gameId]);
+      }
+      return updated;
+    });
+    setWeeklyScores(prev => {
+      const weekId = getWeekId();
+      const weekData = prev._weekId === weekId ? prev : { _weekId: weekId };
+      const isNewWeekBest = capped > (weekData[gameId] || 0);
+      const updated = isNewWeekBest ? { ...weekData, [gameId]: capped } : weekData;
+      // Write weekly scores to Firebase
+      if (isNewWeekBest && nickname && window.fbDb) {
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(capped);
       }
       return updated;
     });
@@ -2129,6 +2201,17 @@ function MonsterGacha() {
           {saveMsg}
         </div>
       )}
+      {showLoginBonus && loginBonusInfo && (
+        <div style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
+          background: 'linear-gradient(135deg, rgba(80,50,120,0.95), rgba(60,35,100,0.95))',
+          border: '1px solid rgba(167,139,250,0.4)', color: '#fff', padding: '12px 24px', borderRadius: 16,
+          fontSize: 13, fontWeight: 700, animation: 'ri 0.3s ease-out', textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+          <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 4 }}>DAILY LOGIN BONUS</div>
+          <div>🎁 {loginBonusInfo.streak}日連続！ +🪙{loginBonusInfo.coins.toLocaleString()}</div>
+          {loginBonusInfo.streak >= 2 && <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>コイン自動回復 +{loginBonusInfo.streak}%UP</div>}
+        </div>
+      )}
       <div className="cnt">
         {/* HOME */}
         {screen === "home" && (
@@ -2273,6 +2356,24 @@ function MonsterGacha() {
                   </div>
                 </div>
               </div>
+
+              {/* Rare pull notifications */}
+              {rareNotifs.length > 0 && (
+                <div style={{ margin: '12px 0', position: 'relative', zIndex: 1 }}>
+                  {rareNotifs.slice(0, 3).map((n, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                      fontSize: 10, opacity: 0.7, justifyContent: 'center' }}>
+                      <span>{n.icon}</span>
+                      <span style={{ color: '#c084fc' }}>{n.name}</span>
+                      <span>が</span>
+                      <span style={{ fontWeight: 700, color: n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
+                        ★{n.rank} {n.item}
+                      </span>
+                      <span>を入手！</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Odometer */}
               <div className="odo-wrap" style={{ textAlign: 'center' }}>
@@ -6015,6 +6116,8 @@ function RankingScreen() {
   const [tab, setTab] = useState(0);
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rankMode, setRankMode] = useState('weekly');
+  const [weeklyData, setWeeklyData] = useState([]);
 
   useEffect(() => {
     setLoading(true);
@@ -6032,6 +6135,20 @@ function RankingScreen() {
       setLoading(false);
     }
   }, []);
+
+  // Load weekly ranking data
+  useEffect(() => {
+    if (rankMode !== 'weekly' || !window.fbDb) return;
+    const weekId = getWeekId();
+    window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
+      const entries = [];
+      snapshot.forEach(child => {
+        const scores = child.val();
+        if (scores) entries.push({ name: child.key, bestScores: scores });
+      });
+      setWeeklyData(entries);
+    });
+  }, [rankMode, tab]);
 
   const [gameTab, setGameTab] = useState("tap");
 
@@ -6058,6 +6175,11 @@ function RankingScreen() {
   ];
 
   const sorted = useMemo(() => {
+    if (tab === 3 && rankMode === 'weekly') {
+      const list = [...weeklyData];
+      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
+      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+    }
     const list = [...rankings];
     if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
@@ -6067,7 +6189,7 @@ function RankingScreen() {
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
     return list;
-  }, [rankings, tab, gameTab]);
+  }, [rankings, weeklyData, tab, gameTab, rankMode]);
 
   const medal = (i) => `${i + 1}`;
 
@@ -6078,6 +6200,20 @@ function RankingScreen() {
         borderBottom: '1px solid rgba(255,215,0,0.15)', marginBottom: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🏆 ファミリーランキング</div>
         <div style={{ fontSize: 11, opacity: 0.4 }}>セーブ時にランキングが更新されます</div>
+      </div>
+
+      {/* Weekly / Cumulative toggle */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, justifyContent: 'center' }}>
+        <button className={`tfb ${rankMode === 'weekly' ? 'act' : ''}`}
+          style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
+          onClick={() => setRankMode('weekly')}>
+          今週
+        </button>
+        <button className={`tfb ${rankMode === 'cumulative' ? 'act' : ''}`}
+          style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
+          onClick={() => setRankMode('cumulative')}>
+          累計
+        </button>
       </div>
 
       {/* Tabs */}
