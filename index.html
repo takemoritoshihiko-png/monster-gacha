@@ -1181,7 +1181,7 @@ function MonsterGacha() {
         sfx(revealSound);
         addToCollection(r);
       }, revealDelay);
-    }, 400 + i * 350)); // 400ms initial, 350ms between each (~3.5s for 10)
+    }, 320 + i * 280)); // 320ms initial, 280ms between each (~2.8s for 10)
   }, [coins, addToCollection]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
@@ -3185,8 +3185,8 @@ function CollectionView({ collection, onSelect }) {
   const [filter, setFilter] = useState("all");
   const all = useMemo(() => {
     const list = [];
-    TYPES.forEach(type => {
-      RARITIES.forEach(r => {
+    RARITIES.slice().reverse().forEach(r => {
+      TYPES.forEach(type => {
         const key = `${type.id}_${r.rank}`;
         const d = MONSTERS[type.id][r.rank - 1];
         const ow = collection[key];
