@@ -3700,6 +3700,9 @@ function ShootingGame({ onDone }) {
 
   const handleTap = (e) => {
     if (phase !== "play") return;
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 150) return;
+    lastTapTimeRef.current = now;
     const cvs = canvasRef.current;
     if (!cvs) return;
     const rect = cvs.getBoundingClientRect();
