@@ -2530,27 +2530,32 @@ function MonsterGacha() {
         {screen === "minigame" && !miniGame && (
           <div>
             <div className="st">🎮 ミニゲーム</div>
-            <p style={{ fontSize: 12, opacity: 0.5, marginBottom: 14 }}>コインを稼いでガチャを回そう！</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { id: "tap", icon: "👊", name: "連打バトル", desc: "10秒間ひたすら連打！たまにボーナスも..." },
-              { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
-              { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
-              { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
-              { id: "memory", icon: "🃏", name: "神経衰弱スピード", desc: "12枚のカードを最速で全部揃えろ！" },
-              { id: "bubble", icon: "🫧", name: "バブルポップ", desc: "バブルを膨らませろ！欲張りすぎると破裂！" },
-              { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
-              { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙30（4連続+15）" },
-              { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙30（4連続+15）" },
-              { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙43（4連続+22）" },
-              { id: "mathHardAdd", icon: "🧮", name: "計算ゲーム【上級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙52（4連続+26）" },
-              { id: "mathHardMult", icon: "✖️", name: "計算ゲーム【上級】掛け算割り算", desc: "2桁×1桁・2桁÷1桁！1問正解 = 🪙52（4連続+26）" },
+              { id: "tap", icon: "👊", name: "連打バトル" },
+              { id: "gem", icon: "💎", name: "ジュエルキャッチ" },
+              { id: "timing", icon: "⏱️", name: "ルパンタイマー" },
+              { id: "tower", icon: "🪙", name: "コインタワー" },
+              { id: "memory", icon: "🃏", name: "神経衰弱" },
+              { id: "bubble", icon: "🫧", name: "バブルポップ" },
+              { id: "shooting", icon: "🎯", name: "シューティング" },
+              { id: "mathEasy", icon: "➕", name: "初級 足し引き" },
+              { id: "kuku", icon: "🔢", name: "初級 九九" },
+              { id: "mathMid", icon: "📐", name: "中級 足し引き" },
+              { id: "mathHardAdd", icon: "🧮", name: "上級 足し引き" },
+              { id: "mathHardMult", icon: "✖️", name: "上級 掛け割り" },
             ].map(g => (
-              <div key={g.id} className="mgc" onClick={() => { sfx('click'); setMiniGame(g.id); }}>
-                <div style={{ fontSize: 26, marginBottom: 6 }}>{g.icon}</div>
-                <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 3 }}>{g.name}</div>
-                <div style={{ fontSize: 11, opacity: 0.6 }}>{g.desc}</div>
+              <div key={g.id} onClick={() => { sfx('click'); setMiniGame(g.id); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12, cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+                <span style={{ fontSize: 22, width: 32, textAlign: 'center', flexShrink: 0 }}>{g.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{g.name}</span>
               </div>
             ))}
+            </div>
           </div>
         )}
         {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
