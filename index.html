@@ -1354,14 +1354,14 @@ function MonsterGacha() {
         const req = getReq(rank);
         const key = `${type.id}_${rank}`;
         const item = collection[key];
-        if (item && item.count >= req) {
-          candidates.push({ key, typeId: type.id, rank, count: item.count, synthCount: Math.floor(item.count / req), targetRank: rank + 1, req });
+        if (item && item.count >= req + 1) {
+          candidates.push({ key, typeId: type.id, rank, count: item.count, synthCount: Math.floor((item.count - 1) / req), targetRank: rank + 1, req });
         }
       }
     });
-    // ★10: total across ALL types
+    // ★10: total across ALL types (keep 1 per type)
     let total10 = 0;
-    TYPES.forEach(t => { const it = collection[`${t.id}_10`]; if (it) total10 += it.count; });
+    TYPES.forEach(t => { const it = collection[`${t.id}_10`]; if (it && it.count > 1) total10 += it.count - 1; });
     if (total10 >= 3) {
       candidates.push({ special: 'star10', rank: 10, total10, synthCount: Math.floor(total10 / 3), targetRank: 11, req: 3 });
     }
@@ -1375,16 +1375,16 @@ function MonsterGacha() {
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
     sfx('synth');
     if (rank === 10 && targetRank === 11) {
-      // ★10 special: consume 3 from any ★10, produce random ★MAX
+      // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(prev => {
         const n = { ...prev };
         let rem = 3;
         for (const tp of TYPES) {
           if (rem <= 0) break;
           const k = `${tp.id}_10`;
-          if (n[k] && n[k].count > 0) {
-            const take = Math.min(n[k].count, rem);
-            if (n[k].count <= take) delete n[k]; else n[k] = { ...n[k], count: n[k].count - take };
+          if (n[k] && n[k].count > 1) {
+            const take = Math.min(n[k].count - 1, rem);
+            n[k] = { ...n[k], count: n[k].count - take };
             rem -= take;
           }
         }
@@ -1403,10 +1403,10 @@ function MonsterGacha() {
     } else {
       const req = getReq(rank);
       const item = collection[keyOrSpecial];
-      if (!item || item.count < req) return;
+      if (!item || item.count < req + 1) return;
       setCollection(prev => {
         const n = { ...prev };
-        if (n[keyOrSpecial].count <= req) delete n[keyOrSpecial]; else n[keyOrSpecial] = { ...n[keyOrSpecial], count: n[keyOrSpecial].count - req };
+        n[keyOrSpecial] = { ...n[keyOrSpecial], count: n[keyOrSpecial].count - req };
         const tp = TYPES.find(t => t.id === typeId);
         const nm = MONSTERS[typeId][targetRank - 1]; const nr = RARITIES[targetRank - 1];
         const nk = `${typeId}_${targetRank}`;
@@ -1432,9 +1432,9 @@ function MonsterGacha() {
           for (const tp of TYPES) {
             if (rem <= 0) break;
             const k = `${tp.id}_10`;
-            if (n[k] && n[k].count > 0) {
-              const take = Math.min(n[k].count, rem);
-              if (n[k].count <= take) delete n[k]; else n[k] = { ...n[k], count: n[k].count - take };
+            if (n[k] && n[k].count > 1) {
+              const take = Math.min(n[k].count - 1, rem);
+              n[k] = { ...n[k], count: n[k].count - take };
               rem -= take;
             }
           }
@@ -1447,10 +1447,10 @@ function MonsterGacha() {
           }
         } else {
           const avail = n[c.key]?.count || 0;
-          const sc = Math.floor(avail / c.req);
+          const sc = Math.floor((avail - 1) / c.req);
           if (sc <= 0) return;
           const left = avail - sc * c.req;
-          if (left <= 0) delete n[c.key]; else n[c.key] = { ...n[c.key], count: left };
+          n[c.key] = { ...n[c.key], count: left };
           const tp = TYPES.find(t => t.id === c.typeId);
           const nm = MONSTERS[c.typeId][c.targetRank - 1]; const nr = RARITIES[c.targetRank - 1];
           const nk = `${c.typeId}_${c.targetRank}`;
@@ -4165,7 +4165,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
         borderBottom: '1px solid rgba(139,92,246,0.1)', marginBottom: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>⚗️ 合成</div>
         <div style={{ fontSize: 11, opacity: 0.4 }}>
-          同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム
+          同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム<br/>※各アイテム1個はコレクション用に保持
         </div>
       </div>
 
