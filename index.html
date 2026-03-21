@@ -831,6 +831,7 @@ const CSS = `
   pointer-events: none; animation: fu 0.8s ease-out forwards;
 }
 @keyframes fu { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-70px) scale(1.4)} }
+@keyframes gemFall { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 60%{opacity:1} 100%{opacity:0;transform:translateY(120px) rotate(180deg)} }
 .md { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; text-align: center; margin: 16px 0; color: #fbbf24; }
 .mi {
   background: rgba(255,255,255,0.08); border: 2px solid rgba(139,92,246,0.25);
@@ -3130,12 +3131,17 @@ function TapGame({ onDone }) {
   const [earned, setEarned] = useState(0);
   const [taps, setTaps] = useState(0);
   const [floats, setFloats] = useState([]);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [gems, setGems] = useState([]);
   const fid = useRef(0);
+  const gid = useRef(0);
   const timer = useRef(null);
   const start0 = useRef(null);
 
+  const GEM_ICONS = ['💎','🪙','⭐','💰','🔮','👑','🏆','💫','✨','🌟'];
+
   const startGame = () => {
-    setPhase("play"); setTimeLeft(10); setEarned(0); setTaps(0);
+    setPhase("play"); setTimeLeft(10); setEarned(0); setTaps(0); setGems([]);
     bgm.playLoop(BGM_TAP, 160);
     start0.current = Date.now();
     timer.current = setInterval(() => {
@@ -3150,50 +3156,95 @@ function TapGame({ onDone }) {
   const handleTap = () => {
     if (phase !== "play") return;
     setTaps(t => t + 1);
+    setShakeKey(k => k + 1);
     const r = Math.random();
-    let bonus = 1, label = "+1", snd = "tap", color = "#fff";
-    if (r < 0.0005) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; }
-    else if (r < 0.0105) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; }
-    else if (r < 0.0505) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; }
-    else if (r < 0.1305) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; }
-    else if (r < 0.2805) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; }
+    let bonus = 1, label = "+1", snd = "tap", color = "#fff", gemCount = 1;
+    if (r < 0.0005) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; gemCount = 8; }
+    else if (r < 0.0105) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; gemCount = 5; }
+    else if (r < 0.0505) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; gemCount = 4; }
+    else if (r < 0.1305) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; gemCount = 3; }
+    else if (r < 0.2805) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; gemCount = 2; }
     sfx(snd);
     setEarned(e => e + bonus);
     const id = ++fid.current;
-    setFloats(p => [...p, { id, label, color, x: 20 + Math.random() * 60 }]);
+    setFloats(p => [...p, { id, label, color, x: 30 + Math.random() * 40, y: 10 + Math.random() * 30 }]);
     setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 800);
+    // Spawn falling gems
+    const newGems = [];
+    for (let i = 0; i < gemCount; i++) {
+      newGems.push({
+        id: ++gid.current,
+        icon: GEM_ICONS[Math.floor(Math.random() * GEM_ICONS.length)],
+        x: 10 + Math.random() * 80,
+        delay: i * 50,
+        size: 12 + Math.random() * 10,
+        duration: 600 + Math.random() * 400,
+      });
+    }
+    setGems(p => [...p, ...newGems]);
+    newGems.forEach(g => setTimeout(() => setGems(p => p.filter(gg => gg.id !== g.id)), g.duration + g.delay + 100));
   };
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <div className="st" style={{ justifyContent: 'center' }}>👊 連打バトル</div>
+      <div className="st" style={{ justifyContent: 'center' }}>⛏️ 連打バトル</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>10秒間で連打してコインを稼ごう！</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>岩を叩いて宝石を掘り出せ！10秒間！</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
       {phase === "play" && (
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', minHeight: 350 }}>
           <div className="sr">
             <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
             <div className="sb">🪙 {earned}</div>
-            <div className="sb">👊 {taps}</div>
+            <div className="sb">⛏️ {taps}</div>
           </div>
           <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 10) * 100}%` }} /></div>
-          <div style={{ position: 'relative', display: 'inline-block', marginTop: 16 }}>
-            <div className="tap" onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}>👊</div>
+          {/* Falling gems */}
+          {gems.map(g => (
+            <div key={g.id} style={{
+              position: 'absolute', left: `${g.x}%`, top: '30%', fontSize: g.size,
+              animation: `gemFall ${g.duration}ms ease-out ${g.delay}ms forwards`,
+              pointerEvents: 'none', zIndex: 0, opacity: 0.9,
+              filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))',
+            }}>{g.icon}</div>
+          ))}
+          {/* Full-width tap area */}
+          <div onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}
+            style={{ position: 'relative', marginTop: 12, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 1 }}>
+            {/* Rock/ore */}
+            <div key={shakeKey} style={{
+              width: 200, height: 200, margin: '0 auto', borderRadius: '50%',
+              background: 'radial-gradient(circle at 40% 35%, #8B7355, #5C4033, #3B2A1A)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 72, position: 'relative',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.5), inset 0 -4px 10px rgba(0,0,0,0.3), inset 0 4px 8px rgba(255,255,255,0.05)',
+              animation: 'rareShake 0.15s ease-out',
+            }}>
+              {/* Gem veins on rock */}
+              <div style={{ position: 'absolute', width: 12, height: 12, background: 'rgba(139,92,246,0.4)', borderRadius: '50%', top: '25%', left: '30%', filter: 'blur(2px)' }} />
+              <div style={{ position: 'absolute', width: 8, height: 8, background: 'rgba(251,191,36,0.4)', borderRadius: '50%', top: '60%', right: '25%', filter: 'blur(2px)' }} />
+              <div style={{ position: 'absolute', width: 10, height: 10, background: 'rgba(96,165,250,0.3)', borderRadius: '50%', bottom: '30%', left: '25%', filter: 'blur(2px)' }} />
+              ⛏️
+            </div>
+            {/* Extended tap zone (invisible) */}
+            <div style={{ position: 'absolute', inset: -20, zIndex: 2 }} />
+            {/* Float texts */}
             {floats.map(f => (
-              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '20%' }}>{f.label}</div>
+              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: `${f.y}%`, zIndex: 10 }}>{f.label}</div>
             ))}
           </div>
+          {/* Tap hint */}
+          <div style={{ fontSize: 11, opacity: 0.3, marginTop: 8 }}>どこでもタップ！</div>
         </div>
       )}
       {phase === "done" && (
         <>
-          <div style={{ fontSize: 44, margin: '16px 0' }}>🎉</div>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>💎</div>
           <p style={{ fontSize: 18, fontWeight: 900, color: '#f1c40f' }}>🪙 {earned} コイン獲得！</p>
-          <p style={{ fontSize: 12, opacity: 0.5 }}>タップ数: {taps}回</p>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>採掘回数: {taps}回</p>
         </>
       )}
     </div>
