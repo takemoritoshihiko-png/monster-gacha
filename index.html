@@ -754,11 +754,11 @@ const CSS = `
 }
 @keyframes rainbowText { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
 .rank-diamond {
-  background: linear-gradient(135deg, #fff, #e0e7ff, #fff, #c7d2fe, #fff);
-  background-size: 300% 300%;
+  background: linear-gradient(135deg, #fff, #ffd700, #fff, #ff69b4, #fff, #7b68ee, #fff);
+  background-size: 400% 400%;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  animation: diamondShift 3s ease infinite;
-  filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+  animation: diamondShift 2s ease infinite;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,0.8)) drop-shadow(0 0 16px rgba(255,255,255,0.4));
 }
 @keyframes diamondShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
 
@@ -766,17 +766,24 @@ const CSS = `
 .rc.rank8-card { box-shadow: 0 0 20px rgba(200,214,229,0.3), 0 0 40px rgba(200,214,229,0.1) !important; }
 .rc.rank9-card { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15) !important; }
 .rc.rank10-card {
-  box-shadow: 0 0 30px rgba(255,107,129,0.3), 0 0 60px rgba(107,197,255,0.2), 0 0 90px rgba(208,107,255,0.15) !important;
+  box-shadow: 0 0 30px rgba(255,107,129,0.4), 0 0 60px rgba(107,197,255,0.3), 0 0 90px rgba(208,107,255,0.2) !important;
   animation: rainbowGlow 2s ease-in-out infinite;
+  border-width: 3px !important;
 }
 @keyframes rainbowGlow {
-  0%,100% { box-shadow: 0 0 25px rgba(255,107,107,0.4), 0 0 50px rgba(255,209,61,0.2); }
-  33% { box-shadow: 0 0 25px rgba(107,255,107,0.4), 0 0 50px rgba(107,197,255,0.2); }
-  66% { box-shadow: 0 0 25px rgba(107,197,255,0.4), 0 0 50px rgba(208,107,255,0.2); }
+  0%,100% { box-shadow: 0 0 30px rgba(255,107,107,0.5), 0 0 60px rgba(255,209,61,0.3); border-color: #ff6b6b; }
+  33% { box-shadow: 0 0 30px rgba(107,255,107,0.5), 0 0 60px rgba(107,197,255,0.3); border-color: #6bff6b; }
+  66% { box-shadow: 0 0 30px rgba(107,197,255,0.5), 0 0 60px rgba(208,107,255,0.3); border-color: #6bc5ff; }
 }
 .rc.rank11-card {
-  box-shadow: 0 0 35px rgba(255,255,255,0.5), 0 0 70px rgba(255,255,255,0.2), 0 0 100px rgba(199,210,254,0.15) !important;
-  animation: gp 1s ease-in-out infinite;
+  box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2) !important;
+  animation: rank11Pulse 1.5s ease-in-out infinite;
+  border: 3px solid #ffd700 !important;
+  background: linear-gradient(160deg, rgba(30,20,50,0.95), rgba(50,30,20,0.95)) !important;
+}
+@keyframes rank11Pulse {
+  0%,100% { box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2); transform: scale(1); }
+  50% { box-shadow: 0 0 60px rgba(255,215,0,0.8), 0 0 100px rgba(255,255,255,0.5), 0 0 150px rgba(255,107,255,0.3); transform: scale(1.03); }
 }
 
 /* Minigames */
@@ -1554,8 +1561,16 @@ function MonsterGacha() {
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
         if (targetRank === 11) {
-          setRareEffect({ type: 'synthMax', name: nm.name });
-          setTimeout(() => setRareEffect(null), 3000);
+          setRareEffect({ type: 'synthMax', name: nm.name, icon: nm.icon });
+          // Epic ★MAX synthesis fanfare
+          playNote(50, 0.8, 'sawtooth', 0.12);
+          playSweep(80, 3000, 1.0, 'sine', 0.1);
+          playNoise(0.3, 0.08);
+          [262, 330, 392, 494, 587, 698, 831, 1047, 1319, 1568].forEach((f, i) => playNote(f, 0.35, 'sine', 0.1, 0.3 + i * 0.08));
+          playChord([1047, 1319, 1568, 2093], 1.5, 'sine', 0.08, 1.2);
+          playChord([1319, 1568, 2093], 1.0, 'triangle', 0.05, 1.5);
+          [2093, 2349, 2637, 3136, 3520].forEach((f, i) => playNote(f, 0.25, 'sine', 0.04, 1.8 + i * 0.1));
+          setTimeout(() => setRareEffect(null), 4500);
         }
         return n;
       });
@@ -2487,11 +2502,25 @@ function MonsterGacha() {
       {/* Rare gacha effects */}
       {rareEffect && rareEffect.type === 'god' && (
         <>
-          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,107,107,0.3), rgba(255,209,61,0.3), rgba(107,255,107,0.3), rgba(107,197,255,0.3), rgba(208,107,255,0.3))' }} />
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', pointerEvents: 'none' }}>
+          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,107,107,0.4), rgba(255,209,61,0.4), rgba(107,255,107,0.4), rgba(107,197,255,0.4), rgba(208,107,255,0.4))' }} />
+          <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle, rgba(80,40,0,0.9), rgba(0,0,0,0.95))', pointerEvents: 'none' }}>
             <div className="rare-rainbow" style={{ textAlign: 'center' }}>
-              <div className="rare-god-text" style={{ fontSize: 28, fontWeight: 900, color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.4)', fontFamily: "'Orbitron',sans-serif", letterSpacing: 6 }}>
-                ✨ G O D 降 臨 ✨
+              <div style={{ fontSize: 60, marginBottom: 16, animation: 'heroIconFloat 1.5s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))' }}>
+                💎
+              </div>
+              <div className="rare-god-text" style={{ fontSize: 32, fontWeight: 900,
+                background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)',
+                backgroundSize: '200% 100%', animation: 'rainbowText 1.5s linear infinite',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 15px rgba(255,215,0,0.6))',
+                fontFamily: "'Orbitron',sans-serif", letterSpacing: 8 }}>
+                G O D 降 臨
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,215,0,0.6)', marginTop: 8, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 4 }}>
+                ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
               </div>
             </div>
           </div>
@@ -2513,11 +2542,30 @@ function MonsterGacha() {
         <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(155,89,182,0.15), transparent 70%)', animationDuration: '0.25s' }} />
       )}
       {rareEffect && rareEffect.type === 'synthMax' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
-          <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900, color: '#fff', textShadow: '0 0 30px rgba(255,255,255,0.8)', fontFamily: "'Orbitron',sans-serif" }}>
-            伝説の{rareEffect.name}を手に入れた！
+        <>
+          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.4), rgba(255,107,255,0.3), rgba(107,197,255,0.3))', animationDuration: '0.6s' }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle, rgba(50,30,10,0.95), rgba(0,0,0,0.98))', pointerEvents: 'none' }}>
+            <div className="rare-rainbow" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 30px rgba(255,215,0,0.8)) drop-shadow(0 0 60px rgba(255,255,255,0.4))' }}>
+                {rareEffect.icon || '💫'}
+              </div>
+              <div className="rare-god-text" style={{ fontSize: 14, fontWeight: 900, letterSpacing: 4,
+                color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8)', fontFamily: "'Rajdhani',sans-serif", marginBottom: 8 }}>
+                ★ M A X
+              </div>
+              <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900,
+                background: 'linear-gradient(135deg, #ffd700, #fff, #ff69b4, #ffd700)',
+                backgroundSize: '300% 300%', animation: 'gradShift 2s ease infinite',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.6))',
+                fontFamily: "'Orbitron',sans-serif" }}>
+                伝説の{rareEffect.name}を手に入れた！
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Cue effects (gacha foreshadowing) */}
