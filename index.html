@@ -2374,17 +2374,27 @@ function MonsterGacha() {
                   <div style={{ position: 'absolute', width: 100, height: 100, background: 'rgba(255,215,0,0.15)', borderRadius: '50%', filter: 'blur(40px)', top: -20, right: 20 }} />
                   <div style={{ position: 'absolute', width: 70, height: 70, background: 'rgba(139,92,246,0.2)', borderRadius: '50%', filter: 'blur(30px)', bottom: 0, left: 30 }} />
 
-                  {/* 4 chest showcase */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16, position: 'relative', zIndex: 1 }}>
+                  {/* 4 chest showcase - CSS only */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16, position: 'relative', zIndex: 1 }}>
                     {[
-                      { src: 'chest-wood.png', label: '★1-2', color: 'rgba(255,255,255,0.4)' },
-                      { src: 'chest-silver.png', label: '★3-4', color: '#c8d6e5' },
-                      { src: 'chest-gold.png', label: '★5-7', color: '#ffd700' },
-                      { src: 'chest-rainbow.png', label: '★8+', color: '#ff6b81' },
+                      { icon: '📦', label: '★1-2', bg: 'linear-gradient(135deg, #8B6914, #A0782C, #6B4F10)', border: '#C4A54D', glow: 'none', labelColor: 'rgba(255,255,255,0.4)' },
+                      { icon: '🪙', label: '★3-4', bg: 'linear-gradient(135deg, #9EABBE, #D5DDE8, #A8B6C8)', border: '#E8EDF3', glow: '0 0 12px rgba(200,214,229,0.3)', labelColor: '#c8d6e5' },
+                      { icon: '👑', label: '★5-7', bg: 'linear-gradient(135deg, #B8860B, #FFD700, #DAA520)', border: '#FFE44D', glow: '0 0 18px rgba(255,215,0,0.4)', labelColor: '#ffd700' },
+                      { icon: '💎', label: '★8+', bg: 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff)', border: 'rgba(255,255,255,0.6)', glow: '0 0 20px rgba(255,107,107,0.3), 0 0 40px rgba(107,197,255,0.2)', labelColor: '#ff6b81',
+                        anim: 'rainbowBg 3s ease infinite', bgSize: '300% 300%' },
                     ].map((c, i) => (
-                      <div key={i} style={{ textAlign: 'center', width: 75 }}>
-                        <img src={c.src} alt={c.label} style={{ width: 65, height: 'auto', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }} />
-                        <div style={{ fontSize: 9, fontWeight: 700, color: c.color, marginTop: 2 }}>{c.label}</div>
+                      <div key={i} style={{ textAlign: 'center' }}>
+                        <div style={{
+                          width: 56, height: 56, borderRadius: 12,
+                          background: c.bg, backgroundSize: c.bgSize || 'auto',
+                          border: `2px solid ${c.border}`,
+                          boxShadow: `${c.glow}, 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 26, animation: c.anim || 'none',
+                          filter: i >= 2 ? `drop-shadow(0 0 ${i >= 3 ? 8 : 4}px ${c.border})` : 'none',
+                        }}>{c.icon}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: c.labelColor, marginTop: 4,
+                          textShadow: i >= 2 ? `0 0 6px ${c.labelColor}` : 'none' }}>{c.label}</div>
                       </div>
                     ))}
                   </div>
@@ -2503,9 +2513,15 @@ function MonsterGacha() {
                   {gachaChests.map((ct, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {!opened.has(i) ? (
-                        <div className="chest" style={{ width: 52, height: 52, margin: '0 auto' }}>
-                          <img src={ct === 'rainbow' ? 'chest-rainbow.png' : ct === 'gold' ? 'chest-gold.png' : ct === 'silver' ? 'chest-silver.png' : 'chest-wood.png'}
-                            alt="" style={{ width: 48, height: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }} />
+                        <div className="chest" style={{ width: 48, height: 48, margin: '0 auto' }}>
+                          <div className={`chest-box ${ct === 'rainbow' ? 'rainbow-box' : ct === 'gold' ? 'gold-box' : ct === 'silver' ? 'silver-box' : 'wood-box'}`}
+                            style={{ width: 44, height: 44, fontSize: 22,
+                              boxShadow: ct === 'rainbow' ? '0 0 15px rgba(255,107,107,0.3), 0 0 30px rgba(107,197,255,0.2)' :
+                                ct === 'gold' ? '0 0 12px rgba(255,215,0,0.4)' :
+                                ct === 'silver' ? '0 0 8px rgba(200,214,229,0.3)' :
+                                '0 3px 8px rgba(0,0,0,0.3)' }}>
+                            {ct === 'rainbow' ? '💎' : ct === 'gold' ? '👑' : ct === 'silver' ? '🪙' : '📦'}
+                          </div>
                         </div>
                       ) : (
                         <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : ''}`}
