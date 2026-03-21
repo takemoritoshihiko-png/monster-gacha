@@ -8,6 +8,14 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
+    });
+    window.fbDb = firebase.database();
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -1177,7 +1185,9 @@ function MonsterGacha() {
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
         const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, updated: Date.now() };
-        await window.storage.set('tgacha-rank:' + s.nickname, JSON.stringify(rankData));
+        if (window.fbDb) {
+          window.fbDb.ref('rankings/' + s.nickname).set(rankData);
+        }
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
     if (!silent) setTimeout(() => setSaveMsg(""), 5000);
@@ -4376,25 +4386,20 @@ function RankingScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await window.storage.list('tgacha-rank:');
-        const keys = res?.keys || [];
+    setLoading(true);
+    if (window.fbDb) {
+      window.fbDb.ref('rankings').once('value').then(snapshot => {
         const entries = [];
-        for (const k of keys) {
-          try {
-            const r = await window.storage.get(k);
-            if (r && r.value) {
-              const d = JSON.parse(r.value);
-              if (d && d.name) entries.push(d);
-            }
-          } catch(e) {}
-        }
+        snapshot.forEach(child => {
+          const d = child.val();
+          if (d && d.name) entries.push(d);
+        });
         setRankings(entries);
-      } catch(e) {}
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    } else {
       setLoading(false);
-    })();
+    }
   }, []);
 
   const [gameTab, setGameTab] = useState("tap");
