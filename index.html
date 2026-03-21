@@ -1883,6 +1883,7 @@ function MonsterGacha() {
               { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
               { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
+              { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！15秒間の射的チャレンジ" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙20（4連続+10）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙20（4連続+10）" },
               { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙30（4連続+15）" },
@@ -1899,6 +1900,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
@@ -2778,6 +2780,20 @@ function TimingGame({ onDone }) {
 // ============================================================
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
+// Shooting Gallery BGM: Upbeat action melody BPM140
+const SHOOTING_BGM = [
+  {n:262,b:0,d:0.12,t:'square',v:0.03},{n:330,b:0.5,d:0.12,t:'square',v:0.03},
+  {n:392,b:1,d:0.12,t:'square',v:0.035},{n:330,b:1.5,d:0.12,t:'square',v:0.03},
+  {n:294,b:2,d:0.12,t:'square',v:0.03},{n:370,b:2.5,d:0.12,t:'square',v:0.03},
+  {n:440,b:3,d:0.15,t:'square',v:0.035},{n:392,b:3.5,d:0.12,t:'square',v:0.03},
+  {n:262,b:4,d:0.12,t:'square',v:0.03},{n:349,b:4.5,d:0.12,t:'square',v:0.03},
+  {n:392,b:5,d:0.12,t:'square',v:0.035},{n:349,b:5.5,d:0.12,t:'square',v:0.03},
+  {n:330,b:6,d:0.12,t:'square',v:0.03},{n:294,b:6.5,d:0.12,t:'square',v:0.03},
+  {n:262,b:7,d:0.25,t:'square',v:0.04},
+  {n:131,b:0,d:0.3,t:'triangle',v:0.025},{n:147,b:2,d:0.3,t:'triangle',v:0.025},
+  {n:131,b:4,d:0.3,t:'triangle',v:0.025},{n:165,b:6,d:0.3,t:'triangle',v:0.025},
+];
+
 // Coin Tower BGM: Upbeat stacking rhythm
 const BGM_TOWER = [
   {n:262,b:0,d:0.1,t:'square',v:0.05},{n:330,b:0.5,d:0.1,t:'square',v:0.04},
@@ -2804,6 +2820,334 @@ const GEM_BGM = [
   {n:131,b:0,d:0.4,t:'triangle',v:0.03},{n:147,b:2,d:0.4,t:'triangle',v:0.03},
   {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
 ];
+
+// ============================================================
+// SHOOTING GALLERY GAME
+// ============================================================
+function ShootingGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [earned, setEarned] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  const [stats, setStats] = useState({ balloon: 0, target: 0, ufo: 0, gold: 0 });
+  const [floats, setFloats] = useState([]);
+
+  const canvasRef = useRef(null);
+  const targetsRef = useRef([]);
+  const earnedRef = useRef(0);
+  const comboRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const statsRef = useRef({ balloon: 0, target: 0, ufo: 0, gold: 0 });
+  const startRef = useRef(null);
+  const rafRef = useRef(null);
+  const spawnRef = useRef(null);
+  const fid = useRef(0);
+  const lastFrameRef = useRef(0);
+  const particlesRef = useRef([]);
+
+  const DURATION = 15;
+  const CANVAS_W = 300;
+  const CANVAS_H = 400;
+
+  const spawnTarget = (elapsed) => {
+    const phase = elapsed / DURATION;
+    const r = Math.random() * 100;
+    let type, icon, size, fontSize, vx, vy, glow, coins, x, y;
+
+    if (phase > 0.66 && r < 3) {
+      // Gold star - only after 10s
+      type = 'gold'; icon = '⭐'; size = 11; fontSize = 22; glow = '#fbbf24'; coins = 40;
+      x = 30 + Math.random() * (CANVAS_W - 60);
+      y = 30 + Math.random() * (CANVAS_H - 60);
+      vx = (Math.random() - 0.5) * 2;
+      vy = (Math.random() - 0.5) * 1.5;
+    } else if (r < 3 + 12) {
+      // UFO
+      type = 'ufo'; icon = '🛸'; size = 15; fontSize = 30; glow = '#60a5fa'; coins = 20;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      x = dir > 0 ? -20 : CANVAS_W + 20;
+      y = 30 + Math.random() * (CANVAS_H * 0.5);
+      vx = dir * (3 + Math.random() * 2 + phase * 2);
+      vy = 0;
+    } else if (r < 3 + 12 + 25) {
+      // Target
+      type = 'target'; icon = '🎯'; size = 17; fontSize = 34; glow = '#f87171'; coins = 10;
+      x = 30 + Math.random() * (CANVAS_W - 60);
+      y = 50 + Math.random() * (CANVAS_H - 120);
+      vx = 0; vy = 0;
+    } else {
+      // Balloon
+      type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 5;
+      x = 20 + Math.random() * (CANVAS_W - 40);
+      y = CANVAS_H + 20;
+      vx = 0; vy = -(0.5 + Math.random() * 0.5 + phase * 0.5);
+    }
+
+    targetsRef.current.push({
+      id: ++fid.current, type, icon, x, y, size, fontSize, vx, vy, glow, coins,
+      spawnTime: Date.now(), alive: true
+    });
+  };
+
+  const startGame = () => {
+    setPhase("play"); setEarned(0); setTimeLeft(DURATION); setCombo(0); setMaxCombo(0);
+    setStats({ balloon: 0, target: 0, ufo: 0, gold: 0 });
+    earnedRef.current = 0; comboRef.current = 0; maxComboRef.current = 0;
+    statsRef.current = { balloon: 0, target: 0, ufo: 0, gold: 0 };
+    targetsRef.current = []; particlesRef.current = [];
+    lastFrameRef.current = Date.now();
+    startRef.current = Date.now();
+    bgm.playLoop(SHOOTING_BGM, 140);
+
+    // Spawn loop
+    let spawnCount = 0;
+    const beatMs = 60000 / 140;
+    const scheduleSpawn = () => {
+      if (!startRef.current) return;
+      const elapsed = (Date.now() - startRef.current) / 1000;
+      if (elapsed > DURATION - 0.5) return;
+      const phase = elapsed / DURATION;
+
+      // Spawn 1-4 targets based on difficulty
+      const count = phase < 0.33 ? (Math.random() < 0.5 ? 1 : 2)
+                  : phase < 0.66 ? (1 + Math.floor(Math.random() * 2.5))
+                  : (2 + Math.floor(Math.random() * 2.5));
+      for (let i = 0; i < count; i++) spawnTarget(elapsed);
+      spawnCount++;
+
+      const interval = phase < 0.33 ? beatMs * 1.2 : phase < 0.66 ? beatMs * 0.9 : beatMs * 0.7;
+      spawnRef.current = setTimeout(scheduleSpawn, interval);
+    };
+    spawnRef.current = setTimeout(scheduleSpawn, 300);
+
+    // Game loop
+    const loop = () => {
+      const now = Date.now();
+      const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+      lastFrameRef.current = now;
+      const elapsed = (now - startRef.current) / 1000;
+      const rem = Math.max(0, DURATION - elapsed);
+      setTimeLeft(rem);
+      const time = elapsed;
+
+      // Update targets
+      targetsRef.current.forEach(t => {
+        if (!t.alive) return;
+        const age = (now - t.spawnTime) / 1000;
+        if (t.type === 'balloon') {
+          t.y += t.vy * 60 * dt;
+          t.x += Math.sin(age * 2) * 1.5 * dt * 60;
+        } else if (t.type === 'target') {
+          const spd = 1 + elapsed / DURATION;
+          t.x += Math.sin(age * 3) * spd * dt * 60;
+          t.y += Math.cos(age * 1.5) * 0.5 * dt * 60;
+        } else if (t.type === 'ufo') {
+          t.x += t.vx * dt * 60;
+        } else if (t.type === 'gold') {
+          t.x += (Math.sin(age * 5) * 2 + t.vx) * dt * 60;
+          t.y += (Math.cos(age * 4) * 2 + t.vy) * dt * 60;
+        }
+      });
+      // Remove off-screen
+      targetsRef.current = targetsRef.current.filter(t => {
+        if (!t.alive) return false;
+        if (t.y < -50 || t.y > CANVAS_H + 50 || t.x < -50 || t.x > CANVAS_W + 50) return false;
+        return true;
+      });
+
+      // Update particles
+      particlesRef.current.forEach(p => {
+        p.x += p.vx * dt * 60;
+        p.y += p.vy * dt * 60;
+        p.life -= dt;
+      });
+      particlesRef.current = particlesRef.current.filter(p => p.life > 0);
+
+      // Draw
+      const cvs = canvasRef.current;
+      if (cvs) {
+        const ctx = cvs.getContext('2d');
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Background
+        ctx.fillStyle = 'rgba(6,6,15,0.85)';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Stars background
+        for (let i = 0; i < 20; i++) {
+          const sx = (i * 47 + time * 3) % CANVAS_W;
+          const sy = (i * 31 + 10) % CANVAS_H;
+          ctx.fillStyle = `rgba(255,255,255,${0.1 + Math.sin(time * 2 + i) * 0.05})`;
+          ctx.fillRect(sx, sy, 1, 1);
+        }
+
+        // Draw targets
+        targetsRef.current.forEach(t => {
+          if (!t.alive) return;
+          // Glow
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          ctx.shadowColor = t.glow;
+          ctx.shadowBlur = 15;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, t.size * 0.7, 0, Math.PI * 2);
+          ctx.fillStyle = t.glow;
+          ctx.fill();
+          ctx.restore();
+          // Emoji
+          ctx.font = `${t.fontSize}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(t.icon, t.x, t.y);
+        });
+
+        // Draw particles
+        particlesRef.current.forEach(p => {
+          ctx.globalAlpha = Math.max(0, p.life / 0.3);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      if (rem > 0) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        clearTimeout(spawnRef.current);
+        bgm.stop(); sfx('gameFinish');
+        setPhase("done");
+        setEarned(earnedRef.current);
+        setStats({ ...statsRef.current });
+        setMaxCombo(maxComboRef.current);
+      }
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  const handleTap = (e) => {
+    if (phase !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const rect = cvs.getBoundingClientRect();
+    const tapX = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
+    const tapY = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top;
+    const scaleX = CANVAS_W / rect.width;
+    const scaleY = CANVAS_H / rect.height;
+    const cx = tapX * scaleX;
+    const cy = tapY * scaleY;
+
+    let hit = null, hitDist = Infinity;
+    targetsRef.current.forEach(t => {
+      if (!t.alive) return;
+      const dist = Math.sqrt((t.x - cx) ** 2 + (t.y - cy) ** 2);
+      if (dist < t.size + 10 && dist < hitDist) { hit = t; hitDist = dist; }
+    });
+
+    if (hit) {
+      hit.alive = false;
+      let coins = hit.coins;
+      if (hit.type === 'target' && hitDist <= 15) coins = 15;
+      comboRef.current++;
+      if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
+      if (comboRef.current >= 10) coins += 10;
+      else if (comboRef.current >= 5) coins += 5;
+      earnedRef.current += coins;
+      statsRef.current[hit.type]++;
+      setEarned(earnedRef.current);
+      setCombo(comboRef.current);
+      setStats({ ...statsRef.current });
+
+      // Sound
+      if (hit.type === 'balloon') { playNote(600, 0.06, 'sine', 0.1); }
+      else if (hit.type === 'target') { playNote(500, 0.08, 'sine', 0.12); }
+      else if (hit.type === 'ufo') { playNote(800, 0.1, 'square', 0.08); playNote(600, 0.1, 'square', 0.06, 0.05); }
+      else if (hit.type === 'gold') { sfx('correctStreak'); }
+
+      // Particles
+      for (let i = 0; i < 5; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 1.5 + Math.random() * 2;
+        particlesRef.current.push({
+          x: hit.x, y: hit.y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+          color: hit.glow, size: 2 + Math.random() * 2, life: 0.3
+        });
+      }
+
+      // Float
+      const id = ++fid.current;
+      const label = (hit.type === 'gold' ? '⭐' : hit.type === 'ufo' ? '🛸' : '') + ` +${coins}` + (comboRef.current >= 10 ? '🔥' : comboRef.current >= 5 ? '✨' : '');
+      const color = hit.type === 'gold' ? '#fbbf24' : hit.type === 'ufo' ? '#60a5fa' : hit.type === 'target' ? '#f87171' : '#f472b6';
+      setFloats(p => [...p, { id, label, color, x: (hit.x / CANVAS_W) * 100 }]);
+      setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 600);
+    } else {
+      comboRef.current = 0;
+      setCombo(0);
+      sfx('wrong');
+    }
+  };
+
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current);
+    clearTimeout(spawnRef.current);
+    bgm.stop();
+  }, []);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🎯 シューティングギャラリー</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            動く的を撃ち落とせ！15秒間の射的チャレンジ<br/>
+            空タップでコンボリセット！
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            🎈=🪙5 ／ 🎯=🪙10(中心15) ／ 🛸=🪙20 ／ ⭐=🪙40<br/>
+            コンボ5連続+5 ／ 10連続+10
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ position: 'relative' }}>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">🪙 {earned}</div>
+            <div className="sb" style={{ color: combo >= 10 ? '#fbbf24' : combo >= 5 ? '#f472b6' : '#a78bfa' }}>
+              {combo > 0 ? `🔥${combo}` : '-'}
+            </div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / DURATION) * 100}%` }} /></div>
+          <div style={{ position: 'relative', marginTop: 8, display: 'inline-block' }}>
+            <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
+              style={{ borderRadius: 14, border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', cursor: 'crosshair' }}
+              onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(e); }} />
+            {floats.map(f => (
+              <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '50%', fontSize: 12, fontWeight: 900 }}>{f.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🎯</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '12px 0', fontSize: 13, flexWrap: 'wrap' }}>
+            <div><span style={{ fontSize: 18 }}>🎈</span><br/>{stats.balloon}</div>
+            <div><span style={{ fontSize: 18 }}>🎯</span><br/>{stats.target}</div>
+            <div><span style={{ fontSize: 18 }}>🛸</span><br/>{stats.ufo}</div>
+            <div><span style={{ fontSize: 18 }}>⭐</span><br/>{stats.gold}</div>
+          </div>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>最大コンボ: 🔥{maxCombo}</p>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ============================================================
 // COIN TOWER GAME
