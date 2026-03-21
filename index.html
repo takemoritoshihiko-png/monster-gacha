@@ -1085,7 +1085,9 @@ function MonsterGacha() {
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
       setNickname(d.nickname || "");
-      setBestScores(d.bestScores || {});
+      const bs = d.bestScores || {};
+      if (bs.timing && bs.timing > 1600) bs.timing = 1600;
+      setBestScores(bs);
       setPlayCounts(d.playCounts || {});
       if (d.lastSave) {
         const away = Math.floor((Date.now() - d.lastSave) / 2000);
