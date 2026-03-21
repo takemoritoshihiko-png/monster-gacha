@@ -2107,28 +2107,47 @@ function MonsterGacha() {
               }}>
                 {formatYen(totalPower)}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                {totalPower < 30000 ? '🌱 拾い屋見習い' :
-                 totalPower < 100000 ? '🪙 古銭集め' :
-                 totalPower < 500000 ? '💰 骨董好き' :
-                 totalPower < 2000000 ? '🔍 トレジャーハンター' :
-                 totalPower < 5000000 ? '🗝️ 熟練ハンター' :
-                 totalPower < 10000000 ? '🏺 遺跡探検家' :
-                 totalPower < 30000000 ? '💎 宝石鑑定士' :
-                 totalPower < 100000000 ? '🏆 財宝コレクター' :
-                 totalPower < 300000000 ? '🎖️ 大富豪' :
-                 totalPower < 500000000 ? '👑 宝物庫の主' :
-                 totalPower < 1000000000 ? '🌙 伝説の蒐集家' :
-                 totalPower < 3000000000 ? '⭐ 王室鑑定官' :
-                 totalPower < 5000000000 ? '🌟 世界の大富豪' :
-                 totalPower < 10000000000 ? '🔱 財閥の長' :
-                 totalPower < 30000000000 ? '💫 秘宝の守護者' :
-                 totalPower < 50000000000 ? '🔮 古代遺産の主' :
-                 totalPower < 100000000000 ? '🌠 全大陸の富者' :
-                 totalPower < 200000000000 ? '👁️ 超越蒐集家' :
-                 totalPower < 300000000000 ? '🕊️ 万物の所有者' :
-                 '☀️ 伝説のトレジャーマスター'}
-              </div>
+              {(() => {
+                const RANKS = [
+                  { min: 0, icon: '🌱', name: '拾い屋見習い' },
+                  { min: 30000, icon: '🪙', name: '古銭集め' },
+                  { min: 100000, icon: '💰', name: '骨董好き' },
+                  { min: 500000, icon: '🔍', name: 'トレジャーハンター' },
+                  { min: 2000000, icon: '🗝️', name: '熟練ハンター' },
+                  { min: 5000000, icon: '🏺', name: '遺跡探検家' },
+                  { min: 10000000, icon: '💎', name: '宝石鑑定士' },
+                  { min: 30000000, icon: '🏆', name: '財宝コレクター' },
+                  { min: 100000000, icon: '🎖️', name: '大富豪' },
+                  { min: 300000000, icon: '👑', name: '宝物庫の主' },
+                  { min: 1000000000, icon: '🌙', name: '伝説の蒐集家' },
+                  { min: 3000000000, icon: '⭐', name: '王室鑑定官' },
+                  { min: 5000000000, icon: '🌟', name: '世界の大富豪' },
+                  { min: 10000000000, icon: '🔱', name: '財閥の長' },
+                  { min: 30000000000, icon: '💫', name: '秘宝の守護者' },
+                  { min: 50000000000, icon: '🔮', name: '古代遺産の主' },
+                  { min: 100000000000, icon: '🌠', name: '全大陸の富者' },
+                  { min: 200000000000, icon: '👁️', name: '超越蒐集家' },
+                  { min: 300000000000, icon: '🕊️', name: '万物の所有者' },
+                  { min: 500000000000, icon: '⚜️', name: '天界の管理者' },
+                  { min: 700000000000, icon: '🐉', name: '龍神の使い' },
+                  { min: 900000000000, icon: '🪽', name: '神域の番人' },
+                  { min: 1100000000000, icon: '👼', name: '天上の支配者' },
+                  { min: 1300000000000, icon: '🌌', name: '宇宙の創造主' },
+                  { min: 1500000000000, icon: '☀️', name: '伝説のトレジャーマスター' },
+                ];
+                let rankIdx = 0;
+                for (let i = RANKS.length - 1; i >= 0; i--) {
+                  if (totalPower >= RANKS[i].min) { rankIdx = i; break; }
+                }
+                const r = RANKS[rankIdx];
+                return (
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: rankIdx >= 20 ? '#ffd700' : rankIdx >= 15 ? '#c084fc' : 'rgba(255,255,255,0.6)' }}>
+                      {r.icon} Rank {rankIdx + 1}/25 — {r.name}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="stat-cards">
