@@ -1894,10 +1894,22 @@ function MonsterGacha() {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
     setCoins(p => p + capped);
     setBestScores(prev => {
-      if (capped > (prev[gameId] || 0)) return { ...prev, [gameId]: capped };
-      return prev;
+      const isNewBest = capped > (prev[gameId] || 0);
+      const updated = isNewBest ? { ...prev, [gameId]: capped } : prev;
+      // Immediately update Firebase with new best score
+      if (isNewBest && nickname && window.fbDb) {
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(capped);
+      }
+      return updated;
     });
-    setPlayCounts(prev => ({ ...prev, [gameId]: (prev[gameId] || 0) + 1 }));
+    setPlayCounts(prev => {
+      const updated = { ...prev, [gameId]: (prev[gameId] || 0) + 1 };
+      // Also update play count in Firebase immediately
+      if (nickname && window.fbDb) {
+        window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).set(updated[gameId]);
+      }
+      return updated;
+    });
     setMiniGame(null);
   }, [nickname]);
 
