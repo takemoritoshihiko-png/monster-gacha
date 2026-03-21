@@ -1075,6 +1075,30 @@ function getWeekId() {
   return d.toISOString().slice(0, 10);
 }
 
+const DAILY_MISSION_POOL = [
+  { type: 'gacha', text: 'ガチャを{n}回引こう', targets: [30, 50, 80], unit: '回' },
+  { type: 'minigame', text: 'ミニゲームを{n}回プレイ', targets: [15, 25, 40], unit: '回' },
+  { type: 'synth', text: '合成を{n}回しよう', targets: [5, 10, 20], unit: '回' },
+  { type: 'tap', text: '連打バトルで合計{n}コイン稼ごう', targets: [500, 1000, 2000], unit: 'コイン' },
+  { type: 'timing', text: 'ルパンタイマーで合計{n}コイン稼ごう', targets: [300, 600, 1000], unit: 'コイン' },
+  { type: 'shooting', text: 'シューティングで合計{n}コイン稼ごう', targets: [400, 700, 1200], unit: 'コイン' },
+];
+
+function generateDailyMissions(dateStr) {
+  let seed = 0;
+  for (let i = 0; i < dateStr.length; i++) seed += dateStr.charCodeAt(i) * (i + 1);
+  const shuffled = [...DAILY_MISSION_POOL].sort((a, b) => {
+    const ha = (seed * 31 + a.type.charCodeAt(0)) % 100;
+    const hb = (seed * 31 + b.type.charCodeAt(0)) % 100;
+    return ha - hb;
+  });
+  return shuffled.slice(0, 3).map((m, i) => {
+    const targetIdx = (seed + i) % m.targets.length;
+    const target = m.targets[targetIdx];
+    return { ...m, target, text: m.text.replace('{n}', target), id: m.type + '_' + target };
+  });
+}
+
 // ============================================================
 // MAIN APP
 // ============================================================
@@ -1108,6 +1132,9 @@ function MonsterGacha() {
   const [loginBonusInfo, setLoginBonusInfo] = useState(null);
   const [rareNotifs, setRareNotifs] = useState([]);
   const [weeklyScores, setWeeklyScores] = useState({});
+  const [dailyMissions, setDailyMissions] = useState([]);
+  const [dailyProgress, setDailyProgress] = useState({});
+  const [dailyCompleted, setDailyCompleted] = useState({});
   const saveTimer = useRef(null);
 
   const slotKey = (id) => `tgacha-s${id}`;
@@ -1606,6 +1633,7 @@ function MonsterGacha() {
     if (coins < cost) return;
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
+    contributeMission('gacha', n);
     const res = Array.from({ length: n }, () => rollMonster(crownBonus));
     const maxRank = Math.max(...res.map(r => r.rank));
 
@@ -1773,6 +1801,7 @@ function MonsterGacha() {
 
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
     playSynthSound(targetRank);
+    contributeMission('synth', 1);
     if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(prev => {
@@ -1945,6 +1974,46 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
+  // Daily Missions loading
+  useEffect(() => {
+    if (!window.fbDb) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const missions = generateDailyMissions(today);
+    setDailyMissions(missions);
+
+    const ref = window.fbDb.ref('dailyMissions/' + today);
+    const handler = ref.on('value', snapshot => {
+      const data = snapshot.val() || {};
+      const progress = {};
+      const completed = {};
+      missions.forEach(m => {
+        const mData = data[m.id] || {};
+        const total = Object.values(mData.contributions || {}).reduce((s, v) => s + v, 0);
+        progress[m.id] = { total, contributions: mData.contributions || {}, target: m.target };
+        completed[m.id] = total >= m.target;
+      });
+      setDailyProgress(progress);
+      setDailyCompleted(completed);
+    });
+    return () => ref.off('value', handler);
+  }, [loaded, slotId]);
+
+  const contributeMission = useCallback((missionType, amount) => {
+    if (!nickname || !window.fbDb) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const missions = generateDailyMissions(today);
+    const mission = missions.find(m => m.type === missionType);
+    if (!mission) return;
+
+    const maxPerPerson = Math.ceil(mission.target / 3);
+    const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
+    ref.transaction(current => {
+      const val = current || 0;
+      if (val >= maxPerPerson) return current;
+      return Math.min(val + amount, maxPerPerson);
+    });
+  }, [nickname]);
+
   // Score caps per game to prevent illegitimate scores
   const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
@@ -1984,6 +2053,10 @@ function MonsterGacha() {
       }
       return updated;
     });
+    contributeMission('minigame', 1);
+    if (gameId === 'tap') contributeMission('tap', capped);
+    if (gameId === 'timing') contributeMission('timing', capped);
+    if (gameId === 'shooting') contributeMission('shooting', capped);
     setMiniGame(null);
   }, [nickname]);
 
@@ -2397,6 +2470,46 @@ function MonsterGacha() {
                 </div>
               </div>
             </div>
+
+            {/* Daily Missions */}
+            {dailyMissions.length > 0 && (
+              <div style={{ margin: '16px 0', position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.5, marginBottom: 8,
+                  fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>DAILY MISSION</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {dailyMissions.map(m => {
+                    const prog = dailyProgress[m.id] || { total: 0, contributions: {}, target: m.target };
+                    const done = dailyCompleted[m.id];
+                    const pct = Math.min(100, (prog.total / m.target) * 100);
+                    const myContrib = prog.contributions[nickname] || 0;
+                    const maxPerPerson = Math.ceil(m.target / 3);
+                    return (
+                      <div key={m.id} style={{ padding: '8px 12px', borderRadius: 10,
+                        background: done ? 'rgba(74,222,128,0.08)' : 'linear-gradient(180deg, rgba(50,40,70,0.5), rgba(30,22,45,0.6))',
+                        border: `1px solid ${done ? 'rgba(74,222,128,0.25)' : 'rgba(139,92,246,0.12)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: done ? '#4ade80' : 'rgba(255,255,255,0.8)' }}>
+                            {done ? '\u2705 ' : ''}{m.text}
+                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 900, fontFamily: "'Orbitron',sans-serif",
+                            color: done ? '#4ade80' : '#c084fc' }}>
+                            {prog.total}/{m.target}
+                          </div>
+                        </div>
+                        <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 2, width: `${pct}%`,
+                            background: done ? '#4ade80' : 'linear-gradient(90deg, #a78bfa, #c084fc)',
+                            transition: 'width 0.3s' }} />
+                        </div>
+                        <div style={{ fontSize: 8, opacity: 0.4, marginTop: 3 }}>
+                          あなた: {myContrib}/{maxPerPerson} ／ 全員で達成！
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={{ position: 'relative', zIndex: 1, margin: '16px 0' }}>
               {/* Coin display with next gacha target */}
