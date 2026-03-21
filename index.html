@@ -2110,8 +2110,11 @@ function MonsterGacha() {
                 };
                 return (
                   <div style={{ marginTop: 8, position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontWeight: 900, ...rankStyle }}>
-                      {r.icon} Rank {rn}/25 — {r.name}
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2, marginBottom: 2 }}>
+                      Rank {rn} / 25
+                    </div>
+                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 4, ...rankStyle }}>
+                      {r.icon} {r.name}
                     </div>
                   </div>
                 );
@@ -2150,12 +2153,6 @@ function MonsterGacha() {
                       <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#c8d6e5' }}>×{crowns.silver}</span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRadius: 12,
-                    background: 'rgba(139,92,246,0.1)',
-                    border: '1px solid rgba(139,92,246,0.2)' }}>
-                    <span style={{ fontSize: 14 }}>🎰</span>
-                    <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#a78bfa' }}>{totalPulls.toLocaleString()}</span>
-                  </div>
                 </div>
               </div>
 
