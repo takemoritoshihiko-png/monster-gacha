@@ -1345,46 +1345,55 @@ function MonsterGacha() {
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
         sfx(revealSound);
         addToCollection(r);
-        // Rare visual effects
+        // Rare visual effects + gorgeous reveal sounds
         if (r.rank >= 10) {
           setRareEffect({ type: 'god', rank: r.rank });
-          playNote(523, 0.4, 'sine', 0.15);
-          playNote(659, 0.4, 'sine', 0.14, 0.05);
-          playNote(784, 0.4, 'sine', 0.15, 0.1);
-          playNote(1046, 0.6, 'sine', 0.13, 0.2);
-          playNote(1319, 0.5, 'sine', 0.1, 0.3);
-          playNote(523, 0.5, 'triangle', 0.08);
-          playChord([1047, 1319, 1568, 2093], 1.0, 'sine', 0.06, 0.5);
+          // 壮大なGODファンファーレ: 低音衝撃 → 8音アルペジオ → 4和音ブルーム → 天上のきらめき
+          playNote(55, 0.5, 'sawtooth', 0.12);
+          playSweep(100, 2500, 0.8, 'sine', 0.1);
+          [392, 494, 587, 698, 831, 1047, 1319, 1568].forEach((f, i) => playNote(f, 0.35, 'sine', 0.12, 0.1 + i * 0.06));
+          playChord([1047, 1319, 1568, 2093], 1.2, 'sine', 0.07, 0.6);
+          playChord([1319, 1568, 2093], 0.8, 'triangle', 0.04, 0.8);
+          [2093, 2349, 2637, 3136].forEach((f, i) => playNote(f, 0.2, 'sine', 0.03, 1.0 + i * 0.1));
           setTimeout(() => setRareEffect(null), 3500);
         } else if (r.rank === 9) {
           setRareEffect({ type: 'mythic', rank: 9 });
-          playNote(440, 0.3, 'sine', 0.15);
-          playNote(554, 0.3, 'sine', 0.14, 0.08);
-          playNote(659, 0.3, 'sine', 0.15, 0.16);
-          playNote(831, 0.4, 'sine', 0.12, 0.24);
-          playChord([659, 831, 1047], 0.6, 'sine', 0.07, 0.4);
+          // 神秘的ミシカルファンファーレ: スウィープ → 6音アルペジオ → 和音ブルーム → きらめき
+          playNote(100, 0.3, 'triangle', 0.08);
+          playSweep(150, 1500, 0.5, 'sine', 0.09);
+          [370, 440, 554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.11, 0.08 + i * 0.06));
+          playChord([831, 1047, 1319], 0.7, 'sine', 0.07, 0.5);
+          playChord([1047, 1319, 1568], 0.5, 'triangle', 0.04, 0.65);
+          [1568, 1760, 2093].forEach((f, i) => playNote(f, 0.15, 'sine', 0.03, 0.8 + i * 0.07));
           setTimeout(() => setRareEffect(null), 2500);
         } else if (r.rank === 8) {
           setRareEffect({ type: 'legend', rank: 8 });
-          playNote(660, 0.15, 'sine', 0.12);
-          playNote(880, 0.18, 'sine', 0.12, 0.06);
-          playNote(1108, 0.22, 'sine', 0.1, 0.12);
-          playChord([880, 1108, 1319], 0.4, 'sine', 0.06, 0.25);
+          // レジェンド: メタルクリック → 5音上昇 → 輝く和音
+          playNote(400, 0.08, 'square', 0.05);
+          playSweep(350, 1000, 0.3, 'sine', 0.06);
+          [494, 587, 698, 880, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.06 + i * 0.06));
+          playChord([880, 1047, 1319], 0.5, 'sine', 0.06, 0.4);
+          playNote(1319, 0.3, 'triangle', 0.04, 0.5);
           setTimeout(() => setRareEffect(null), 1500);
         } else if (r.rank === 7) {
           setRareEffect({ type: 'epic', rank: 7 });
-          playNote(659, 0.12, 'sine', 0.1);
-          playNote(831, 0.15, 'sine', 0.1, 0.06);
-          playNote(1047, 0.12, 'sine', 0.08, 0.12);
-          setTimeout(() => setRareEffect(null), 800);
+          // エピック: スパーク → 4音上昇 → シマー和音
+          playNote(350, 0.06, 'square', 0.04);
+          [523, 659, 831, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, 0.04 + i * 0.06));
+          playChord([831, 1047, 1319], 0.35, 'sine', 0.05, 0.3);
+          playNote(1319, 0.2, 'triangle', 0.03, 0.38);
+          setTimeout(() => setRareEffect(null), 1000);
         } else if (r.rank === 6) {
           setRareEffect({ type: 'ultra', rank: 6 });
-          playNote(523, 0.1, 'sine', 0.08);
-          playNote(659, 0.12, 'sine', 0.08, 0.05);
-          setTimeout(() => setRareEffect(null), 600);
+          // ウルトラ: 明るい3音チャイム + 余韻
+          playSweep(400, 700, 0.1, 'sine', 0.04);
+          [523, 659, 831].forEach((f, i) => playNote(f, 0.15, 'sine', 0.09, i * 0.05));
+          playNote(1047, 0.2, 'sine', 0.04, 0.2);
+          setTimeout(() => setRareEffect(null), 700);
         } else if (r.rank === 5) {
           setRareEffect({ type: 'ssrare', rank: 5 });
-          playNote(600, 0.08, 'sine', 0.06);
+          // SSレア: きらめく3音
+          [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.07, i * 0.04));
           setTimeout(() => setRareEffect(null), 400);
         }
       }, revealDelay);
@@ -1479,30 +1488,40 @@ function MonsterGacha() {
       [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.12, 0.2 + i * 0.08));
       playChord([1047, 1319, 1568], 0.6, 'sine', 0.07, 0.55);
     } else if (targetRank === 9) {
-      // ★9 Mythic: 荘厳なスウィープ + 豪華和音
-      playSweep(150, 1100, 0.5, 'sine', 0.1);
-      [440, 554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.1, 0.1 + i * 0.07));
-      playChord([831, 1047, 1319], 0.6, 'sine', 0.07, 0.5);
-      playNoise(0.05, 0.03);
+      // ★9 Mythic: 深い導入 → 壮大な上昇アルペジオ → 荘厳和音ブルーム
+      playNote(110, 0.3, 'sawtooth', 0.08);
+      playSweep(130, 1200, 0.6, 'sine', 0.1);
+      playNoise(0.08, 0.04);
+      [392, 494, 587, 698, 831, 1047].forEach((f, i) => playNote(f, 0.28, 'sine', 0.1, 0.1 + i * 0.06));
+      playChord([831, 1047, 1319], 0.7, 'sine', 0.07, 0.5);
+      playChord([1047, 1319, 1568], 0.5, 'triangle', 0.04, 0.65);
+      [1568, 1760, 2093].forEach((f, i) => playNote(f, 0.15, 'sine', 0.03, 0.75 + i * 0.08));
     } else if (targetRank === 8) {
-      // ★8 Legend: シマー + 上昇アルペジオ + 和音
-      playNote(500, 0.12, 'square', 0.06);
-      [554, 659, 831, 1047].forEach((f, i) => playNote(f, 0.22, 'sine', 0.1, 0.05 + i * 0.07));
-      playChord([831, 1047, 1319], 0.4, 'sine', 0.06, 0.35);
+      // ★8 Legend: メタリック導入 → 5音アルペジオ → 輝く和音
+      playNote(400, 0.1, 'square', 0.06);
+      playSweep(300, 900, 0.35, 'sine', 0.07);
+      [494, 587, 698, 831, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.08 + i * 0.06));
+      playChord([831, 1047, 1319], 0.5, 'sine', 0.07, 0.4);
+      playNote(1319, 0.3, 'triangle', 0.04, 0.5);
+      playNoise(0.04, 0.03);
     } else if (targetRank === 7) {
-      // ★7 Epic: きらめく4音 + 残響
-      [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, i * 0.06));
-      playNote(1047, 0.3, 'triangle', 0.05, 0.3);
-      playNoise(0.04, 0.04);
+      // ★7 Epic: スパーク導入 → 4音上昇 → シマー和音
+      playNote(350, 0.08, 'square', 0.04);
+      [494, 622, 784, 988].forEach((f, i) => playNote(f, 0.22, 'sine', 0.1, 0.04 + i * 0.06));
+      playChord([784, 988, 1175], 0.4, 'sine', 0.06, 0.3);
+      playNote(1175, 0.25, 'triangle', 0.04, 0.4);
+      playNoise(0.03, 0.03);
     } else if (targetRank === 6) {
-      // ★6 Ultra: 明るい3音
-      playNote(523, 0.12, 'sine', 0.1);
-      playNote(659, 0.12, 'sine', 0.09, 0.06);
-      playNote(784, 0.15, 'sine', 0.1, 0.12);
+      // ★6 Ultra: 明るい導入 → 4音チャイム → 余韻
+      playSweep(400, 700, 0.15, 'sine', 0.05);
+      [440, 554, 659, 831].forEach((f, i) => playNote(f, 0.18, 'sine', 0.09, 0.05 + i * 0.06));
+      playChord([659, 831, 1047], 0.35, 'sine', 0.05, 0.3);
+      playNote(1047, 0.2, 'triangle', 0.03, 0.38);
     } else if (targetRank === 5) {
-      // ★5 SSRare: きらめく2音
-      playNote(523, 0.1, 'sine', 0.08);
-      playNote(784, 0.12, 'sine', 0.08, 0.06);
+      // ★5 SSRare: きらめく3音 + 余韻
+      playSweep(500, 800, 0.12, 'sine', 0.04);
+      [523, 659, 784].forEach((f, i) => playNote(f, 0.15, 'sine', 0.08, i * 0.05));
+      playNote(1047, 0.2, 'sine', 0.04, 0.2);
     } else {
       sfx('synth');
     }
