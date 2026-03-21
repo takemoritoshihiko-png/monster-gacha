@@ -511,45 +511,48 @@ const CSS = `
 .G {
   font-family: 'Noto Sans JP', sans-serif;
   width: 100%; min-height: 100vh;
-  background: #06060f url('bg2.jpg') center top / cover no-repeat fixed; color: #e0e0e0;
+  background: #06060f; color: #e0e0e0;
   overflow-x: hidden; position: relative;
 }
 .G::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background: rgba(6,6,15,0.4);
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(139,92,246,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.06) 0%, transparent 70%);
 }
 .G::after {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image: none;
+  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 .hdr {
   position: sticky; top: 0; z-index: 100;
   max-width: 480px; margin: 0 auto;
-  background: linear-gradient(180deg, rgba(30,22,10,0.95), rgba(20,15,5,0.9));
+  background: linear-gradient(180deg, rgba(6,6,15,0.97), rgba(6,6,15,0.85));
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(212,168,67,0.2);
+  border-bottom: 1px solid rgba(139,92,246,0.15);
   padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
 }
 .hdr-t {
   font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
-  background: linear-gradient(135deg, #e8d5a3, #c9a84c);
+  background: linear-gradient(135deg, #a78bfa, #ec4899, #f59e0b);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   letter-spacing: 2px;
 }
 .coin {
   display: flex; align-items: center; gap: 6px;
-  background: linear-gradient(135deg, rgba(212,168,67,0.15), rgba(180,140,50,0.1));
-  border: 1px solid rgba(212,168,67,0.3);
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(236,72,153,0.1));
+  border: 1px solid rgba(245,158,11,0.25);
   border-radius: 20px; padding: 4px 14px;
-  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; color: #e8d5a3;
+  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; color: #fbbf24;
 }
 .cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }
 .nav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px; z-index: 100;
-  background: linear-gradient(180deg, rgba(30,22,10,0.95), rgba(20,15,5,0.98));
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(212,168,67,0.2);
+  background: rgba(6,6,15,0.97); backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(139,92,246,0.15);
   display: flex; justify-content: space-around; padding: 6px 0 8px;
   border-radius: 16px 16px 0 0;
 }
@@ -559,7 +562,7 @@ const CSS = `
   font-size: 10px; font-family: 'Noto Sans JP', sans-serif;
   cursor: pointer; padding: 4px 8px; transition: all 0.3s;
 }
-.nb.act { color: #e8d5a3; }
+.nb.act { color: #a78bfa; }
 .nb span:first-child { font-size: 20px; }
 .btn {
   border: none; border-radius: 14px; padding: 12px 24px;
@@ -586,13 +589,13 @@ const CSS = `
 /* Home hero */
 .hero-bg {
   position: relative; margin: -16px -16px 0; padding: 32px 16px 24px;
-  background: url('bg.jpg') center top / cover no-repeat;
-  border-bottom: 1px solid rgba(139,92,246,0.2);
+  background: linear-gradient(160deg, rgba(139,92,246,0.12) 0%, rgba(236,72,153,0.08) 40%, rgba(14,165,233,0.06) 100%);
+  border-bottom: 1px solid rgba(139,92,246,0.1);
   overflow: hidden;
 }
 .hero-bg::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 50%, rgba(6,6,15,0.85) 100%);
+  background: radial-gradient(circle at 50% 120%, rgba(245,158,11,0.15) 0%, transparent 60%);
 }
 .hero-orb {
   position: absolute; border-radius: 50%; filter: blur(40px); pointer-events: none; opacity: 0.4;
@@ -633,26 +636,26 @@ const CSS = `
   margin: 20px 0 16px; position: relative; z-index: 1;
 }
 .odo-label {
-  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(232,213,163,0.6);
-  letter-spacing: 4px; margin-bottom: 8px; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(251,191,36,0.5);
+  letter-spacing: 4px; margin-bottom: 8px;
 }
 .odo-digits { display: flex; justify-content: center; gap: 5px; }
 .odo-d {
   width: 36px; height: 50px;
-  background: linear-gradient(180deg, rgba(50,38,15,0.95) 0%, rgba(35,25,10,0.95) 49%, rgba(25,18,5,0.95) 50%, rgba(40,30,12,0.95) 100%);
-  border: 1px solid rgba(212,168,67,0.3);
+  background: linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(22,22,44,0.95) 49%, rgba(10,10,25,0.95) 50%, rgba(18,18,36,0.95) 100%);
+  border: 1px solid rgba(139,92,246,0.25);
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
   transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 .odo-d.lit {
-  color: #e8d5a3; border-color: rgba(212,168,67,0.5);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 0 15px rgba(212,168,67,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
-  text-shadow: 0 0 10px rgba(212,168,67,0.5);
+  color: #fbbf24; border-color: rgba(245,158,11,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 15px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+  text-shadow: 0 0 10px rgba(245,158,11,0.5);
 }
-.odo-d.dim { color: rgba(212,168,67,0.15); }
+.odo-d.dim { color: rgba(139,92,246,0.15); }
 
 /* Stat cards */
 .stat-cards {
@@ -661,17 +664,17 @@ const CSS = `
 }
 .stat-card {
   flex: 1; max-width: 140px;
-  background: linear-gradient(180deg, rgba(50,38,15,0.6), rgba(30,22,8,0.8));
-  border: 1px solid rgba(212,168,67,0.2);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(139,92,246,0.12);
   border-radius: 14px; padding: 12px 8px;
   text-align: center; backdrop-filter: blur(4px);
 }
 .stat-card-val {
   font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 900;
-  color: #e8d5a3;
+  color: #c084fc;
 }
 .stat-card-label {
-  font-size: 10px; color: rgba(232,213,163,0.5); margin-top: 2px;
+  font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px;
 }
 
 /* Menu buttons */
@@ -2023,13 +2026,17 @@ function MonsterGacha() {
           <div>
             {/* Hero section */}
             <div className="hero-bg">
+              <div className="hero-orb" style={{ width: 120, height: 120, background: 'rgba(139,92,246,0.3)', top: -20, left: -20 }} />
+              <div className="hero-orb" style={{ width: 80, height: 80, background: 'rgba(236,72,153,0.25)', top: 40, right: 10, animationDelay: '2s' }} />
+              <div className="hero-orb" style={{ width: 60, height: 60, background: 'rgba(245,158,11,0.2)', bottom: 10, left: '40%', animationDelay: '4s' }} />
 
-              <div style={{ textAlign: 'center', paddingTop: 140 }}>
-                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 28, fontWeight: 900,
-                  background: 'linear-gradient(180deg, #f0e4c0, #d4a843, #f0e4c0)',
+              <div style={{ textAlign: 'center' }}>
+                <div className="hero-icon">💎</div>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 26, fontWeight: 900,
+                  background: 'linear-gradient(180deg, #e8d5a3, #c9a84c, #e8d5a3)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  letterSpacing: 5, lineHeight: 1.2,
-                  filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(201,168,76,0.3))',
+                  letterSpacing: 4, lineHeight: 1.2,
+                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
                   position: 'relative', zIndex: 1 }}>
                   TREASURE<br/>GACHA
                 </div>
@@ -2110,13 +2117,12 @@ function MonsterGacha() {
                   fontSize: 12, color: 'rgba(255,255,255,0.6)',
                 };
                 return (
-                  <div style={{ marginTop: 12, position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: 4,
-                      color: 'rgba(232,213,163,0.8)', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+                  <div style={{ marginTop: 10, position: 'relative', zIndex: 1 }}>
+                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 3,
+                      color: 'rgba(232,213,163,0.7)' }}>
                       Rank {rn} / 25
                     </div>
-                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 6, marginTop: 3,
-                      textShadow: '0 2px 6px rgba(0,0,0,0.6)', ...rankStyle }}>
+                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 6, marginTop: 2, ...rankStyle }}>
                       {r.icon} {r.name}
                     </div>
                   </div>
@@ -2124,26 +2130,24 @@ function MonsterGacha() {
               })()}
 
                 {/* Total Assets - with decorative line */}
-                <div style={{ marginTop: 16, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 8 }}>
-                    <div style={{ flex: 1, maxWidth: 50, height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,168,67,0.5))' }} />
-                    <div style={{ fontSize: 11, color: 'rgba(240,228,192,0.7)', letterSpacing: 5, fontFamily: "'Rajdhani',sans-serif",
-                      textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>TOTAL ASSETS</div>
-                    <div style={{ flex: 1, maxWidth: 50, height: 1, background: 'linear-gradient(90deg, rgba(212,168,67,0.5), transparent)' }} />
+                <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 6 }}>
+                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4))' }} />
+                    <div style={{ fontSize: 10, color: 'rgba(232,213,163,0.6)', letterSpacing: 4, fontFamily: "'Rajdhani',sans-serif" }}>TOTAL ASSETS</div>
+                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.4), transparent)' }} />
                   </div>
-                  <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 22, fontWeight: 900,
-                    background: 'linear-gradient(180deg, #f0e4c0, #c9a84c)',
+                  <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 20, fontWeight: 900,
+                    background: 'linear-gradient(180deg, #e8d5a3, #c9a84c)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>
+                    filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }}>
                     {formatYen(totalPower)}
                   </div>
                 </div>
 
                 {/* Medal Bar */}
                 <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 0, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.75), rgba(40,28,10,0.9))',
-                    border: '1px solid rgba(212,168,67,0.4)', borderRadius: 20, overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.6), rgba(50,35,15,0.8))',
+                    border: '1px solid rgba(201,168,76,0.3)', borderRadius: 20, overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
                       borderRight: '1px solid rgba(201,168,76,0.2)' }}
                       title={crowns.goldGames.join(', ')}>
@@ -2193,121 +2197,114 @@ function MonsterGacha() {
               </div>
             </div>
 
-            {/* ★MAX TREASURE - Crystal showcase */}
-            <div style={{ margin: '16px 0', position: 'relative', zIndex: 1 }}>
-              {/* Header bar */}
-              <div style={{ textAlign: 'center', marginBottom: 10 }}>
-                <div style={{ display: 'inline-block', padding: '4px 24px', borderRadius: 4,
-                  background: 'linear-gradient(180deg, rgba(80,60,30,0.7), rgba(50,35,15,0.9))',
-                  border: '1px solid rgba(212,168,67,0.4)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                  <span style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 4,
-                    color: '#e8d5a3', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>MAX TREASURE</span>
-                </div>
+            {/* ★MAX Showcase */}
+            <div style={{
+              margin: '16px 0', padding: '12px 14px', borderRadius: 14, position: 'relative', zIndex: 1,
+              background: isComplete
+                ? 'linear-gradient(135deg, rgba(255,107,107,0.1), rgba(255,209,61,0.1), rgba(107,255,107,0.1), rgba(107,197,255,0.1), rgba(208,107,255,0.1))'
+                : 'rgba(255,255,255,0.03)',
+              border: isComplete
+                ? '2px solid transparent'
+                : '1px solid rgba(255,255,255,0.06)',
+              backgroundClip: isComplete ? 'padding-box' : undefined,
+              boxShadow: isComplete ? '0 0 20px rgba(255,215,0,0.15), inset 0 0 0 2px rgba(255,255,255,0.3)' : 'none',
+            }}>
+              {isComplete && (
+                <div style={{ position: 'absolute', inset: -2, borderRadius: 16, border: '2px solid transparent',
+                  background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+                  WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                  WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+                  backgroundSize: '200% 100%', animation: 'rainbowText 3s linear infinite',
+                  pointerEvents: 'none',
+                }} />
+              )}
+              <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.4, marginBottom: 8,
+                fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>
+                ★MAX TREASURE
               </div>
-              {/* Crystal slots */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
                 {TYPES.map((type, i) => {
                   const owned = maxOwned[i];
-                  const monster = MONSTERS[type.id][10];
+                  const monster = MONSTERS[type.id][10]; // ★MAX data
                   return (
                     <div key={type.id} style={{
-                      width: 48, height: 58, position: 'relative',
+                      width: 42, height: 52, borderRadius: 10,
+                      background: owned ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${owned ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.3s',
+                      boxShadow: owned ? `0 0 12px ${type.color}30` : 'none',
                     }}>
-                      {/* Crystal shape */}
-                      <div style={{
-                        width: 40, height: 48,
-                        clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-                        background: owned
-                          ? `linear-gradient(135deg, ${type.color}90, ${type.color}40, ${type.color}90)`
-                          : 'linear-gradient(135deg, rgba(100,100,130,0.3), rgba(60,60,80,0.2), rgba(100,100,130,0.3))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: owned ? `0 0 15px ${type.color}50` : 'none',
-                        transition: 'all 0.3s',
+                      <div style={{ fontSize: owned ? 22 : 16, opacity: owned ? 1 : 0.15,
+                        filter: owned ? `drop-shadow(0 0 4px ${type.color})` : 'none',
                       }}>
-                        <span style={{ fontSize: owned ? 18 : 14, opacity: owned ? 1 : 0.2,
-                          filter: owned ? `drop-shadow(0 0 4px ${type.color})` : 'none' }}>
-                          {owned ? monster.icon : '?'}
-                        </span>
+                        {owned ? monster.icon : '?'}
                       </div>
-                      <div style={{ fontSize: 6, fontWeight: 700, marginTop: 1,
+                      <div style={{ fontSize: 7, fontWeight: 700, marginTop: 2,
                         color: owned ? type.color : 'rgba(255,255,255,0.15)',
-                        textShadow: owned ? `0 0 4px ${type.color}` : 'none' }}>
-                        {type.name}
+                      }}>
+                        {type.emoji}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              {/* Count + Master Crystal */}
-              <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, fontWeight: 700 }}>
                 {isComplete ? (
-                  <span className="rank-rainbow" style={{ fontSize: 13, fontWeight: 900 }}>✨ COMPLETE ✨</span>
+                  <span className="rank-rainbow" style={{ fontSize: 12 }}>✨ COMPLETE ✨</span>
                 ) : (
-                  <span style={{ fontSize: 12, fontWeight: 900, color: 'rgba(232,213,163,0.5)' }}>
-                    {maxOwned.filter(Boolean).length} / 6
-                  </span>
+                  <span style={{ opacity: 0.3 }}>{maxOwned.filter(Boolean).length} / 6</span>
                 )}
               </div>
             </div>
 
-            {/* Gacha button - ornate RPG style */}
+            {/* Gacha button - premium design */}
             <div onClick={() => nav("gacha")} style={{
-              margin: '12px auto 0', maxWidth: 320, padding: '16px 24px', cursor: 'pointer',
-              background: 'linear-gradient(180deg, rgba(90,70,35,0.8), rgba(60,45,20,0.9), rgba(90,70,35,0.8))',
-              border: '2px solid rgba(212,168,67,0.5)',
-              borderRadius: 8,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(212,168,67,0.1)',
+              margin: '20px auto 0', maxWidth: 320, padding: '18px 24px', borderRadius: 20, cursor: 'pointer',
+              background: 'linear-gradient(135deg, #f59e0b, #ec4899, #a78bfa)',
+              boxShadow: '0 6px 30px rgba(245,158,11,0.35), 0 0 60px rgba(236,72,153,0.15), inset 0 1px 0 rgba(255,255,255,0.2)',
               textAlign: 'center', position: 'relative', overflow: 'hidden', zIndex: 1,
               transition: 'transform 0.2s, box-shadow 0.2s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.5), 0 0 40px rgba(212,168,67,0.2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(212,168,67,0.1)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 40px rgba(245,158,11,0.45), 0 0 80px rgba(236,72,153,0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 30px rgba(245,158,11,0.35), 0 0 60px rgba(236,72,153,0.15), inset 0 1px 0 rgba(255,255,255,0.2)'; }}
             >
-              {/* Corner decorations */}
-              <div style={{ position: 'absolute', top: 4, left: 8, fontSize: 8, color: 'rgba(212,168,67,0.4)' }}>◆</div>
-              <div style={{ position: 'absolute', top: 4, right: 8, fontSize: 8, color: 'rgba(212,168,67,0.4)' }}>◆</div>
-              <div style={{ position: 'absolute', bottom: 4, left: 8, fontSize: 8, color: 'rgba(212,168,67,0.4)' }}>◆</div>
-              <div style={{ position: 'absolute', bottom: 4, right: 8, fontSize: 8, color: 'rgba(212,168,67,0.4)' }}>◆</div>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)',
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
                 backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
-              <div style={{ fontFamily: "'Noto Sans JP','Orbitron',sans-serif", fontSize: 20, fontWeight: 900,
-                background: 'linear-gradient(180deg, #f0e4c0, #c9a84c)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                letterSpacing: 6 }}>ガチャを引く</div>
+              <div style={{ fontSize: 28, marginBottom: 4, filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.5))' }}>✨💎✨</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900, color: '#fff',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)', letterSpacing: 2 }}>ガチャを引く</div>
             </div>
 
-            {/* Menu grid - RPG style 3x2 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 340,
-              margin: '16px auto 0', position: 'relative', zIndex: 1 }}>
-              {[
-                { screen: 'minigame', icon: '🎮', label: 'コイン稼ぎ' },
-                { screen: 'synth', icon: '⚗️', label: '合成' },
-                { screen: 'collection', icon: '📖', label: 'コレクション' },
-                { screen: 'spend', icon: '🍽️', label: '資産を使う' },
-                { screen: 'ranking', icon: '🏆', label: 'ランキング' },
-                { screen: 'history', icon: '📋', label: 'ゲーム履歴' },
-              ].map(m => (
-                <div key={m.screen} onClick={() => nav(m.screen)} style={{
-                  padding: '14px 6px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
-                  background: 'linear-gradient(180deg, rgba(60,45,20,0.7), rgba(35,25,10,0.85))',
-                  border: '1px solid rgba(212,168,67,0.25)',
-                  boxShadow: '0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
-                  transition: 'all 0.2s',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.5)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.25)'; e.currentTarget.style.transform = 'none'; }}>
-                  <div style={{ fontSize: 28, marginBottom: 4, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}>{m.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#e8d5a3',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{m.label}</div>
-                </div>
-              ))}
+            {/* Menu grid */}
+            <div className="menu-grid">
+              <div className="menu-card" onClick={() => nav("minigame")}>
+                <div className="menu-card-icon">🎮</div>
+                <div className="menu-card-label">コイン稼ぎ</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("synth")}>
+                <div className="menu-card-icon">⚗️</div>
+                <div className="menu-card-label">合成</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("collection")}>
+                <div className="menu-card-icon">📖</div>
+                <div className="menu-card-label">コレクション</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("spend")} style={{ background: 'linear-gradient(135deg, rgba(236,72,153,0.12), rgba(245,158,11,0.08))' }}>
+                <div className="menu-card-icon">🍽️</div>
+                <div className="menu-card-label">資産を使う</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("ranking")}>
+                <div className="menu-card-icon">🏆</div>
+                <div className="menu-card-label">ランキング</div>
+              </div>
+              <div className="menu-card" onClick={() => nav("history")}>
+                <div className="menu-card-icon">📋</div>
+                <div className="menu-card-label">ゲーム履歴</div>
+              </div>
             </div>
 
-            <div style={{ textAlign: 'center', fontSize: 9, opacity: 0.3, marginTop: 16, color: '#e8d5a3',
-              position: 'relative', zIndex: 1 }}>
+            <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.2, marginTop: 20 }}>
               🪙 2秒ごとに1コイン自動回復 ／ 離脱時最大5,000コイン
             </div>
 
@@ -2348,56 +2345,63 @@ function MonsterGacha() {
           <div>
             {gachaPhase === "idle" && (
               <div style={{ textAlign: 'center' }}>
-                {/* Gacha hero with background image */}
-                <div style={{ position: 'relative', margin: '0 -16px', padding: '20px 16px 20px',
-                  background: 'url(gacha-bg.jpg) center top / cover no-repeat',
-                  borderBottom: '1px solid rgba(212,168,67,0.2)', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 40%, rgba(6,6,15,0.85) 100%)', pointerEvents: 'none' }} />
+                {/* Hero chest display */}
+                <div style={{ position: 'relative', margin: '0 -16px', padding: '28px 16px 24px',
+                  background: 'linear-gradient(160deg, rgba(139,92,246,0.12) 0%, rgba(236,72,153,0.08) 50%, rgba(245,158,11,0.06) 100%)',
+                  borderBottom: '1px solid rgba(139,92,246,0.1)', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', width: 100, height: 100, background: 'rgba(255,215,0,0.15)', borderRadius: '50%', filter: 'blur(40px)', top: -20, right: 20 }} />
+                  <div style={{ position: 'absolute', width: 70, height: 70, background: 'rgba(139,92,246,0.2)', borderRadius: '50%', filter: 'blur(30px)', bottom: 0, left: 30 }} />
 
-                  {/* 4 chest images */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 12, position: 'relative', zIndex: 1 }}>
-                    {[
-                      { src: 'chest0.png', label: '★1-2', color: 'rgba(255,255,255,0.4)' },
-                      { src: 'chest1.png', label: '★3-4', color: '#c8d6e5' },
-                      { src: 'chest2.png', label: '★5-7', color: '#ffd700' },
-                      { src: 'chest3.png', label: '★8+', color: '#ff6b81' },
-                    ].map((c, i) => (
-                      <div key={i} style={{ textAlign: 'center', width: 80 }}>
-                        <img src={c.src} alt={c.label} style={{ width: 75, height: 'auto', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }} />
-                        <div style={{ fontSize: 9, fontWeight: 700, color: c.color, marginTop: 2,
-                          textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>{c.label}</div>
-                      </div>
-                    ))}
+                  {/* 4 chest showcase */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 16, position: 'relative', zIndex: 1 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box wood-box">📦</div>
+                      <div style={{ fontSize: 8, opacity: 0.4, marginTop: 4 }}>★1-2</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box silver-box">🪙</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#c8d6e5', marginTop: 4 }}>★3-4</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box gold-box">👑</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#ffd700', marginTop: 4 }}>★5-7</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div className="chest-box rainbow-box">💎</div>
+                      <div style={{ fontSize: 8, opacity: 0.5, color: '#ff6b81', marginTop: 4 }}>★8+</div>
+                    </div>
                   </div>
 
-                  {/* GACHA title */}
-                  <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 28, fontWeight: 900,
-                      background: 'linear-gradient(180deg, #f0e4c0, #d4a843, #f0e4c0)',
-                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))',
-                      letterSpacing: 6 }}>
-                      GACHA
-                    </div>
-                    <div style={{ fontSize: 12, color: 'rgba(232,213,163,0.7)', marginTop: 4,
-                      textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                      宝箱を開けてトレジャーを手に入れよう！
-                    </div>
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900,
+                    background: 'linear-gradient(135deg, #c084fc, #f472b6, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    position: 'relative', zIndex: 1 }}>
+                    GACHA
+                  </div>
+                  <div style={{ fontSize: 11, opacity: 0.4, marginTop: 4, position: 'relative', zIndex: 1 }}>
+                    宝箱を開けてトレジャーを手に入れよう！
                   </div>
                 </div>
 
                 {/* Crown Bonus indicator */}
                 {getCrownLevel(crownBonus) && (
-                  <div style={{ margin: '12px auto 0', padding: '10px 16px', maxWidth: 320, textAlign: 'center',
-                    background: 'linear-gradient(180deg, rgba(60,45,20,0.7), rgba(35,25,10,0.85))',
-                    border: '1px solid rgba(212,168,67,0.3)', borderRadius: 8,
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
-                    ...(getCrownLevel(crownBonus) === 'super' ? { animation: 'crownPulse 2s ease-in-out infinite' } : {}),
+                  <div style={{ marginBottom: 12, padding: '8px 16px', borderRadius: 12, textAlign: 'center', maxWidth: 300, margin: '12px auto 0',
+                    ...(getCrownLevel(crownBonus) === 'super' ? {
+                      background: 'linear-gradient(135deg, rgba(255,107,107,0.15), rgba(255,209,61,0.15), rgba(107,255,107,0.15))',
+                      border: '1px solid rgba(255,215,0,0.4)',
+                      animation: 'crownPulse 2s ease-in-out infinite',
+                    } : getCrownLevel(crownBonus) === 'major' ? {
+                      background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(245,158,11,0.1))',
+                      border: '1px solid rgba(255,215,0,0.3)',
+                      boxShadow: '0 0 12px rgba(255,215,0,0.15)',
+                    } : {
+                      background: 'rgba(255,215,0,0.08)',
+                      border: '1px solid rgba(255,215,0,0.2)',
+                    }),
                   }}>
-                    <div style={{ fontSize: 9, color: 'rgba(232,213,163,0.5)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3, marginBottom: 3 }}>
+                    <div style={{ fontSize: 10, opacity: 0.5, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2, marginBottom: 3 }}>
                       GAME RANKING BONUS
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: '#e8d5a3' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#fbbf24' }}>
                       {getCrownLevel(crownBonus) === 'super' ? (
                         <span className="rank-rainbow">🔥 レア確率 超UP！！ 🔥</span>
                       ) : getCrownLevel(crownBonus) === 'major' ? (
@@ -2406,48 +2410,31 @@ function MonsterGacha() {
                         <span>レア確率UP！</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 10, color: 'rgba(232,213,163,0.5)', marginTop: 3 }}>
+                    <div style={{ fontSize: 10, opacity: 0.5, marginTop: 3 }}>
                       👑×{crowns.gold} 🥈×{crowns.silver} 🥉×{crowns.bronze} → ★7以上優遇
                     </div>
                   </div>
                 )}
 
-                {/* Pull buttons - ornate RPG style */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 320, margin: '16px auto', padding: '0 8px' }}>
-                  {/* 10 pull - main button */}
-                  <button disabled={coins < GACHA_COST_10} onClick={() => pull(10)} style={{
-                    width: '100%', padding: '16px 24px', border: '2px solid rgba(212,168,67,0.4)', borderRadius: 8,
-                    background: 'linear-gradient(180deg, rgba(120,90,50,0.7), rgba(80,60,30,0.85), rgba(120,90,50,0.7))',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
-                    cursor: coins >= GACHA_COST_10 ? 'pointer' : 'default', opacity: coins >= GACHA_COST_10 ? 1 : 0.4,
-                    fontFamily: "'Noto Sans JP',sans-serif", fontSize: 18, fontWeight: 900,
-                    color: '#e8d5a3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    transition: 'all 0.2s', position: 'relative', overflow: 'hidden',
-                  }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)',
-                      backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
+                {/* Pull buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300, margin: '20px auto', padding: '0 8px' }}>
+                  <button className="btn bp" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 24px',
+                      background: 'linear-gradient(135deg, #ec4899, #a78bfa)',
+                      boxShadow: '0 4px 20px rgba(236,72,153,0.3), 0 0 40px rgba(167,139,250,0.15)' }}>
                     💎 10連（🪙{GACHA_COST_10}）
                   </button>
-                  {/* 20 + 30 pull */}
                   <div style={{ display: 'flex', gap: 10 }}>
-                    <button disabled={coins < GACHA_COST_20} onClick={() => pull(20)} style={{
-                      flex: 1, padding: '12px 8px', border: '1px solid rgba(212,168,67,0.3)', borderRadius: 8,
-                      background: 'linear-gradient(180deg, rgba(80,60,30,0.7), rgba(50,38,15,0.85))',
-                      boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
-                      cursor: coins >= GACHA_COST_20 ? 'pointer' : 'default', opacity: coins >= GACHA_COST_20 ? 1 : 0.4,
-                      fontFamily: "'Noto Sans JP',sans-serif", fontSize: 14, fontWeight: 900,
-                      color: '#e8d5a3', transition: 'all 0.2s',
-                    }}>
+                    <button className="btn bp" disabled={coins < GACHA_COST_20} onClick={() => pull(20)}
+                      style={{ flex: 1, justifyContent: 'center', fontSize: 14, padding: '12px 8px',
+                        background: 'linear-gradient(135deg, #a78bfa, #6366f1)',
+                        boxShadow: '0 4px 20px rgba(167,139,250,0.3)' }}>
                       🔥 20連（🪙{GACHA_COST_20}）
                     </button>
-                    <button disabled={coins < GACHA_COST_30} onClick={() => pull(30)} style={{
-                      flex: 1, padding: '12px 8px', border: '1px solid rgba(212,168,67,0.3)', borderRadius: 8,
-                      background: 'linear-gradient(180deg, rgba(80,60,30,0.7), rgba(50,38,15,0.85))',
-                      boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
-                      cursor: coins >= GACHA_COST_30 ? 'pointer' : 'default', opacity: coins >= GACHA_COST_30 ? 1 : 0.4,
-                      fontFamily: "'Noto Sans JP',sans-serif", fontSize: 14, fontWeight: 900,
-                      color: '#e8d5a3', transition: 'all 0.2s',
-                    }}>
+                    <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(30)}
+                      style={{ flex: 1, justifyContent: 'center', fontSize: 14, padding: '12px 8px',
+                        background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                        boxShadow: '0 4px 20px rgba(245,158,11,0.3)' }}>
                       🌟 30連（🪙{GACHA_COST_30}）
                     </button>
                   </div>
@@ -2598,25 +2585,13 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onDone={(c) => handleMiniGameDone('mathHardMult', c)} />}
 
         {/* COLLECTION */}
-        {screen === "collection" && (
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'url(collection-bg.jpg) center center / cover no-repeat', opacity: 0.15, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <CollectionView collection={collection} onSelect={setModal} />
-            </div>
-          </div>
-        )}
+        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} />}
 
         {/* SYNTH */}
         {screen === "synth" && (
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'url(collection-bg.jpg) center center / cover no-repeat', opacity: 0.15, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <SynthView collection={collection} synthResult={synthResult}
-                onFindCandidates={findSynthCandidates}
-                onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
-            </div>
-          </div>
+          <SynthView collection={collection} synthResult={synthResult}
+            onFindCandidates={findSynthCandidates}
+            onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
         )}
 
         {/* SPEND */}
