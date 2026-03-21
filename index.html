@@ -1656,7 +1656,7 @@ function MonsterGacha() {
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 600, gem: 600, timing: 900, tower: 500, shooting: 600, memory: 600, mathEasy: 800, kuku: 800, mathMid: 800, mathHardAdd: 800, mathHardMult: 800 };
+  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 540, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
