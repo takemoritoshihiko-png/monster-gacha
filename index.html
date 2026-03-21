@@ -1461,29 +1461,69 @@ function MonsterGacha() {
     const res = Array.from({ length: n }, () => rollMonster());
     const maxRank = Math.max(...res.map(r => r.rank));
 
-    // Cue effect (foreshadowing)
+    // Cue effect (foreshadowing) - 8 patterns, 1.5x probability
     let cueDelay = 0;
-    if (maxRank >= 9 && Math.random() < 0.5) {
-      playNote(262, 0.4, 'sine', 0.1);
-      playNote(330, 0.4, 'sine', 0.08, 0.05);
-      playNote(392, 0.5, 'sine', 0.1, 0.1);
-      setCueEffect('mythic');
-      cueDelay = 600;
-    } else if (maxRank >= 8 && Math.random() < 0.4) {
-      playNote(80, 0.3, 'triangle', 0.15);
-      playNote(100, 0.4, 'triangle', 0.1, 0.1);
-      setCueEffect('heavy');
-      cueDelay = 400;
-    } else if (maxRank >= 7 && Math.random() < 0.3) {
-      playNote(1200, 0.08, 'square', 0.06);
-      playNote(800, 0.15, 'sine', 0.08, 0.03);
-      setCueEffect('metal');
-      cueDelay = 300;
-    } else if (maxRank >= 5 && Math.random() < 0.2) {
-      playNote(1400, 0.06, 'sine', 0.05);
-      playNote(1800, 0.08, 'sine', 0.04, 0.03);
-      setCueEffect('sparkle');
-      cueDelay = 200;
+    const cueRoll = Math.random();
+    if (maxRank >= 9 && Math.random() < 0.75) {
+      if (cueRoll < 0.5) {
+        // パターンA: 荘厳和音
+        playNote(262, 0.4, 'sine', 0.1);
+        playNote(330, 0.4, 'sine', 0.08, 0.05);
+        playNote(392, 0.5, 'sine', 0.1, 0.1);
+        setCueEffect('mythic');
+        cueDelay = 600;
+      } else {
+        // パターンB: 深淵の鼓動
+        playNote(65, 0.5, 'sawtooth', 0.1);
+        playNote(130, 0.4, 'triangle', 0.08, 0.15);
+        playSweep(100, 500, 0.6, 'sine', 0.06);
+        setCueEffect('mythic2');
+        cueDelay = 700;
+      }
+    } else if (maxRank >= 8 && Math.random() < 0.6) {
+      if (cueRoll < 0.5) {
+        // パターンA: 重低音ドゴーン
+        playNote(80, 0.3, 'triangle', 0.15);
+        playNote(100, 0.4, 'triangle', 0.1, 0.1);
+        setCueEffect('heavy');
+        cueDelay = 400;
+      } else {
+        // パターンB: 地鳴り
+        playNote(60, 0.4, 'sawtooth', 0.1);
+        playNoise(0.15, 0.06);
+        playNote(120, 0.3, 'triangle', 0.08, 0.1);
+        setCueEffect('heavy2');
+        cueDelay = 450;
+      }
+    } else if (maxRank >= 7 && Math.random() < 0.45) {
+      if (cueRoll < 0.5) {
+        // パターンA: 金属音シャキーン
+        playNote(1200, 0.08, 'square', 0.06);
+        playNote(800, 0.15, 'sine', 0.08, 0.03);
+        setCueEffect('metal');
+        cueDelay = 300;
+      } else {
+        // パターンB: 剣が鳴る音
+        playNote(1500, 0.06, 'square', 0.05);
+        playNote(1000, 0.1, 'sine', 0.07, 0.02);
+        playNote(600, 0.12, 'triangle', 0.05, 0.06);
+        setCueEffect('metal2');
+        cueDelay = 350;
+      }
+    } else if (maxRank >= 5 && Math.random() < 0.3) {
+      if (cueRoll < 0.5) {
+        // パターンA: キラッ
+        playNote(1400, 0.06, 'sine', 0.05);
+        playNote(1800, 0.08, 'sine', 0.04, 0.03);
+        setCueEffect('sparkle');
+        cueDelay = 200;
+      } else {
+        // パターンB: 風のささやき
+        playSweep(800, 1600, 0.15, 'sine', 0.04);
+        playNote(1200, 0.1, 'sine', 0.04, 0.05);
+        setCueEffect('sparkle2');
+        cueDelay = 250;
+      }
     } else {
       sfx('gachaPull');
     }
@@ -2695,19 +2735,37 @@ function MonsterGacha() {
       )}
 
       {/* Cue effects (gacha foreshadowing) */}
+      {/* Sparkle patterns (★5-6) */}
       {cueEffect === 'sparkle' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.3), transparent 70%)', animation: 'rareFlash 0.3s ease-out forwards' }} />
         </div>
       )}
+      {cueEffect === 'sparkle2' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.25), transparent 60%)', animation: 'rareFlash 0.35s ease-out forwards' }} />
+        </div>
+      )}
+      {/* Metal patterns (★7) */}
       {cueEffect === 'metal' && (
         <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.25), transparent 60%)', animationDuration: '0.25s' }} />
       )}
+      {cueEffect === 'metal2' && (
+        <div className="rare-flash" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.2), transparent 40%, transparent 60%, rgba(255,255,255,0.15))', animationDuration: '0.3s' }} />
+      )}
+      {/* Heavy patterns (★8) */}
       {cueEffect === 'heavy' && (
         <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(circle, rgba(167,139,250,0.15), transparent 60%)' }} />
       )}
+      {cueEffect === 'heavy2' && (
+        <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 80%, rgba(200,100,50,0.2), transparent 60%)' }} />
+      )}
+      {/* Mythic patterns (★9+) */}
       {cueEffect === 'mythic' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(circle, rgba(255,215,0,0.2), rgba(0,0,0,0.6) 70%)', animation: 'rareFlash 0.6s ease-out forwards' }} />
+      )}
+      {cueEffect === 'mythic2' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 60%, rgba(100,50,200,0.3), rgba(0,0,0,0.7) 60%)', animation: 'rareFlash 0.7s ease-out forwards' }} />
       )}
 
       {/* SAVE MODAL */}
