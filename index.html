@@ -955,6 +955,23 @@ input[type="number"] { font-size: 16px; }
 }
 .card-flip { animation: cardFlip 0.3s ease-in-out; }
 .card-match { animation: cardMatch 0.4s ease-out; }
+@keyframes bubblePop {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+@keyframes bubbleGrow {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes bubbleDanger {
+  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.3); }
+  50% { box-shadow: 0 0 20px rgba(239,68,68,0.6); }
+}
+.bubble-pop { animation: bubblePop 0.4s ease-out forwards; }
+.bubble-grow { animation: bubbleGrow 0.15s ease-out; }
+.bubble-danger { animation: bubbleDanger 1s ease-in-out infinite; }
 `;
 
 // ============================================================
@@ -1654,7 +1671,7 @@ function MonsterGacha() {
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
-  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase
@@ -1674,7 +1691,7 @@ function MonsterGacha() {
     }).catch(() => {});
   }, [nickname, bestScores]);
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
+  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2700, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
@@ -2322,6 +2339,7 @@ function MonsterGacha() {
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
               { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
               { id: "memory", icon: "🃏", name: "神経衰弱スピード", desc: "12枚のカードを最速で全部揃えろ！" },
+              { id: "bubble", icon: "🫧", name: "バブルポップ", desc: "バブルを膨らませろ！欲張りすぎると破裂！" },
               { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙30（4連続+15）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙30（4連続+15）" },
@@ -2342,6 +2360,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
         {screen === "minigame" && miniGame === "memory" && <MemoryGame onDone={(c) => handleMiniGameDone('memory', c)} />}
+        {screen === "minigame" && miniGame === "bubble" && <BubbleGame onDone={(c) => handleMiniGameDone('bubble', c)} />}
         {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => handleMiniGameDone('shooting', c)} />}
         {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => handleMiniGameDone('mathEasy', c)} />}
         {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => handleMiniGameDone('kuku', c)} />}
@@ -3584,6 +3603,21 @@ const BGM_TOWER = [
   {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
 ];
 
+const BUBBLE_BGM = [
+  {n:392,b:0,d:0.15,t:'sine',v:0.02},{n:440,b:0.5,d:0.1,t:'sine',v:0.018},
+  {n:494,b:1,d:0.15,t:'sine',v:0.02},{n:440,b:1.5,d:0.1,t:'sine',v:0.018},
+  {n:523,b:2,d:0.15,t:'sine',v:0.022},{n:494,b:2.5,d:0.1,t:'sine',v:0.018},
+  {n:440,b:3,d:0.2,t:'sine',v:0.022},{n:392,b:3.5,d:0.1,t:'sine',v:0.018},
+  {n:349,b:4,d:0.15,t:'sine',v:0.02},{n:392,b:4.5,d:0.1,t:'sine',v:0.018},
+  {n:440,b:5,d:0.15,t:'sine',v:0.02},{n:494,b:5.5,d:0.1,t:'sine',v:0.018},
+  {n:523,b:6,d:0.2,t:'sine',v:0.022},{n:440,b:6.5,d:0.1,t:'sine',v:0.018},
+  {n:392,b:7,d:0.3,t:'sine',v:0.025},
+  {n:196,b:0,d:0.5,t:'triangle',v:0.015},{n:220,b:2,d:0.5,t:'triangle',v:0.015},
+  {n:247,b:4,d:0.5,t:'triangle',v:0.015},{n:196,b:6,d:0.5,t:'triangle',v:0.015},
+];
+
+const BUBBLE_REWARDS = [0, 5, 10, 15, 20, 30, 50, 75, 110, 160, 220, 300];
+
 const MEMORY_BGM = [
   {n:330,b:0,d:0.15,t:'sine',v:0.025},{n:392,b:0.5,d:0.1,t:'sine',v:0.02},
   {n:440,b:1,d:0.15,t:'sine',v:0.025},{n:392,b:1.5,d:0.1,t:'sine',v:0.02},
@@ -4460,6 +4494,175 @@ function MemoryGame({ onDone }) {
 }
 
 // ============================================================
+// BUBBLE POP GAME (バブルポップ)
+// ============================================================
+function BubbleGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [bubbles, setBubbles] = useState([]);
+  const [startTime, setStartTime] = useState(null);
+  const [playTime, setPlayTime] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [growId, setGrowId] = useState(null);
+  const timerRef = useRef(null);
+
+  const BUBBLE_COLORS_SAFE = ['#93c5fd','#60a5fa','#3b82f6','#2563eb','#1d4ed8','#1e40af'];
+  const BUBBLE_COLORS_DANGER = ['#fbbf24','#f59e0b','#ef4444','#dc2626','#b91c1c','#991b1b'];
+  const bubbleColor = (taps) => taps <= 5 ? BUBBLE_COLORS_SAFE[taps] : BUBBLE_COLORS_DANGER[Math.min(taps - 6, 5)];
+  const bubbleSize = (taps) => 50 + taps * 8;
+
+  const startGame = () => {
+    setPhase("play");
+    setBubbles(Array.from({ length: 9 }, (_, i) => ({ id: i, taps: 0, popped: false })));
+    const now = Date.now();
+    setStartTime(now); setElapsed(0); setPlayTime(null);
+    bgm.playLoop(BUBBLE_BGM, 110);
+    timerRef.current = setInterval(() => setElapsed((Date.now() - now) / 1000), 100);
+  };
+
+  const finishGame = () => {
+    clearInterval(timerRef.current);
+    bgm.stop(); sfx('gameFinish');
+    setPlayTime(((Date.now() - startTime) / 1000).toFixed(1));
+    setPhase("done");
+  };
+
+  useEffect(() => () => { clearInterval(timerRef.current); bgm.stop(); }, []);
+
+  const handleBubbleTap = (id) => {
+    if (phase !== "play") return;
+    setBubbles(prev => {
+      const next = prev.map(b => ({ ...b }));
+      const b = next[id];
+      if (b.popped) return prev;
+      b.taps++;
+      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.1;
+      if (Math.random() < chance) {
+        b.popped = true;
+        sfx('wrong');
+      } else {
+        if (b.taps <= 5) {
+          playNote(300 + b.taps * 80, 0.06, 'sine', 0.06);
+        } else {
+          playNote(400 + b.taps * 60, 0.08, 'triangle', 0.08);
+          playNote(200, 0.15, 'sine', 0.03);
+        }
+      }
+      next[id] = b;
+      return next;
+    });
+    setGrowId(id);
+    setTimeout(() => setGrowId(null), 150);
+  };
+
+  const currentScore = useMemo(() =>
+    bubbles.reduce((s, b) => s + (b.popped ? 0 : (BUBBLE_REWARDS[Math.min(b.taps, BUBBLE_REWARDS.length - 1)] || 0)), 0),
+  [bubbles]);
+
+  const poppedCount = bubbles.filter(b => b.popped).length;
+  const maxTaps = bubbles.length > 0 ? Math.max(...bubbles.map(b => b.taps)) : 0;
+
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(currentScore), 2000); return () => clearTimeout(t); } }, [phase]);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🫧 バブルポップ</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            9個のバブルをタップで膨らませろ！<br/>
+            5回までは安全。6回目から破裂リスク！<br/>
+            大きいほど高報酬。でも破裂したら0点！
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            ×5=🪙30 ／ ×7=🪙75 ／ ×9=🪙160 ／ ×11=🪙300
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div>
+          <div className="sr">
+            <div className="sb">⏱️ {elapsed.toFixed(1)}s</div>
+            <div className="sb">🪙 {currentScore}</div>
+            <div className="sb">💥 {poppedCount}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: 12, justifyContent: 'center', marginTop: 16, placeItems: 'center' }}>
+            {bubbles.map(b => {
+              const sz = b.popped ? 50 : bubbleSize(b.taps);
+              const col = bubbleColor(b.taps);
+              return (
+                <div key={b.id} style={{ width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
+                  <div onClick={() => handleBubbleTap(b.id)}
+                    className={b.popped ? 'bubble-pop' : (growId === b.id ? 'bubble-grow' : '') + (b.taps >= 6 && !b.popped ? ' bubble-danger' : '')}
+                    style={{
+                      width: sz, height: sz, borderRadius: '50%',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      cursor: b.popped ? 'default' : 'pointer',
+                      transition: 'width 0.15s, height 0.15s, background 0.15s',
+                      position: 'relative',
+                      ...(b.popped ? {
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '2px dashed rgba(255,255,255,0.1)',
+                        opacity: 0.3,
+                      } : {
+                        background: `radial-gradient(circle at 35% 35%, ${col}80, ${col})`,
+                        border: `2px solid ${col}`,
+                        boxShadow: `0 0 ${8 + b.taps * 3}px ${col}50`,
+                      }),
+                    }}>
+                    {b.popped ? (
+                      <span style={{ fontSize: 20 }}>💥</span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 12 + b.taps * 2 }}>🫧</span>
+                        <span style={{ fontSize: 10, fontWeight: 900, fontFamily: "'Orbitron',sans-serif",
+                          color: b.taps >= 6 ? '#fff' : 'rgba(255,255,255,0.7)' }}>×{b.taps}</span>
+                        {b.taps >= 6 && (
+                          <span style={{ fontSize: 8, color: '#fbbf24', marginTop: 1 }}>🪙{BUBBLE_REWARDS[Math.min(b.taps, BUBBLE_REWARDS.length - 1)]}</span>
+                        )}
+                      </>
+                    )}
+                    {b.taps >= 6 && !b.popped && (
+                      <div style={{ position: 'absolute', bottom: -14, fontSize: 8, color: b.taps >= 9 ? '#ef4444' : '#fbbf24', fontWeight: 700 }}>
+                        ⚠️{(b.taps - 5) * 10}%
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button className="btn bp" onClick={finishGame}
+            style={{ width: '100%', marginTop: 20, fontSize: 16, padding: '14px 0',
+              background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}>
+            🎯 スコア確定！（現在: 🪙{currentScore}）
+          </button>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🫧</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {currentScore} コイン獲得！</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, maxWidth: 280, margin: '12px auto' }}>
+            {bubbles.map(b => (
+              <div key={b.id} style={{ padding: '6px 4px', borderRadius: 8,
+                background: b.popped ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)',
+                border: `1px solid ${b.popped ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)'}`,
+                fontSize: 11, textAlign: 'center' }}>
+                {b.popped ? <span>💥 0</span> : <span>🫧×{b.taps}=🪙{BUBBLE_REWARDS[Math.min(b.taps, BUBBLE_REWARDS.length - 1)]}</span>}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, opacity: 0.5, marginTop: 8 }}>
+            生存: {9 - poppedCount}/9 ／ 最大膨らみ: ×{maxTaps} ／ 時間: {playTime}秒
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
 function GemCatchGame({ onDone }) {
@@ -5164,7 +5367,7 @@ function GameHistoryScreen() {
 
   const HISTORY_GAMES = {
     tap: '👊 連打バトル', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー', tower: '🪙 コインタワー',
-    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
+    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', bubble: '🫧 バブルポップ', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
@@ -5175,6 +5378,7 @@ function GameHistoryScreen() {
     { id: "tower", icon: "🪙", name: "タワー" },
     { id: "shooting", icon: "🎯", name: "射的" },
     { id: "memory", icon: "🃏", name: "神経衰弱" },
+    { id: "bubble", icon: "🫧", name: "バブル" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
@@ -5309,6 +5513,7 @@ function RankingScreen() {
     { id: "tower", icon: "🪙", name: "タワー" },
     { id: "shooting", icon: "🎯", name: "射的" },
     { id: "memory", icon: "🃏", name: "神経衰弱" },
+    { id: "bubble", icon: "🫧", name: "バブル" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
