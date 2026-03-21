@@ -4362,12 +4362,18 @@ function GemCatchGame({ onDone }) {
     rafRef.current = requestAnimationFrame(loop);
   };
 
-  // Tap handler for a single lane
-  const processLaneTap = (tapX, cvs) => {
-    if (phase !== "play" || !cvs) return;
+  // Process a tap at a specific X position on the canvas
+  const phaseRef = useRef("ready");
+  phaseRef.current = phase;
+
+  const processTapAtX = useCallback((clientX) => {
+    if (phaseRef.current !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
     const rect = cvs.getBoundingClientRect();
     const scaleX = cvs.width / rect.width;
-    const tapLane = Math.min(Math.floor(tapX * scaleX / (cvs.width / LANES)), LANES - 1);
+    const tapX = (clientX - rect.left) * scaleX;
+    const tapLane = Math.max(0, Math.min(Math.floor(tapX / (cvs.width / LANES)), LANES - 1));
 
     let closest = null, closestDist = Infinity;
     gemsRef.current.forEach(g => {
@@ -4391,9 +4397,8 @@ function GemCatchGame({ onDone }) {
 
     comboRef.current++;
     if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
-    if (comboRef.current >= 15) { coins += 4; }
-    else if (comboRef.current >= 10) { coins += 3; }
-    else if (comboRef.current >= 5) { coins += 2; }
+    // 5コンボから+5コインボーナス
+    if (comboRef.current >= 5) { coins += 5; }
 
     earnedRef.current += coins;
     setEarned(earnedRef.current);
@@ -4407,30 +4412,21 @@ function GemCatchGame({ onDone }) {
     else if (comboRef.current >= 5) label += '✨';
     setFloats(p => [...p, { id, label, color, x: fx }]);
     setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 600);
-  };
+  }, []);
 
-  // Handle click (mouse)
-  const handleTap = (e) => {
-    if (phase !== "play") return;
-    const cvs = canvasRef.current;
-    if (!cvs) return;
-    const rect = cvs.getBoundingClientRect();
-    const tapX = (e.clientX ?? 0) - rect.left;
-    processLaneTap(tapX, cvs);
-  };
+  // Handle click (mouse/desktop)
+  const handleTap = useCallback((e) => {
+    processTapAtX(e.clientX);
+  }, [processTapAtX]);
 
-  // Handle multi-touch
-  const handleTouchStart = (e) => {
+  // Handle touch (mobile) - use changedTouches for new touches only
+  const handleTouchStart = useCallback((e) => {
     e.preventDefault();
-    if (phase !== "play") return;
-    const cvs = canvasRef.current;
-    if (!cvs) return;
-    const rect = cvs.getBoundingClientRect();
-    for (let i = 0; i < e.touches.length; i++) {
-      const tapX = e.touches[i].clientX - rect.left;
-      processLaneTap(tapX, cvs);
+    const touches = e.changedTouches || e.touches;
+    for (let i = 0; i < touches.length; i++) {
+      processTapAtX(touches[i].clientX);
     }
-  };
+  }, [processTapAtX]);
 
   useEffect(() => () => {
     cancelAnimationFrame(rafRef.current);
@@ -4446,7 +4442,7 @@ function GemCatchGame({ onDone }) {
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
             落ちてくる宝石をリズムよくキャッチ！20秒<br/>
-            PERFECT = 🪙8 ／ GOOD = 🪙4 ／ 5コンボ+2 ／ 10コンボ+3 ／ 15コンボ+4
+            PERFECT = 🪙8 ／ GOOD = 🪙4 ／ 5コンボから+5ボーナス
           </p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
