@@ -1297,12 +1297,12 @@ function MonsterGacha() {
     autoOpenRef.current.forEach(t => clearTimeout(t));
     // Calculate cumulative delays: higher rarity = slower open + dramatic pause
     const getOpenInterval = (rank) => {
-      if (rank >= 10) return 1200; // ★10 GOD: very slow dramatic
-      if (rank === 9) return 900;  // ★9 Mythic: slow
-      if (rank === 8) return 700;  // ★8 Legend: moderate slow
-      if (rank === 7) return 500;  // ★7 Epic: slightly slow
-      if (rank === 6) return 350;  // ★6 Ultra: bit slower
-      return 225;                  // ★1-5: normal speed
+      if (rank >= 10) return 2500; // ★10 GOD: very dramatic pause
+      if (rank === 9) return 1800;  // ★9 Mythic: long pause
+      if (rank === 8) return 1300;  // ★8 Legend: significant pause
+      if (rank === 7) return 900;   // ★7 Epic: noticeable pause
+      if (rank === 6) return 600;   // ★6 Ultra: slight pause
+      return 225;                   // ★1-5: normal speed
     };
     // Build cumulative timing
     let cumTime = 250;
