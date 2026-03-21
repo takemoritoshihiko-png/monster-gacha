@@ -1076,15 +1076,22 @@ function getWeekId() {
 }
 
 const DAILY_MISSION_POOL = [
-  { type: 'gacha', text: 'ガチャを{n}回引こう', targets: [30, 50, 80], unit: '回' },
-  { type: 'minigame', text: 'ミニゲームを{n}回プレイ', targets: [15, 25, 40], unit: '回' },
-  { type: 'synth', text: '合成を{n}回しよう', targets: [5, 10, 20], unit: '回' },
-  { type: 'tap', text: '連打バトルで合計{n}コイン稼ごう', targets: [500, 1000, 2000], unit: 'コイン' },
-  { type: 'timing', text: 'ルパンタイマーで合計{n}コイン稼ごう', targets: [300, 600, 1000], unit: 'コイン' },
-  { type: 'shooting', text: 'シューティングで合計{n}コイン稼ごう', targets: [400, 700, 1200], unit: 'コイン' },
+  // 累積型ミッション（ローンチ直後は累積=デイリー）
+  { type: 'gacha', text: 'ガチャを全員で{n}回引こう', targets: [1000, 2000, 3000], unit: '回' },
+  { type: 'minigame', text: 'ミニゲームを全員で{n}回プレイ', targets: [100, 150, 200], unit: '回' },
+  { type: 'synth', text: '合成を全員で{n}回使おう', targets: [500, 750, 1000], unit: '回' },
+  { type: 'tap', text: '連打で全員合計{n}コイン稼ごう', targets: [5000, 10000, 20000], unit: 'コイン' },
+  { type: 'timing', text: 'ルパンタイマーで全員合計{n}コイン', targets: [3000, 6000, 10000], unit: 'コイン' },
+  { type: 'shooting', text: 'シューティングで全員合計{n}コイン', targets: [4000, 8000, 15000], unit: 'コイン' },
+  { type: 'gift', text: 'ギフトを全員で{n}円分送ろう', targets: [500000000, 1000000000, 2000000000], unit: '円' },
+  { type: 'rhythm', text: 'リズムジュエルで全員合計{n}コイン', targets: [3000, 6000, 10000], unit: 'コイン' },
+  { type: 'bubble', text: 'バブルポップで全員合計{n}コイン', targets: [3000, 6000, 12000], unit: 'コイン' },
+  { type: 'memory', text: '神経衰弱で全員合計{n}コイン', targets: [2000, 4000, 8000], unit: 'コイン' },
 ];
 
 function generateDailyMissions(dateStr) {
+  // 累積型: 日付に関係なく固定の3ミッションセットを生成
+  // ローンチ直後は累積=デイリーとして運用
   let seed = 0;
   for (let i = 0; i < dateStr.length; i++) seed += dateStr.charCodeAt(i) * (i + 1);
   const shuffled = [...DAILY_MISSION_POOL].sort((a, b) => {
@@ -1095,7 +1102,8 @@ function generateDailyMissions(dateStr) {
   return shuffled.slice(0, 3).map((m, i) => {
     const targetIdx = (seed + i) % m.targets.length;
     const target = m.targets[targetIdx];
-    return { ...m, target, text: m.text.replace('{n}', target), id: m.type + '_' + target };
+    const displayTarget = m.type === 'gift' ? formatYen(target) : target.toLocaleString();
+    return { ...m, target, text: m.text.replace('{n}', displayTarget), id: m.type + '_' + target };
   });
 }
 
@@ -1458,6 +1466,7 @@ function MonsterGacha() {
     setLastGiftDate(today);
     setTotalGiftValue(prev => prev + giftValue);
     window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue);
+    contributeMission('gift', giftValue);
     sfx('sell');
     setShowGiftModal(null);
     setSaveMsg('🎁 ' + recipientName + 'に' + item.name + 'を送りました！');
@@ -2135,6 +2144,9 @@ function MonsterGacha() {
     if (gameId === 'tap') contributeMission('tap', capped);
     if (gameId === 'timing') contributeMission('timing', capped);
     if (gameId === 'shooting') contributeMission('shooting', capped);
+    if (gameId === 'rhythm') contributeMission('rhythm', capped);
+    if (gameId === 'bubble') contributeMission('bubble', capped);
+    if (gameId === 'memory') contributeMission('memory', capped);
     setMiniGame(null);
   }, [nickname]);
 
@@ -2584,7 +2596,7 @@ function MonsterGacha() {
                           </div>
                           <div style={{ fontSize: 10, fontWeight: 900, fontFamily: "'Orbitron',sans-serif",
                             color: done ? '#4ade80' : '#c084fc' }}>
-                            {prog.total}/{m.target}
+                            {m.type === 'gift' ? formatYen(prog.total) : prog.total.toLocaleString()}/{m.type === 'gift' ? formatYen(m.target) : m.target.toLocaleString()}
                           </div>
                         </div>
                         <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
@@ -2593,7 +2605,7 @@ function MonsterGacha() {
                             transition: 'width 0.3s' }} />
                         </div>
                         <div style={{ fontSize: 8, opacity: 0.4, marginTop: 3 }}>
-                          あなた: {myContrib}/{maxPerPerson} ／ 全員で達成！
+                          あなた: {m.type === 'gift' ? formatYen(myContrib) : myContrib.toLocaleString()}/{m.type === 'gift' ? formatYen(maxPerPerson) : maxPerPerson.toLocaleString()} ／ 全員で達成！
                         </div>
                       </div>
                     );
