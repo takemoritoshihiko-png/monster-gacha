@@ -2212,118 +2212,124 @@ function MonsterGacha() {
               </div>
             </div>
 
-            {/* ★MAX Showcase */}
-            <div style={{
-              margin: '16px 0', padding: '12px 14px', borderRadius: 14, position: 'relative', zIndex: 1,
-              background: isComplete
-                ? 'linear-gradient(135deg, rgba(255,107,107,0.1), rgba(255,209,61,0.1), rgba(107,255,107,0.1), rgba(107,197,255,0.1), rgba(208,107,255,0.1))'
-                : 'rgba(255,255,255,0.03)',
-              border: isComplete
-                ? '2px solid transparent'
-                : '1px solid rgba(255,255,255,0.06)',
-              backgroundClip: isComplete ? 'padding-box' : undefined,
-              boxShadow: isComplete ? '0 0 20px rgba(255,215,0,0.15), inset 0 0 0 2px rgba(255,255,255,0.3)' : 'none',
-            }}>
-              {isComplete && (
-                <div style={{ position: 'absolute', inset: -2, borderRadius: 16, border: '2px solid transparent',
-                  background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
-                  WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-                  WebkitMaskComposite: 'xor', maskComposite: 'exclude',
-                  backgroundSize: '200% 100%', animation: 'rainbowText 3s linear infinite',
-                  pointerEvents: 'none',
-                }} />
-              )}
-              <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.4, marginBottom: 8,
-                fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>
-                ★MAX TREASURE
+            {/* ★MAX TREASURE - Crystal showcase with ornate header */}
+            <div style={{ margin: '16px 0', position: 'relative', zIndex: 1 }}>
+              {/* Ornate header bar */}
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <div style={{ display: 'inline-block', padding: '5px 28px', position: 'relative',
+                  background: 'linear-gradient(180deg, rgba(60,45,80,0.8), rgba(35,25,55,0.9))',
+                  border: '1px solid rgba(167,139,250,0.35)', borderRadius: 6,
+                  boxShadow: '0 3px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+                  <span style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', fontSize: 6, color: 'rgba(167,139,250,0.5)' }}>◆</span>
+                  <span style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 4,
+                    color: 'rgba(200,180,240,0.8)', textShadow: '0 0 8px rgba(139,92,246,0.3)' }}>MAX TREASURE</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              {/* Crystal slots on floating platforms */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
                 {TYPES.map((type, i) => {
                   const owned = maxOwned[i];
-                  const monster = MONSTERS[type.id][10]; // ★MAX data
+                  const monster = MONSTERS[type.id][10];
                   return (
-                    <div key={type.id} style={{
-                      width: 42, height: 52, borderRadius: 10,
-                      background: owned ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${owned ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.3s',
-                      boxShadow: owned ? `0 0 12px ${type.color}30` : 'none',
-                    }}>
-                      <div style={{ fontSize: owned ? 22 : 16, opacity: owned ? 1 : 0.15,
-                        filter: owned ? `drop-shadow(0 0 4px ${type.color})` : 'none',
+                    <div key={type.id} style={{ textAlign: 'center', position: 'relative' }}>
+                      {/* Crystal */}
+                      <div style={{
+                        width: 44, height: 52,
+                        clipPath: 'polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)',
+                        background: owned
+                          ? `linear-gradient(160deg, ${type.color}dd, ${type.color}66, ${type.color}bb)`
+                          : 'linear-gradient(160deg, rgba(80,70,100,0.4), rgba(50,40,70,0.3), rgba(80,70,100,0.4))',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.3s', position: 'relative',
+                        filter: owned ? `drop-shadow(0 0 8px ${type.color}60)` : 'none',
                       }}>
-                        {owned ? monster.icon : '?'}
+                        {owned && <div style={{ position: 'absolute', inset: 0,
+                          background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.3), transparent 60%)`,
+                          clipPath: 'polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)' }} />}
+                        <span style={{ fontSize: owned ? 20 : 14, opacity: owned ? 1 : 0.15, position: 'relative', zIndex: 1,
+                          filter: owned ? `drop-shadow(0 0 3px ${type.color})` : 'none' }}>
+                          {owned ? monster.icon : '?'}
+                        </span>
                       </div>
-                      <div style={{ fontSize: 7, fontWeight: 700, marginTop: 2,
-                        color: owned ? type.color : 'rgba(255,255,255,0.15)',
-                      }}>
-                        {type.emoji}
+                      {/* Floating platform */}
+                      <div style={{ width: 36, height: 8, margin: '2px auto 0', borderRadius: '50%',
+                        background: owned
+                          ? `radial-gradient(ellipse, ${type.color}30, transparent 70%)`
+                          : 'radial-gradient(ellipse, rgba(100,80,140,0.2), transparent 70%)' }} />
+                      <div style={{ fontSize: 6, fontWeight: 700, marginTop: 1,
+                        color: owned ? type.color : 'rgba(255,255,255,0.12)',
+                        textShadow: owned ? `0 0 4px ${type.color}` : 'none' }}>
+                        {type.name}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, fontWeight: 700 }}>
+              {/* Count */}
+              <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, fontWeight: 900 }}>
                 {isComplete ? (
-                  <span className="rank-rainbow" style={{ fontSize: 12 }}>✨ COMPLETE ✨</span>
+                  <span className="rank-rainbow" style={{ fontSize: 13 }}>✨ COMPLETE ✨</span>
                 ) : (
-                  <span style={{ opacity: 0.3 }}>{maxOwned.filter(Boolean).length} / 6</span>
+                  <span style={{ color: 'rgba(167,139,250,0.4)' }}>{maxOwned.filter(Boolean).length} / 6</span>
                 )}
               </div>
             </div>
 
-            {/* Gacha button - ornate frame design */}
+            {/* Gacha button - ornate scroll/banner style */}
             <div onClick={() => nav("gacha")} style={{
-              margin: '20px auto 0', maxWidth: 320, padding: '20px 28px', borderRadius: 14, cursor: 'pointer',
-              background: 'linear-gradient(180deg, rgba(80,50,120,0.7), rgba(50,30,80,0.85), rgba(80,50,120,0.7))',
-              border: '2px solid rgba(167,139,250,0.4)',
-              boxShadow: '0 6px 30px rgba(139,92,246,0.25), 0 0 40px rgba(167,139,250,0.1), inset 0 1px 0 rgba(255,255,255,0.08)',
+              margin: '16px auto 0', maxWidth: 340, padding: '18px 32px', cursor: 'pointer',
+              background: 'linear-gradient(180deg, rgba(220,200,170,0.15), rgba(180,160,130,0.12), rgba(220,200,170,0.15))',
+              border: '2px solid rgba(200,180,140,0.3)', borderRadius: 10,
+              boxShadow: '0 6px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(200,180,140,0.08)',
               textAlign: 'center', position: 'relative', overflow: 'hidden', zIndex: 1,
               transition: 'transform 0.2s, box-shadow 0.2s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 40px rgba(139,92,246,0.35), 0 0 60px rgba(167,139,250,0.15), inset 0 1px 0 rgba(255,255,255,0.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 30px rgba(139,92,246,0.25), 0 0 40px rgba(167,139,250,0.1), inset 0 1px 0 rgba(255,255,255,0.08)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.4), 0 0 40px rgba(200,180,140,0.15)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(200,180,140,0.08)'; }}
             >
-              {/* Shimmer overlay */}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)',
-                backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
+              {/* Top/bottom decorative lines */}
+              <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.4), transparent)' }} />
+              <div style={{ position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.4), transparent)' }} />
               {/* Corner diamonds */}
-              <span style={{ position: 'absolute', top: 4, left: 8, fontSize: 8, color: 'rgba(167,139,250,0.5)', pointerEvents: 'none' }}>◆</span>
-              <span style={{ position: 'absolute', top: 4, right: 8, fontSize: 8, color: 'rgba(167,139,250,0.5)', pointerEvents: 'none' }}>◆</span>
-              <span style={{ position: 'absolute', bottom: 4, left: 8, fontSize: 8, color: 'rgba(167,139,250,0.5)', pointerEvents: 'none' }}>◆</span>
-              <span style={{ position: 'absolute', bottom: 4, right: 8, fontSize: 8, color: 'rgba(167,139,250,0.5)', pointerEvents: 'none' }}>◆</span>
-              <div style={{ fontSize: 28, marginBottom: 4, filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.5))' }}>✨💎✨</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900, color: '#fff',
-                textShadow: '0 0 12px rgba(167,139,250,0.6), 0 2px 4px rgba(0,0,0,0.4)', letterSpacing: 3 }}>ガチャを引く</div>
+              <span style={{ position: 'absolute', top: 6, left: 12, fontSize: 7, color: 'rgba(200,180,140,0.4)' }}>◆</span>
+              <span style={{ position: 'absolute', top: 6, right: 12, fontSize: 7, color: 'rgba(200,180,140,0.4)' }}>◆</span>
+              <span style={{ position: 'absolute', bottom: 6, left: 12, fontSize: 7, color: 'rgba(200,180,140,0.4)' }}>◆</span>
+              <span style={{ position: 'absolute', bottom: 6, right: 12, fontSize: 7, color: 'rgba(200,180,140,0.4)' }}>◆</span>
+              {/* Shimmer */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
+                backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
+              <div style={{ fontFamily: "'Noto Sans JP',sans-serif", fontSize: 22, fontWeight: 900,
+                color: 'rgba(230,215,185,0.9)', textShadow: '0 2px 4px rgba(0,0,0,0.5), 0 0 12px rgba(200,180,140,0.3)',
+                letterSpacing: 6, position: 'relative' }}>ガチャを引く</div>
             </div>
 
-            {/* Menu grid */}
-            <div className="menu-grid">
-              <div className="menu-card" onClick={() => nav("minigame")}>
-                <div className="menu-card-icon">🎮</div>
-                <div className="menu-card-label">コイン稼ぎ</div>
-              </div>
-              <div className="menu-card" onClick={() => nav("synth")}>
-                <div className="menu-card-icon">⚗️</div>
-                <div className="menu-card-label">合成</div>
-              </div>
-              <div className="menu-card" onClick={() => nav("collection")}>
-                <div className="menu-card-icon">📖</div>
-                <div className="menu-card-label">コレクション</div>
-              </div>
-              <div className="menu-card" onClick={() => nav("spend")}>
-                <div className="menu-card-icon">🍽️</div>
-                <div className="menu-card-label">資産を使う</div>
-              </div>
-              <div className="menu-card" onClick={() => nav("ranking")}>
-                <div className="menu-card-icon">🏆</div>
-                <div className="menu-card-label">ランキング</div>
-              </div>
-              <div className="menu-card" onClick={() => nav("history")}>
-                <div className="menu-card-icon">📋</div>
-                <div className="menu-card-label">ゲーム履歴</div>
-              </div>
+            {/* Menu grid - floating island style 3x2 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, maxWidth: 340,
+              margin: '20px auto 0', position: 'relative', zIndex: 1 }}>
+              {[
+                { screen: 'minigame', icon: '🎮', label: 'コイン稼ぎ', glow: 'rgba(245,158,11,0.2)', accent: '#f59e0b' },
+                { screen: 'synth', icon: '⚗️', label: '合成', glow: 'rgba(74,222,128,0.2)', accent: '#4ade80' },
+                { screen: 'collection', icon: '📖', label: 'コレクション', glow: 'rgba(96,165,250,0.2)', accent: '#60a5fa' },
+                { screen: 'spend', icon: '🍽️', label: '資産を使う', glow: 'rgba(192,132,252,0.2)', accent: '#c084fc' },
+                { screen: 'ranking', icon: '🏆', label: 'ランキング', glow: 'rgba(251,191,36,0.25)', accent: '#fbbf24' },
+                { screen: 'history', icon: '📋', label: 'ゲーム履歴', glow: 'rgba(148,163,184,0.15)', accent: '#94a3b8' },
+              ].map(m => (
+                <div key={m.screen} onClick={() => nav(m.screen)} style={{
+                  textAlign: 'center', cursor: 'pointer', transition: 'all 0.25s', position: 'relative',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                  {/* Icon on platform */}
+                  <div style={{ fontSize: 34, marginBottom: 2,
+                    filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${m.glow})` }}>{m.icon}</div>
+                  {/* Floating platform glow */}
+                  <div style={{ width: 50, height: 10, margin: '0 auto', borderRadius: '50%',
+                    background: `radial-gradient(ellipse, ${m.glow}, transparent 70%)` }} />
+                  {/* Label */}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.8)', marginTop: 2,
+                    textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{m.label}</div>
+                </div>
+              ))}
             </div>
 
             <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.2, marginTop: 20 }}>
