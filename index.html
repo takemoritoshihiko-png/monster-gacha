@@ -1656,7 +1656,7 @@ function MonsterGacha() {
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 540, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
+  const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const capped = Math.min(earned, SCORE_CAPS[gameId] || 9999);
@@ -4331,7 +4331,7 @@ function MemoryGame({ onDone }) {
   };
 
   const pairReward = matched.length * 40;
-  const timeBonus = clearTime !== null ? (clearTime <= 10 ? 300 : clearTime <= 15 ? 200 : clearTime <= 20 ? 100 : 0) : 0;
+  const timeBonus = clearTime !== null ? (clearTime <= 10 ? 400 : clearTime <= 15 ? 300 : clearTime <= 20 ? 150 : clearTime <= 25 ? 100 : 0) : 0;
   const totalReward = pairReward + timeBonus;
 
   useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalReward), 2000); return () => clearTimeout(t); } }, [phase]);
@@ -4346,7 +4346,7 @@ function MemoryGame({ onDone }) {
             1ペア = 🪙40
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            タイムボーナス: 10秒以内+300 ／ 15秒以内+200 ／ 20秒以内+100
+            タイムボーナス: 10秒以内+400 ／ 15秒以内+300 ／ 20秒以内+150 ／ 25秒以内+100
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
