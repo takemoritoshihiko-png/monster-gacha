@@ -511,20 +511,16 @@ const CSS = `
 .G {
   font-family: 'Noto Sans JP', sans-serif;
   width: 100%; min-height: 100vh;
-  background: #06060f; color: #e0e0e0;
+  background: #06060f url('bg2.jpg') center top / cover no-repeat fixed; color: #e0e0e0;
   overflow-x: hidden; position: relative;
 }
 .G::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(ellipse at 30% 10%, rgba(139,92,246,0.18) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.06) 0%, transparent 70%);
+  background: rgba(6,6,15,0.4);
 }
 .G::after {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: none;
 }
 .hdr {
   position: sticky; top: 0; z-index: 100;
