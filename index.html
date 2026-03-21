@@ -1109,8 +1109,8 @@ function MonsterGacha() {
       setNickname(d.nickname || "");
       setBestScores(d.bestScores || {});
       if (d.lastSave) {
-        const away = Math.floor((Date.now() - d.lastSave) / 3000);
-        if (away > 0) setCoins(c => c + Math.min(away, 10000));
+        const away = Math.floor((Date.now() - d.lastSave) / 2000);
+        if (away > 0) setCoins(c => c + Math.min(away, 5000));
       }
     } else {
       setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({});
@@ -1233,7 +1233,7 @@ function MonsterGacha() {
 
   // Auto coin recovery: +1 every 3s
   useEffect(() => {
-    const t = setInterval(() => setCoins(c => c + 1), 3000);
+    const t = setInterval(() => setCoins(c => c + 1), 2000);
     return () => clearInterval(t);
   }, []);
 
@@ -1996,7 +1996,7 @@ function MonsterGacha() {
             </div>
 
             <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.2, marginTop: 20 }}>
-              🪙 3秒ごとに1コイン自動回復 ／ 離脱時最大10,000コイン
+              🪙 2秒ごとに1コイン自動回復 ／ 離脱時最大5,000コイン
             </div>
 
             {/* Storage diagnostics */}
