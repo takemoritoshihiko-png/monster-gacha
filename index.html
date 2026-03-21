@@ -468,18 +468,34 @@ function renderStars(rank) {
   return <span style={{ letterSpacing: 1 }}>{stars}</span>;
 }
 
-function rollRarity() {
+function rollRarity(crownBonus) {
+  const bonus = crownBonus || 1;
+  const adjusted = RARITIES.map(r => {
+    if (r.rank >= 7 && r.rank <= 10) return { ...r, rate: r.rate * bonus };
+    return r;
+  });
+  // Adjust ★1 to keep total at 100%
+  const totalOther = adjusted.filter(r => r.rank !== 1).reduce((s, r) => s + r.rate, 0);
+  adjusted[0] = { ...adjusted[0], rate: Math.max(0, 100 - totalOther) };
   const r = Math.random() * 100;
   let cum = 0;
-  for (const rarity of RARITIES) {
+  for (const rarity of adjusted) {
     cum += rarity.rate;
     if (r < cum) return rarity.rank;
   }
   return 1;
 }
 
-function rollMonster() {
-  const rank = rollRarity();
+function getCrownLevel(bonus) {
+  const pct = (bonus - 1) * 100;
+  if (pct >= 50) return 'super';
+  if (pct >= 20) return 'major';
+  if (pct > 0) return 'up';
+  return null;
+}
+
+function rollMonster(crownBonus) {
+  const rank = rollRarity(crownBonus);
   const type = TYPES[Math.floor(Math.random() * TYPES.length)];
   const m = MONSTERS[type.id][rank - 1];
   return { ...m, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank, rarity: RARITIES[rank - 1] };
@@ -733,6 +749,10 @@ const CSS = `
   animation: rainbowBg 3s ease infinite;
 }
 @keyframes rainbowBg { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+@keyframes crownPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(255,215,0,0.3); }
+  50% { transform: scale(1.03); box-shadow: 0 0 16px rgba(255,215,0,0.5); }
+}
 @keyframes rbs { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
 .rc {
   background: rgba(15,15,30,0.95); border-radius: 10px; padding: 6px 4px; text-align: center;
@@ -1471,7 +1491,7 @@ function MonsterGacha() {
     if (coins < cost) return;
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
-    const res = Array.from({ length: n }, () => rollMonster());
+    const res = Array.from({ length: n }, () => rollMonster(crownBonus));
     const maxRank = Math.max(...res.map(r => r.rank));
 
     // Cue effect (foreshadowing) - 8 patterns, 1.5x probability
@@ -1789,6 +1809,7 @@ function MonsterGacha() {
       setCrowns({ gold, silver, goldGames, silverGames });
     }).catch(() => {});
   }, [nickname, bestScores]);
+  const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04);
   // Score caps per game to prevent illegitimate scores
   const SCORE_CAPS = { tap: 600, gem: 800, timing: 900, tower: 800, shooting: 800, memory: 640, bubble: 2160, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000 };
 
@@ -2296,6 +2317,37 @@ function MonsterGacha() {
                     宝箱を開けてトレジャーを手に入れよう！
                   </div>
                 </div>
+
+                {/* Crown Bonus indicator */}
+                {getCrownLevel(crownBonus) && (
+                  <div style={{ marginBottom: 12, padding: '8px 16px', borderRadius: 12, textAlign: 'center', maxWidth: 300, margin: '12px auto 0',
+                    ...(getCrownLevel(crownBonus) === 'super' ? {
+                      background: 'linear-gradient(135deg, rgba(255,107,107,0.15), rgba(255,209,61,0.15), rgba(107,255,107,0.15))',
+                      border: '1px solid rgba(255,215,0,0.4)',
+                      animation: 'crownPulse 2s ease-in-out infinite',
+                    } : getCrownLevel(crownBonus) === 'major' ? {
+                      background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(245,158,11,0.1))',
+                      border: '1px solid rgba(255,215,0,0.3)',
+                      boxShadow: '0 0 12px rgba(255,215,0,0.15)',
+                    } : {
+                      background: 'rgba(255,215,0,0.08)',
+                      border: '1px solid rgba(255,215,0,0.2)',
+                    }),
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#fbbf24' }}>
+                      {getCrownLevel(crownBonus) === 'super' ? (
+                        <span className="rank-rainbow">🔥 ★7以上 出現率 超UP！！ 🔥</span>
+                      ) : getCrownLevel(crownBonus) === 'major' ? (
+                        <span>✨ ★7以上 出現率 大幅UP！ ✨</span>
+                      ) : (
+                        <span>👑🥈 ★7以上 出現率UP！</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>
+                      👑×{crowns.gold} 🥈×{crowns.silver}
+                    </div>
+                  </div>
+                )}
 
                 {/* Pull buttons */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300, margin: '20px auto', padding: '0 8px' }}>
