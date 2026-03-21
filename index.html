@@ -1342,14 +1342,25 @@ function MonsterGacha() {
         return { ...o, time: cumTime };
       }
     });
-    autoOpenRef.current = timings.map((o) => setTimeout(() => {
-      const i = o.i;
-      const rank = res[i].rank;
+    // Group timings by same time for batch opening
+    const timeGroups = {};
+    timings.forEach(o => {
+      const t = o.time;
+      if (!timeGroups[t]) timeGroups[t] = [];
+      timeGroups[t].push(o);
+    });
+    autoOpenRef.current = Object.entries(timeGroups).map(([time, group]) => setTimeout(() => {
+      // Open all cards in this time group at once
+      const indices = group.map(o => o.i);
       setOpened(prev => {
         const next = new Set(prev);
-        next.add(i);
+        indices.forEach(idx => next.add(idx));
         return next;
       });
+      // Use the highest rank in this group for effects
+      const maxGroupRank = Math.max(...group.map(o => o.rank));
+      const rank = maxGroupRank;
+      const i = group.find(o => o.rank === maxGroupRank).i;
       // Pre-open tension sound for rare items
       if (rank >= 10) {
         // Deep rumble + rising sweep before GOD
@@ -1393,11 +1404,12 @@ function MonsterGacha() {
       // Reveal sound + collection add + rare effects
       const revealDelay = rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
       setTimeout(() => {
+        // Add all cards in this group to collection
+        indices.forEach(idx => addToCollection(res[idx]));
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
         sfx(revealSound);
-        addToCollection(r);
         // Rare visual effects + gorgeous reveal sounds
         if (r.rank >= 10) {
           setRareEffect({ type: 'god', rank: r.rank });
@@ -1450,7 +1462,7 @@ function MonsterGacha() {
           setTimeout(() => setRareEffect(null), 400);
         }
       }, revealDelay);
-    }, o.time));
+    }, Number(time)));
   }, [addToCollection]);
 
   const pull = useCallback((n) => {
