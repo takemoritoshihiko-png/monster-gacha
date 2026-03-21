@@ -1341,7 +1341,9 @@ function MonsterGacha() {
       if (rank === 7) return 1080;  // ★7 Epic: noticeable pause
       if (rank === 6) return 720;   // ★6 Ultra: slight pause
       if (rank === 5) return 450;   // ★5 SSRare: small pause
-      return 250;                   // ★1-4: 0.25秒で開く
+      if (rank === 4) return 220;   // ★4: 0.22秒
+      if (rank === 3) return 180;   // ★3: 0.18秒
+      return 250;                   // ★1-2: batch open
     };
     // Build cumulative timing
     // ★1: all open simultaneously, ★2: all open simultaneously (next beat), ★3+: one by one
