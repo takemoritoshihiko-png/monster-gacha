@@ -1562,10 +1562,11 @@ function MonsterGacha() {
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
-  const handleMiniGameDone = useCallback((gameId, earned) => {
+  const handleMiniGameDone = useCallback((gameId, earned, score) => {
     setCoins(p => p + earned);
+    const recordScore = score !== undefined ? score : earned;
     setBestScores(prev => {
-      if (earned > (prev[gameId] || 0)) return { ...prev, [gameId]: earned };
+      if (recordScore > (prev[gameId] || 0)) return { ...prev, [gameId]: recordScore };
       return prev;
     });
     setPlayCounts(prev => ({ ...prev, [gameId]: (prev[gameId] || 0) + 1 }));
@@ -2199,7 +2200,7 @@ function MonsterGacha() {
             ))}
           </div>
         )}
-        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
+        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c, tapCount) => handleMiniGameDone('tap', c, tapCount)} />}
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
@@ -2565,7 +2566,7 @@ function TapGame({ onDone }) {
     }, 50);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 1500); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned, taps), 1500); return () => clearTimeout(t); } }, [phase]);
 
   const handleTap = () => {
     if (phase !== "play") return;
@@ -2612,8 +2613,11 @@ function TapGame({ onDone }) {
       {phase === "done" && (
         <>
           <div style={{ fontSize: 44, margin: '16px 0' }}>🎉</div>
-          <p style={{ fontSize: 18, fontWeight: 900, color: '#f1c40f' }}>🪙 {earned} コイン獲得！</p>
-          <p style={{ fontSize: 12, opacity: 0.5 }}>タップ数: {taps}回</p>
+          <p style={{ fontSize: 28, fontWeight: 900, color: '#ec4899' }}>👊 {taps}回</p>
+          <p style={{ fontSize: 11, opacity: 0.5, marginTop: 4 }}>
+            {taps >= 100 ? '🔥 超人級の連打力！' : taps >= 80 ? '⚡ 凄まじいスピード！' : taps >= 60 ? '💪 なかなかの腕前！' : taps >= 40 ? '👏 いい感じ！' : '🌱 まだまだいける！'}
+          </p>
+          <p style={{ fontSize: 13, color: '#fbbf24', marginTop: 8 }}>🪙 {earned} コイン獲得</p>
         </>
       )}
     </div>
@@ -4946,8 +4950,15 @@ function RankingScreen() {
                   </div>
                 )}
                 {tab === 2 && (
-                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#ec4899' }}>
-                    🪙{r.bestScores?.[gameTab] || 0}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: gameTab === 'tap' ? '#ec4899' : '#fbbf24' }}>
+                      {gameTab === 'tap' ? `👊${r.bestScores?.[gameTab] || 0}回` : `🪙${r.bestScores?.[gameTab] || 0}`}
+                    </div>
+                    {gameTab === 'tap' && (() => {
+                      const t = r.bestScores?.tap || 0;
+                      const title = t >= 100 ? '🔥超人' : t >= 80 ? '⚡達人' : t >= 60 ? '💪上級者' : t >= 40 ? '👏中級者' : '🌱初心者';
+                      return <div style={{ fontSize: 9, opacity: 0.6 }}>{title}</div>;
+                    })()}
                   </div>
                 )}
               </div>
