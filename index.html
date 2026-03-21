@@ -1242,20 +1242,13 @@ function MonsterGacha() {
 
   // Gacha
   const autoOpenRef = useRef([]);
+  const [cueEffect, setCueEffect] = useState(null);
 
-  const pull = useCallback((n) => {
-    const cost = n === 1 ? GACHA_COST_1 : GACHA_COST_10;
-    if (coins < cost) return;
-    sfx('gachaPull');
-    setCoins(c => c - cost);
-    setTotalPulls(t => t + n);
-    const res = Array.from({ length: n }, () => rollMonster());
+  const startChestOpen = useCallback((res) => {
     setGachaResults(res);
     setGachaChests(res.map(r => getChestType(r.rank)));
     setOpened(new Set());
     setGachaPhase("chests");
-    // Auto open all with fast tempo after brief anticipation
-    // Sort open order so rank>=10 items open last
     const openOrder = res.map((r, i) => ({ i, rank: r.rank }));
     openOrder.sort((a, b) => {
       if (a.rank >= 10 && b.rank < 10) return 1;
@@ -1303,7 +1296,48 @@ function MonsterGacha() {
         }
       }, revealDelay);
     }, 250 + seq * 225)); // 250ms initial, 225ms between each (~2.3s for 10)
-  }, [coins, addToCollection]);
+  }, [addToCollection]);
+
+  const pull = useCallback((n) => {
+    const cost = n === 1 ? GACHA_COST_1 : GACHA_COST_10;
+    if (coins < cost) return;
+    setCoins(c => c - cost);
+    setTotalPulls(t => t + n);
+    const res = Array.from({ length: n }, () => rollMonster());
+    const maxRank = Math.max(...res.map(r => r.rank));
+
+    // Cue effect (foreshadowing)
+    let cueDelay = 0;
+    if (maxRank >= 9 && Math.random() < 0.5) {
+      playNote(262, 0.4, 'sine', 0.1);
+      playNote(330, 0.4, 'sine', 0.08, 0.05);
+      playNote(392, 0.5, 'sine', 0.1, 0.1);
+      setCueEffect('mythic');
+      cueDelay = 600;
+    } else if (maxRank >= 8 && Math.random() < 0.4) {
+      playNote(80, 0.3, 'triangle', 0.15);
+      playNote(100, 0.4, 'triangle', 0.1, 0.1);
+      setCueEffect('heavy');
+      cueDelay = 400;
+    } else if (maxRank >= 7 && Math.random() < 0.3) {
+      playNote(1200, 0.08, 'square', 0.06);
+      playNote(800, 0.15, 'sine', 0.08, 0.03);
+      setCueEffect('metal');
+      cueDelay = 300;
+    } else if (maxRank >= 5 && Math.random() < 0.2) {
+      playNote(1400, 0.06, 'sine', 0.05);
+      playNote(1800, 0.08, 'sine', 0.04, 0.03);
+      setCueEffect('sparkle');
+      cueDelay = 200;
+    } else {
+      sfx('gachaPull');
+    }
+
+    setTimeout(() => {
+      setCueEffect(null);
+      startChestOpen(res);
+    }, cueDelay);
+  }, [coins, startChestOpen]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
 
@@ -2257,6 +2291,22 @@ function MonsterGacha() {
             伝説の{rareEffect.name}を手に入れた！
           </div>
         </div>
+      )}
+
+      {/* Cue effects (gacha foreshadowing) */}
+      {cueEffect === 'sparkle' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.3), transparent 70%)', animation: 'rareFlash 0.3s ease-out forwards' }} />
+        </div>
+      )}
+      {cueEffect === 'metal' && (
+        <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.25), transparent 60%)', animationDuration: '0.25s' }} />
+      )}
+      {cueEffect === 'heavy' && (
+        <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(circle, rgba(167,139,250,0.15), transparent 60%)' }} />
+      )}
+      {cueEffect === 'mythic' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none', background: 'radial-gradient(circle, rgba(255,215,0,0.2), rgba(0,0,0,0.6) 70%)', animation: 'rareFlash 0.6s ease-out forwards' }} />
       )}
 
       {/* SAVE MODAL */}
