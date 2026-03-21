@@ -38,6 +38,27 @@
           callback(scores);
         });
     }
+
+    // One-time migration: adjust Lupin Timer scores (70% of old values)
+    (function() {
+      if (localStorage.getItem('tgacha-timing-migrated-v2')) return;
+      window.fbDb.ref('leaderboard').once('value').then(function(snapshot) {
+        var updates = {};
+        snapshot.forEach(function(child) {
+          var d = child.val();
+          if (d && d.game === 'ルパンタイマー' && d.score) {
+            updates[child.key + '/score'] = Math.round(d.score * 0.7);
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          window.fbDb.ref('leaderboard').update(updates).then(function() {
+            localStorage.setItem('tgacha-timing-migrated-v2', '1');
+          });
+        } else {
+          localStorage.setItem('tgacha-timing-migrated-v2', '1');
+        }
+      });
+    })();
   </script>
 </head>
 <body>
@@ -2952,10 +2973,10 @@ function TimingGame({ onDone }) {
   const lastTapTime = useRef(0);
 
   const getScore = (diff) => {
-    if (diff === 0) return { coins: 80, label: "PERFECT!", color: "#fbbf24" };
-    if (diff <= 0.1) return { coins: 40, label: "GREAT!", color: "#4ade80" };
-    if (diff <= 0.2) return { coins: 30, label: "GOOD!", color: "#60a5fa" };
-    if (diff <= 0.4) return { coins: 20, label: "OK", color: "#a78bfa" };
+    if (diff === 0) return { coins: 60, label: "PERFECT!", color: "#fbbf24" };
+    if (diff <= 0.1) return { coins: 25, label: "GREAT!", color: "#4ade80" };
+    if (diff <= 0.2) return { coins: 20, label: "GOOD!", color: "#60a5fa" };
+    if (diff <= 0.4) return { coins: 15, label: "OK", color: "#a78bfa" };
     if (diff <= 0.5) return { coins: 10, label: "CLOSE", color: "#94a3b8" };
     return { coins: 0, label: "MISS", color: "#ef4444" };
   };
@@ -3039,7 +3060,7 @@ function TimingGame({ onDone }) {
             表示は一切ナシ！体内時計勝負！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            ぴったり=🪙80 / ±0.1s=🪙40 / ±0.2s=🪙30 / ±0.4s=🪙20 / ±0.5s=🪙10<br/>
+            ぴったり=🪙60 / ±0.1s=🪙25 / ±0.2s=🪙20 / ±0.4s=🪙15 / ±0.5s=🪙10<br/>
             PERFECT 3個+50 / 5個+100 / 8個+200 / ALL+1000
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
