@@ -2334,17 +2334,20 @@ function MonsterGacha() {
                       border: '1px solid rgba(255,215,0,0.2)',
                     }),
                   }}>
+                    <div style={{ fontSize: 10, opacity: 0.5, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2, marginBottom: 3 }}>
+                      GAME RANKING BONUS
+                    </div>
                     <div style={{ fontSize: 13, fontWeight: 900, color: '#fbbf24' }}>
                       {getCrownLevel(crownBonus) === 'super' ? (
-                        <span className="rank-rainbow">🔥 ★7以上 出現率 超UP！！ 🔥</span>
+                        <span className="rank-rainbow">🔥 レア確率 超UP！！ 🔥</span>
                       ) : getCrownLevel(crownBonus) === 'major' ? (
-                        <span>✨ ★7以上 出現率 大幅UP！ ✨</span>
+                        <span>✨ レア確率 大幅UP！ ✨</span>
                       ) : (
-                        <span>👑🥈 ★7以上 出現率UP！</span>
+                        <span>レア確率UP！</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>
-                      👑×{crowns.gold} 🥈×{crowns.silver}
+                    <div style={{ fontSize: 10, opacity: 0.5, marginTop: 3 }}>
+                      👑×{crowns.gold} 🥈×{crowns.silver} → ★7以上優遇
                     </div>
                   </div>
                 )}
