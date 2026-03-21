@@ -1295,24 +1295,67 @@ function MonsterGacha() {
       return a.i - b.i;
     });
     autoOpenRef.current.forEach(t => clearTimeout(t));
-    autoOpenRef.current = openOrder.map((o, seq) => setTimeout(() => {
+    // Calculate cumulative delays: higher rarity = slower open + dramatic pause
+    const getOpenInterval = (rank) => {
+      if (rank >= 10) return 1200; // ★10 GOD: very slow dramatic
+      if (rank === 9) return 900;  // ★9 Mythic: slow
+      if (rank === 8) return 700;  // ★8 Legend: moderate slow
+      if (rank === 7) return 500;  // ★7 Epic: slightly slow
+      if (rank === 6) return 350;  // ★6 Ultra: bit slower
+      return 225;                  // ★1-5: normal speed
+    };
+    // Build cumulative timing
+    let cumTime = 250;
+    const timings = openOrder.map((o, seq) => {
+      const t = cumTime;
+      cumTime += getOpenInterval(o.rank);
+      return { ...o, time: t };
+    });
+    autoOpenRef.current = timings.map((o) => setTimeout(() => {
       const i = o.i;
+      const rank = res[i].rank;
       setOpened(prev => {
         const next = new Set(prev);
         next.add(i);
         return next;
       });
-      const ct = getChestType(res[i].rank);
-      sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
-      // Reveal sound shortly after
-      const revealDelay = res[i].rank >= 10 ? 400 : res[i].rank >= 8 ? 300 : 250;
+      // Pre-open tension sound for rare items
+      if (rank >= 10) {
+        // Deep rumble before GOD chest opens
+        playNote(60, 0.5, 'sawtooth', 0.1);
+        playNote(80, 0.4, 'triangle', 0.08, 0.1);
+        playNoise(0.15, 0.06);
+      } else if (rank === 9) {
+        // Ethereal sweep before Mythic
+        playSweep(150, 800, 0.4, 'sine', 0.08);
+        playNote(220, 0.3, 'triangle', 0.06);
+      } else if (rank === 8) {
+        // Metallic shimmer before Legend
+        playNote(600, 0.1, 'square', 0.04);
+        playNote(900, 0.15, 'sine', 0.06, 0.05);
+      } else if (rank === 7) {
+        // Brief sparkle before Epic
+        playNote(800, 0.06, 'sine', 0.05);
+        playNote(1000, 0.08, 'sine', 0.04, 0.03);
+      } else if (rank === 6) {
+        // Subtle chime before Ultra
+        playNote(700, 0.05, 'sine', 0.04);
+      }
+      // Chest open sound (delayed slightly for rank 7+)
+      const chestSoundDelay = rank >= 10 ? 500 : rank === 9 ? 350 : rank === 8 ? 250 : rank === 7 ? 150 : rank === 6 ? 80 : 0;
+      setTimeout(() => {
+        const ct = getChestType(rank);
+        sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
+      }, chestSoundDelay);
+      // Reveal sound + collection add + rare effects
+      const revealDelay = rank >= 10 ? 800 : rank === 9 ? 600 : rank === 8 ? 450 : rank === 7 ? 300 : rank === 6 ? 200 : 150;
       setTimeout(() => {
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
         sfx(revealSound);
         addToCollection(r);
-        // Rare effects
+        // Rare visual effects
         if (r.rank >= 10) {
           setRareEffect({ type: 'god', rank: r.rank });
           playNote(523, 0.3, 'sine', 0.15);
@@ -1334,7 +1377,7 @@ function MonsterGacha() {
           setTimeout(() => setRareEffect(null), 1000);
         }
       }, revealDelay);
-    }, 250 + seq * 225)); // 250ms initial, 225ms between each (~2.3s for 10)
+    }, o.time));
   }, [addToCollection]);
 
   const pull = useCallback((n) => {
