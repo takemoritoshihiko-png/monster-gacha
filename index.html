@@ -1166,8 +1166,8 @@ function MonsterGacha() {
       addLog("SAVE例外: " + (e.message || "").slice(0, 60));
       if (!silent) setSaveMsg("⚠️ " + (e.message || "エラー"));
     }
-    // Write ranking data on manual save
-    if (!silent && s.nickname) {
+    // Write ranking data on save
+    if (s.nickname) {
       try {
         const bs = s.bestScores || {};
         const bestMiniGame = Object.entries(bs).reduce((best, [k, v]) => (v > (best.score || 0)) ? { id: k, score: v } : best, { id: '', score: 0 });
