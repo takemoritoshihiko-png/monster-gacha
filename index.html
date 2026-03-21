@@ -1086,7 +1086,7 @@ function MonsterGacha() {
       setSpending(d.spending || []);
       setNickname(d.nickname || "");
       const bs = d.bestScores || {};
-      if (bs.timing && bs.timing > 1600) bs.timing = 1600;
+      bs.timing = 0; // Reset all timing scores for new scoring system
       // One-time reset for ゆと's tap/timing/tower
       if ((d.nickname || '') === 'ゆと') {
         bs.tap = 0; bs.timing = 0; bs.tower = 0;
@@ -3243,18 +3243,18 @@ function TimingGame({ onDone }) {
   const lastTapTime = useRef(0);
 
   const getScore = (diff) => {
-    if (diff === 0) return { coins: 60, label: "PERFECT!", color: "#fbbf24" };
+    if (diff === 0) return { coins: 50, label: "PERFECT!", color: "#fbbf24" };
     if (diff <= 0.1) return { coins: 25, label: "GREAT!", color: "#4ade80" };
-    if (diff <= 0.2) return { coins: 20, label: "GOOD!", color: "#60a5fa" };
-    if (diff <= 0.4) return { coins: 15, label: "OK", color: "#a78bfa" };
-    if (diff <= 0.5) return { coins: 10, label: "CLOSE", color: "#94a3b8" };
+    if (diff <= 0.2) return { coins: 15, label: "GOOD!", color: "#60a5fa" };
+    if (diff <= 0.4) return { coins: 10, label: "OK", color: "#a78bfa" };
+    if (diff <= 0.5) return { coins: 5, label: "CLOSE", color: "#94a3b8" };
     return { coins: 0, label: "MISS", color: "#ef4444" };
   };
 
   const calcPerfectBonus = (tapList) => {
     const pc = tapList.filter(t => t.diff === 0).length;
-    if (pc >= 10) return { bonus: 1000, label: "ALL PERFECT!! +1000" };
-    if (pc >= 8) return { bonus: 200, label: "8 PERFECT! +200" };
+    if (pc >= 10) return { bonus: 500, label: "ALL PERFECT!! +500" };
+    if (pc >= 7) return { bonus: 200, label: "7 PERFECT! +200" };
     if (pc >= 5) return { bonus: 100, label: "5 PERFECT! +100" };
     if (pc >= 3) return { bonus: 50, label: "3 PERFECT +50" };
     return { bonus: 0, label: "" };
@@ -3330,8 +3330,8 @@ function TimingGame({ onDone }) {
             表示は一切ナシ！体内時計勝負！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            ぴったり=🪙60 / ±0.1s=🪙25 / ±0.2s=🪙20 / ±0.4s=🪙15 / ±0.5s=🪙10<br/>
-            PERFECT 3個+50 / 5個+100 / 8個+200 / ALL+1000
+            ぴったり=🪙50 / ±0.1s=🪙25 / ±0.2s=🪙15 / ±0.4s=🪙10 / ±0.5s=🪙5<br/>
+            PERFECT 3個+50 / 5個+100 / 7個+200 / ALL+500
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
