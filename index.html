@@ -943,6 +943,18 @@ input[type="number"] { font-size: 16px; }
 .rare-god-text {
   animation: rareGodText 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+@keyframes cardFlip {
+  0% { transform: scaleX(1); }
+  50% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes cardMatch {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+.card-flip { animation: cardFlip 0.3s ease-in-out; }
+.card-match { animation: cardMatch 0.4s ease-out; }
 `;
 
 // ============================================================
@@ -1642,7 +1654,7 @@ function MonsterGacha() {
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
-  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const handleMiniGameDone = useCallback((gameId, earned) => {
     setCoins(p => p + earned);
     setBestScores(prev => {
@@ -2265,6 +2277,7 @@ function MonsterGacha() {
               { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
               { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
+              { id: "memory", icon: "🃏", name: "神経衰弱スピード", desc: "12枚のカードを最速で全部揃えろ！" },
               { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙30（4連続+15）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙30（4連続+15）" },
@@ -2284,6 +2297,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
+        {screen === "minigame" && miniGame === "memory" && <MemoryGame onDone={(c) => handleMiniGameDone('memory', c)} />}
         {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => handleMiniGameDone('shooting', c)} />}
         {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => handleMiniGameDone('mathEasy', c)} />}
         {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => handleMiniGameDone('kuku', c)} />}
@@ -3526,6 +3540,28 @@ const BGM_TOWER = [
   {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
 ];
 
+const MEMORY_BGM = [
+  {n:330,b:0,d:0.15,t:'sine',v:0.025},{n:392,b:0.5,d:0.1,t:'sine',v:0.02},
+  {n:440,b:1,d:0.15,t:'sine',v:0.025},{n:392,b:1.5,d:0.1,t:'sine',v:0.02},
+  {n:349,b:2,d:0.15,t:'sine',v:0.025},{n:440,b:2.5,d:0.1,t:'sine',v:0.02},
+  {n:494,b:3,d:0.2,t:'sine',v:0.03},{n:440,b:3.5,d:0.1,t:'sine',v:0.02},
+  {n:392,b:4,d:0.15,t:'sine',v:0.025},{n:330,b:4.5,d:0.1,t:'sine',v:0.02},
+  {n:349,b:5,d:0.15,t:'sine',v:0.025},{n:392,b:5.5,d:0.1,t:'sine',v:0.02},
+  {n:440,b:6,d:0.15,t:'sine',v:0.025},{n:494,b:6.5,d:0.1,t:'sine',v:0.02},
+  {n:523,b:7,d:0.3,t:'sine',v:0.03},
+  {n:165,b:0,d:0.5,t:'triangle',v:0.018},{n:196,b:2,d:0.5,t:'triangle',v:0.018},
+  {n:220,b:4,d:0.5,t:'triangle',v:0.018},{n:165,b:6,d:0.5,t:'triangle',v:0.018},
+];
+
+const MEMORY_CARDS = [
+  { id: 'A', icon: '💎', name: 'ダイヤモンド', color: '#60a5fa' },
+  { id: 'B', icon: '👑', name: '王冠', color: '#fbbf24' },
+  { id: 'C', icon: '🏺', name: '秘宝', color: '#e67e22' },
+  { id: 'D', icon: '🔮', name: '水晶球', color: '#c084fc' },
+  { id: 'E', icon: '⭐', name: '黄金の星', color: '#f59e0b' },
+  { id: 'F', icon: '🗝️', name: '古代の鍵', color: '#4ade80' },
+];
+
 const GEM_BGM = [
   {n:196,b:0,d:0.15,t:'sine',v:0.04},{n:262,b:0.5,d:0.15,t:'sine',v:0.035},
   {n:330,b:1,d:0.15,t:'sine',v:0.04},{n:262,b:1.5,d:0.15,t:'sine',v:0.035},
@@ -4192,6 +4228,187 @@ function CoinTowerGame({ onDone }) {
             <div><span style={{ color: '#fbbf24', fontWeight: 700 }}>PERFECT</span><br/>{perfects}</div>
             <div><span style={{ color: '#f472b6', fontWeight: 700 }}>最大連続P</span><br/>{maxStreak}</div>
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MEMORY SPEED GAME (神経衰弱スピード)
+// ============================================================
+function MemoryGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [cards, setCards] = useState([]);
+  const [revealed, setRevealed] = useState([]);
+  const [matched, setMatched] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [misses, setMisses] = useState(0);
+  const [startTime, setStartTime] = useState(null);
+  const [clearTime, setClearTime] = useState(null);
+  const timerRef = useRef(null);
+  const lockRef = useRef(false);
+
+  const initCards = () => {
+    const deck = [];
+    MEMORY_CARDS.forEach(mc => {
+      deck.push({ pairId: mc.id, icon: mc.icon, color: mc.color, state: 'hidden' });
+      deck.push({ pairId: mc.id, icon: mc.icon, color: mc.color, state: 'hidden' });
+    });
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck.map((c, i) => ({ ...c, index: i }));
+  };
+
+  const startGame = () => {
+    const newCards = initCards();
+    setPhase("play"); setCards(newCards); setRevealed([]); setMatched([]);
+    setMisses(0); setTimeLeft(30); setClearTime(null);
+    lockRef.current = false;
+    const now = Date.now();
+    setStartTime(now);
+    bgm.playLoop(MEMORY_BGM, 100);
+    timerRef.current = setInterval(() => {
+      const rem = Math.max(0, 30 - (Date.now() - now) / 1000);
+      setTimeLeft(rem);
+      if (rem <= 0) { clearInterval(timerRef.current); bgm.stop(); sfx('gameFinish'); setPhase("done"); }
+    }, 50);
+  };
+
+  useEffect(() => () => { clearInterval(timerRef.current); bgm.stop(); }, []);
+
+  const matchedRef = useRef([]);
+  matchedRef.current = matched;
+
+  const handleCardTap = (index) => {
+    if (phase !== "play" || lockRef.current) return;
+    const c = cards[index];
+    if (!c || c.state !== 'hidden') return;
+
+    playNote(600 + Math.random() * 200, 0.05, 'sine', 0.06);
+
+    const newCards = cards.map((card, i) => i === index ? { ...card, state: 'revealed' } : card);
+    setCards(newCards);
+
+    const newRevealed = [...revealed, index];
+    setRevealed(newRevealed);
+
+    if (newRevealed.length === 2) {
+      lockRef.current = true;
+      const [first, second] = newRevealed;
+      if (newCards[first].pairId === newCards[second].pairId) {
+        setTimeout(() => {
+          setCards(prev => prev.map((card, i) => (i === first || i === second) ? { ...card, state: 'matched' } : card));
+          setRevealed([]);
+          lockRef.current = false;
+          sfx('correctStreak');
+          const nextMatched = [...matchedRef.current, newCards[first].pairId];
+          setMatched(nextMatched);
+          if (nextMatched.length >= 6) {
+            clearInterval(timerRef.current);
+            const elapsed = Math.round((Date.now() - startTime) / 100) / 10;
+            setClearTime(elapsed);
+            bgm.stop(); sfx('gameFinish');
+            setPhase("done");
+          }
+        }, 300);
+      } else {
+        setMisses(m => m + 1);
+        sfx('wrong');
+        setTimeout(() => {
+          setCards(prev => prev.map((card, i) => (i === first || i === second) ? { ...card, state: 'hidden' } : card));
+          setRevealed([]);
+          lockRef.current = false;
+        }, 800);
+      }
+    }
+  };
+
+  const pairReward = matched.length * 40;
+  const timeBonus = clearTime !== null ? (clearTime <= 10 ? 300 : clearTime <= 15 ? 200 : clearTime <= 20 ? 100 : 0) : 0;
+  const totalReward = pairReward + timeBonus;
+
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalReward), 2000); return () => clearTimeout(t); } }, [phase]);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🃏 神経衰弱スピード</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            12枚のカードを最速で全ペア揃えろ！<br/>
+            1ペア = 🪙40
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            タイムボーナス: 10秒以内+300 ／ 15秒以内+200 ／ 20秒以内+100
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">💎 {matched.length}/6</div>
+            <div className="sb">🪙 {pairReward}</div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / 30) * 100}%` }} /></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 80px)', gap: 8, justifyContent: 'center', marginTop: 16 }}>
+            {cards.map((card, i) => (
+              <div key={i} onClick={() => handleCardTap(i)} className={card.state === 'revealed' ? 'card-flip' : card.state === 'matched' ? 'card-match' : ''}
+                style={{
+                  width: 80, height: 90, borderRadius: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: card.state === 'hidden' ? 'pointer' : 'default',
+                  transition: 'all 0.2s',
+                  ...(card.state === 'hidden' ? {
+                    background: 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(236,72,153,0.15))',
+                    border: '2px solid rgba(167,139,250,0.3)',
+                    fontSize: 28,
+                  } : card.state === 'revealed' ? {
+                    background: `radial-gradient(circle, ${card.color}30, rgba(0,0,0,0.3))`,
+                    border: `2px solid ${card.color}80`,
+                    boxShadow: `0 0 12px ${card.color}40`,
+                    fontSize: 36,
+                  } : {
+                    background: 'rgba(74,222,128,0.1)',
+                    border: '2px solid rgba(74,222,128,0.3)',
+                    fontSize: 36,
+                    opacity: 0.5,
+                  }),
+                }}>
+                {card.state === 'hidden' ? '❓' : card.icon}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11, opacity: 0.4 }}>ミス: {misses}回</div>
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🃏</div>
+          {clearTime !== null ? (
+            <>
+              <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {totalReward} コイン獲得！</p>
+              <div style={{ margin: '12px 0', fontSize: 13 }}>
+                <div>ペア報酬: 6 × 40 = 🪙{pairReward}</div>
+                {timeBonus > 0 && <div style={{ color: '#4ade80', fontWeight: 700 }}>タイムボーナス: {clearTime}秒 → +🪙{timeBonus}</div>}
+              </div>
+              <p style={{ fontSize: 12, opacity: 0.5 }}>クリアタイム: {clearTime}秒 ／ ミス: {misses}回</p>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 16, fontWeight: 900, color: '#ef4444', marginBottom: 8 }}>⏰ タイムアップ！</p>
+              <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {totalReward} コイン獲得！</p>
+              <div style={{ margin: '12px 0', fontSize: 13 }}>
+                <div>揃えたペア: {matched.length}/6 × 40 = 🪙{pairReward}</div>
+                <div style={{ fontSize: 11, opacity: 0.5 }}>（全ペア揃えるとタイムボーナス！）</div>
+              </div>
+              <p style={{ fontSize: 12, opacity: 0.5 }}>ミス: {misses}回</p>
+            </>
+          )}
         </>
       )}
     </div>
@@ -4903,7 +5120,7 @@ function GameHistoryScreen() {
 
   const HISTORY_GAMES = {
     tap: '👊 連打バトル', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー', tower: '🪙 コインタワー',
-    shooting: '🎯 シューティング', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
+    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
@@ -4913,6 +5130,7 @@ function GameHistoryScreen() {
     { id: "timing", icon: "⏱️", name: "タイマー" },
     { id: "tower", icon: "🪙", name: "タワー" },
     { id: "shooting", icon: "🎯", name: "射的" },
+    { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
@@ -5046,6 +5264,7 @@ function RankingScreen() {
     { id: "timing", icon: "⏱️", name: "タイマー" },
     { id: "tower", icon: "🪙", name: "タワー" },
     { id: "shooting", icon: "🎯", name: "射的" },
+    { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
