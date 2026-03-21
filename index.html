@@ -1323,11 +1323,24 @@ function MonsterGacha() {
       return 250;                   // ★1-4: 0.25秒で開く
     };
     // Build cumulative timing
+    // ★1: all open simultaneously, ★2: all open simultaneously (next beat), ★3+: one by one
     let cumTime = 250;
+    let prevRank = 0;
     const timings = openOrder.map((o, seq) => {
-      const t = cumTime;
-      cumTime += getOpenInterval(o.rank);
-      return { ...o, time: t };
+      if (o.rank <= 2) {
+        // ★1 and ★2: same rank opens at the same time
+        if (o.rank !== prevRank) {
+          if (prevRank > 0) cumTime += 250; // 250ms gap between ★1 batch and ★2 batch
+          prevRank = o.rank;
+        }
+        return { ...o, time: cumTime };
+      } else {
+        // ★3+: one by one with increasing delay
+        if (prevRank <= 2) cumTime += 250; // gap after ★2 batch
+        else cumTime += getOpenInterval(o.rank);
+        prevRank = o.rank;
+        return { ...o, time: cumTime };
+      }
     });
     autoOpenRef.current = timings.map((o) => setTimeout(() => {
       const i = o.i;
