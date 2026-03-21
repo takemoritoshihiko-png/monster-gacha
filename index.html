@@ -4988,6 +4988,7 @@ function RankingScreen() {
   const tabs = [
     { icon: "💰", label: "総資産" },
     { icon: "📖", label: "コレクション" },
+    { icon: "🎰", label: "ガチャ回数" },
     { icon: "🎮", label: "ミニゲーム" },
   ];
 
@@ -5008,6 +5009,7 @@ function RankingScreen() {
     const list = [...rankings];
     if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
+    else if (tab === 2) list.sort((a, b) => (b.totalPulls || 0) - (a.totalPulls || 0));
     else {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
@@ -5038,7 +5040,7 @@ function RankingScreen() {
       </div>
 
       {/* Game sub-tabs for minigame ranking */}
-      {tab === 2 && (
+      {tab === 3 && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
           {GAME_TABS.map(g => (
             <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
@@ -5092,6 +5094,11 @@ function RankingScreen() {
                   </div>
                 )}
                 {tab === 2 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#ec4899' }}>
+                    🎰{(r.totalPulls || 0).toLocaleString()}回
+                  </div>
+                )}
+                {tab === 3 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>
                     🪙{r.bestScores?.[gameTab] || 0}
                   </div>
