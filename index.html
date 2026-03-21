@@ -2598,13 +2598,25 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onDone={(c) => handleMiniGameDone('mathHardMult', c)} />}
 
         {/* COLLECTION */}
-        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} />}
+        {screen === "collection" && (
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'url(collection-bg.jpg) center center / cover no-repeat', opacity: 0.15, pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <CollectionView collection={collection} onSelect={setModal} />
+            </div>
+          </div>
+        )}
 
         {/* SYNTH */}
         {screen === "synth" && (
-          <SynthView collection={collection} synthResult={synthResult}
-            onFindCandidates={findSynthCandidates}
-            onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'url(collection-bg.jpg) center center / cover no-repeat', opacity: 0.15, pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <SynthView collection={collection} synthResult={synthResult}
+                onFindCandidates={findSynthCandidates}
+                onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
+            </div>
+          </div>
         )}
 
         {/* SPEND */}
