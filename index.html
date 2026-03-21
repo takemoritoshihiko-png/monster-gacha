@@ -2862,14 +2862,14 @@ function ShootingGame({ onDone }) {
 
     if (phase > 0.66 && r < 3) {
       // Gold star - only after 10s
-      type = 'gold'; icon = '⭐'; size = 11; fontSize = 22; glow = '#fbbf24'; coins = 40;
+      type = 'gold'; icon = '⭐'; size = 11; fontSize = 22; glow = '#fbbf24'; coins = 28;
       x = 30 + Math.random() * (CANVAS_W - 60);
       y = 30 + Math.random() * (CANVAS_H - 60);
       vx = (Math.random() - 0.5) * 2;
       vy = (Math.random() - 0.5) * 1.5;
     } else if (r < 3 + 12) {
       // UFO
-      type = 'ufo'; icon = '🛸'; size = 15; fontSize = 30; glow = '#60a5fa'; coins = 20;
+      type = 'ufo'; icon = '🛸'; size = 15; fontSize = 30; glow = '#60a5fa'; coins = 14;
       const dir = Math.random() > 0.5 ? 1 : -1;
       x = dir > 0 ? -20 : CANVAS_W + 20;
       y = 30 + Math.random() * (CANVAS_H * 0.5);
@@ -2877,13 +2877,13 @@ function ShootingGame({ onDone }) {
       vy = 0;
     } else if (r < 3 + 12 + 25) {
       // Target
-      type = 'target'; icon = '🎯'; size = 17; fontSize = 34; glow = '#f87171'; coins = 10;
+      type = 'target'; icon = '🎯'; size = 17; fontSize = 34; glow = '#f87171'; coins = 7;
       x = 30 + Math.random() * (CANVAS_W - 60);
       y = 50 + Math.random() * (CANVAS_H - 120);
       vx = 0; vy = 0;
     } else {
       // Balloon
-      type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 5;
+      type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 3;
       x = 20 + Math.random() * (CANVAS_W - 40);
       y = CANVAS_H + 20;
       vx = 0; vy = -(0.5 + Math.random() * 0.5 + phase * 0.5);
@@ -3054,11 +3054,11 @@ function ShootingGame({ onDone }) {
     if (hit) {
       hit.alive = false;
       let coins = hit.coins;
-      if (hit.type === 'target' && hitDist <= 15) coins = 15;
+      if (hit.type === 'target' && hitDist <= 15) coins = 10;
       comboRef.current++;
       if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
-      if (comboRef.current >= 10) coins += 10;
-      else if (comboRef.current >= 5) coins += 5;
+      if (comboRef.current >= 10) coins += 7;
+      else if (comboRef.current >= 5) coins += 3;
       earnedRef.current += coins;
       statsRef.current[hit.type]++;
       setEarned(earnedRef.current);
@@ -3110,8 +3110,8 @@ function ShootingGame({ onDone }) {
             空タップでコンボリセット！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            🎈=🪙5 ／ 🎯=🪙10(中心15) ／ 🛸=🪙20 ／ ⭐=🪙40<br/>
-            コンボ5連続+5 ／ 10連続+10
+            🎈=🪙3 ／ 🎯=🪙7(中心10) ／ 🛸=🪙14 ／ ⭐=🪙28<br/>
+            コンボ5連続+3 ／ 10連続+7
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
