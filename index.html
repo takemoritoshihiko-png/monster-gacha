@@ -2581,13 +2581,11 @@ function MonsterGacha() {
                   <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                     {[...spending].reverse().map((e, i) => {
                       const realIdx = spending.length - 1 - i;
-                      const icon = e.memo?.includes('Amazon') ? '🎁' : e.memo?.includes('食事') ? '🍽️' : e.memo?.includes('家具') ? '🏠' : e.memo?.includes('旅費') ? '✈️' : '💰';
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
                           borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
                         }}>
-                          <span style={{ fontSize: 16 }}>{icon}</span>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700 }}>{e.memo}</div>
                             <div style={{ fontSize: 10, opacity: 0.4 }}>{new Date(e.date).toLocaleDateString('ja-JP')} {new Date(e.date).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})}</div>
