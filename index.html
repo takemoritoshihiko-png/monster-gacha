@@ -1307,8 +1307,8 @@ function MonsterGacha() {
     setGachaPhase("chests");
     const openOrder = res.map((r, i) => ({ i, rank: r.rank }));
     openOrder.sort((a, b) => {
-      if (a.rank >= 10 && b.rank < 10) return 1;
-      if (a.rank < 10 && b.rank >= 10) return -1;
+      // ★1 first, then ★2, then ★3+ by rank ascending, ★10 last
+      if (a.rank !== b.rank) return a.rank - b.rank;
       return a.i - b.i;
     });
     autoOpenRef.current.forEach(t => clearTimeout(t));
