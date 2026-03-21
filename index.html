@@ -2188,9 +2188,9 @@ function MonsterGacha() {
               { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙36（4連続+18）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙36（4連続+18）" },
-              { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙54（4連続+27）" },
-              { id: "mathHardAdd", icon: "🧮", name: "計算ゲーム【上級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙70（4連続+36）" },
-              { id: "mathHardMult", icon: "✖️", name: "計算ゲーム【上級】掛け算割り算", desc: "2桁×1桁・2桁÷1桁！1問正解 = 🪙70（4連続+36）" },
+              { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙43（4連続+22）" },
+              { id: "mathHardAdd", icon: "🧮", name: "計算ゲーム【上級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙52（4連続+26）" },
+              { id: "mathHardMult", icon: "✖️", name: "計算ゲーム【上級】掛け算割り算", desc: "2桁×1桁・2桁÷1桁！1問正解 = 🪙52（4連続+26）" },
             ].map(g => (
               <div key={g.id} className="mgc" onClick={() => { sfx('click'); setMiniGame(g.id); }}>
                 <div style={{ fontSize: 26, marginBottom: 6 }}>{g.icon}</div>
@@ -2778,9 +2778,9 @@ function MathMidGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 27 : 0;
+      const bonus = ns >= 4 ? 22 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 54 + bonus); setFb(bonus > 0 ? "⭕+27" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 43 + bonus); setFb(bonus > 0 ? "⭕+22" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
@@ -2793,7 +2793,7 @@ function MathMidGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>📐 計算ゲーム【中級】足し算引き算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁の足し算・引き算を解こう！<br/>1問正解 = 🪙54コイン（4連続で+27）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁の足し算・引き算を解こう！<br/>1問正解 = 🪙43コイン（4連続で+22）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
@@ -2971,9 +2971,9 @@ function MathHardAddGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 36 : 0;
+      const bonus = ns >= 4 ? 26 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 70 + bonus); setFb(bonus > 0 ? "⭕+36" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 52 + bonus); setFb(bonus > 0 ? "⭕+26" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
@@ -2985,7 +2985,7 @@ function MathHardAddGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>🧮 計算ゲーム【上級】足し算引き算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±2桁を解こう！<br/>1問正解 = 🪙70コイン（4連続で+36）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±2桁を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
@@ -3070,9 +3070,9 @@ function MathHardMultGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 36 : 0;
+      const bonus = ns >= 4 ? 26 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 70 + bonus); setFb(bonus > 0 ? "⭕+36" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 52 + bonus); setFb(bonus > 0 ? "⭕+26" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
@@ -3084,7 +3084,7 @@ function MathHardMultGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>✖️ 計算ゲーム【上級】掛け算割り算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁×1桁・2桁÷1桁を解こう！<br/>1問正解 = 🪙70コイン（4連続で+36）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁×1桁・2桁÷1桁を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
@@ -3414,6 +3414,7 @@ function ShootingGame({ onDone }) {
   const fid = useRef(0);
   const lastFrameRef = useRef(0);
   const particlesRef = useRef([]);
+  const lastTapTimeRef = useRef(0);
 
   const DURATION = 20;
   const CANVAS_W = 300;
@@ -3735,6 +3736,7 @@ function CoinTowerGame({ onDone }) {
   const startRef = useRef(null);
   const stateRef = useRef(null);
   const earnedRef = useRef(0);
+  const lastTapRef = useRef(0);
   const DURATION = 20;
   const CANVAS_W = 300;
   const CANVAS_H = 420;
@@ -3909,6 +3911,9 @@ function CoinTowerGame({ onDone }) {
 
   const handleTap = () => {
     if (phase !== "play") return;
+    const now = Date.now();
+    if (now - lastTapRef.current < 100) return;
+    lastTapRef.current = now;
     const s = stateRef.current;
     if (!s || s.gameOver) return;
 
@@ -4259,6 +4264,9 @@ function GemCatchGame({ onDone }) {
   // Tap handler
   const handleTap = (e) => {
     if (phase !== "play") return;
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 100) return;
+    lastTapTimeRef.current = now;
     const cvs = canvasRef.current;
     if (!cvs) return;
     const rect = cvs.getBoundingClientRect();
