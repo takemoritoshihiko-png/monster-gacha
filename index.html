@@ -2266,8 +2266,8 @@ function MonsterGacha() {
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
               { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
               { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
-              { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙36（4連続+18）" },
-              { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙36（4連続+18）" },
+              { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙30（4連続+15）" },
+              { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙30（4連続+15）" },
               { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙43（4連続+22）" },
               { id: "mathHardAdd", icon: "🧮", name: "計算ゲーム【上級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙52（4連続+26）" },
               { id: "mathHardMult", icon: "✖️", name: "計算ゲーム【上級】掛け算割り算", desc: "2桁×1桁・2桁÷1桁！1問正解 = 🪙52（4連続+26）" },
@@ -2801,9 +2801,9 @@ function KukuGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 10 : 0;
+      const bonus = ns >= 4 ? 15 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 36 + bonus); setFb(bonus > 0 ? "⭕+18" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 30 + bonus); setFb(bonus > 0 ? "⭕+15" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
@@ -2815,7 +2815,7 @@ function KukuGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>🔢 計算ゲーム【初級】九九</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で九九を解こう！<br/>1問正解 = 🪙36コイン（4連続で+18）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で九九を解こう！<br/>1問正解 = 🪙30コイン（4連続で+15）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
@@ -3004,9 +3004,9 @@ function MathEasyGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 18 : 0;
+      const bonus = ns >= 4 ? 15 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 36 + bonus); setFb(bonus > 0 ? "⭕+18" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 30 + bonus); setFb(bonus > 0 ? "⭕+15" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
@@ -3020,7 +3020,7 @@ function MathEasyGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>➕ 計算ゲーム【初級】足し算引き算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±1桁を解こう！<br/>1問正解 = 🪙36コイン（4連続で+18）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±1桁を解こう！<br/>1問正解 = 🪙30コイン（4連続で+15）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
