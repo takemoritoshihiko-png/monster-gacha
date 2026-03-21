@@ -1535,11 +1535,14 @@ function MonsterGacha() {
       [440, 554, 659, 831, 1047, 1319, 1568].forEach((f, i) => playNote(f, 0.3, 'sine', 0.1, 0.15 + i * 0.07));
       playChord([1319, 1568, 2093], 0.8, 'sine', 0.08, 0.7);
     } else if (targetRank === 10) {
-      // ★10 GOD: 深い衝撃 + 上昇和音
-      playNote(80, 0.4, 'sawtooth', 0.12);
-      playSweep(150, 1200, 0.5, 'sine', 0.1);
-      [523, 659, 784, 1047].forEach((f, i) => playNote(f, 0.3, 'sine', 0.12, 0.2 + i * 0.08));
-      playChord([1047, 1319, 1568], 0.6, 'sine', 0.07, 0.55);
+      // ★10 GOD: ガチャGOD降臨レベルの壮大な演出
+      playNote(55, 0.6, 'sawtooth', 0.12);
+      playSweep(100, 2500, 0.8, 'sine', 0.1);
+      playNoise(0.2, 0.06);
+      [392, 494, 587, 698, 831, 1047, 1319, 1568].forEach((f, i) => playNote(f, 0.35, 'sine', 0.12, 0.1 + i * 0.06));
+      playChord([1047, 1319, 1568, 2093], 1.0, 'sine', 0.07, 0.6);
+      playChord([1319, 1568, 2093], 0.7, 'triangle', 0.04, 0.8);
+      [2093, 2349, 2637].forEach((f, i) => playNote(f, 0.2, 'sine', 0.03, 1.0 + i * 0.08));
     } else if (targetRank === 9) {
       // ★9 Mythic: 深い導入 → 壮大な上昇アルペジオ → 荘厳和音ブルーム
       playNote(110, 0.3, 'sawtooth', 0.08);
@@ -1631,8 +1634,12 @@ function MonsterGacha() {
         return n;
       });
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
+      if (targetRank === 10) {
+        setRareEffect({ type: 'synthGod', name: MONSTERS[typeId][targetRank - 1].name, icon: MONSTERS[typeId][targetRank - 1].icon });
+        setTimeout(() => setRareEffect(null), 3500);
+      }
     }
-    setTimeout(() => setSynthResult(null), 2000);
+    setTimeout(() => setSynthResult(null), targetRank >= 10 ? 4000 : 2000);
   }, [collection]);
 
   const doSynthAll = useCallback(() => {
@@ -2630,6 +2637,35 @@ function MonsterGacha() {
       )}
       {rareEffect && rareEffect.type === 'ssrare' && (
         <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(155,89,182,0.15), transparent 70%)', animationDuration: '0.25s' }} />
+      )}
+      {rareEffect && rareEffect.type === 'synthGod' && (
+        <>
+          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,107,107,0.4), rgba(255,209,61,0.4), rgba(107,255,107,0.4), rgba(107,197,255,0.4), rgba(208,107,255,0.4))' }} />
+          <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle, rgba(80,40,0,0.9), rgba(0,0,0,0.95))', pointerEvents: 'none' }}>
+            <div className="rare-rainbow" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 60, marginBottom: 16, animation: 'heroIconFloat 1.5s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))' }}>
+                {rareEffect.icon || '💎'}
+              </div>
+              <div className="rare-god-text" style={{ fontSize: 28, fontWeight: 900,
+                background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)',
+                backgroundSize: '200% 100%', animation: 'rainbowText 1.5s linear infinite',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 15px rgba(255,215,0,0.6))',
+                fontFamily: "'Orbitron',sans-serif", letterSpacing: 6 }}>
+                G O D 合 成
+              </div>
+              <div style={{ fontSize: 14, color: 'rgba(255,215,0,0.7)', marginTop: 8, fontWeight: 700 }}>
+                {rareEffect.name}を手に入れた！
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,215,0,0.5)', marginTop: 4, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 4 }}>
+                ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
+              </div>
+            </div>
+          </div>
+        </>
       )}
       {rareEffect && rareEffect.type === 'synthMax' && (
         <>
