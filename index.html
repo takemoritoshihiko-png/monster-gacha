@@ -2021,7 +2021,7 @@ function MonsterGacha() {
               { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
               { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
-              { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！15秒間の射的チャレンジ" },
+              { id: "shooting", icon: "🎯", name: "シューティングギャラリー", desc: "動く的を撃ち落とせ！20秒間の射的チャレンジ" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙20（4連続+10）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙20（4連続+10）" },
               { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙30（4連続+15）" },
@@ -3013,7 +3013,7 @@ function ShootingGame({ onDone }) {
   const lastFrameRef = useRef(0);
   const particlesRef = useRef([]);
 
-  const DURATION = 15;
+  const DURATION = 20;
   const CANVAS_W = 300;
   const CANVAS_H = 400;
 
@@ -3268,7 +3268,7 @@ function ShootingGame({ onDone }) {
       {phase === "ready" && (
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
-            動く的を撃ち落とせ！15秒間の射的チャレンジ<br/>
+            動く的を撃ち落とせ！20秒間の射的チャレンジ<br/>
             空タップでコンボリセット！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
