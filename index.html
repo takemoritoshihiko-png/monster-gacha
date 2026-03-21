@@ -2140,10 +2140,36 @@ function MonsterGacha() {
                   if (totalPower >= RANKS[i].min) { rankIdx = i; break; }
                 }
                 const r = RANKS[rankIdx];
+                const rn = rankIdx + 1;
+                const rankStyle = rn >= 25 ? {
+                  fontSize: 14, background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)',
+                  backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  animation: 'rainbowText 2s linear infinite',
+                  filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.6))',
+                } : rn >= 24 ? {
+                  fontSize: 13, background: 'linear-gradient(135deg, #ffd700, #fff, #ffd700)',
+                  backgroundSize: '300% 300%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  animation: 'gradShift 2s ease infinite',
+                  filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.5))',
+                } : rn >= 22 ? {
+                  fontSize: 13, color: '#ffd700',
+                  textShadow: '0 0 8px rgba(255,215,0,0.4)',
+                } : rn >= 20 ? {
+                  fontSize: 12, color: '#fbbf24',
+                  textShadow: '0 0 6px rgba(251,191,36,0.3)',
+                } : rn >= 18 ? {
+                  fontSize: 12, background: 'linear-gradient(135deg, #c084fc, #ec4899)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 0 3px rgba(192,132,252,0.4))',
+                } : rn >= 16 ? {
+                  fontSize: 12, color: '#c084fc',
+                } : {
+                  fontSize: 12, color: 'rgba(255,255,255,0.6)',
+                };
                 return (
                   <div style={{ marginTop: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: rankIdx >= 20 ? '#ffd700' : rankIdx >= 15 ? '#c084fc' : 'rgba(255,255,255,0.6)' }}>
-                      {r.icon} Rank {rankIdx + 1}/25 — {r.name}
+                    <div style={{ fontWeight: 900, ...rankStyle }}>
+                      {r.icon} Rank {rn}/25 — {r.name}
                     </div>
                   </div>
                 );
