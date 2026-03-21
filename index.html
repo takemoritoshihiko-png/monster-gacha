@@ -315,6 +315,7 @@ const TYPES = [
   { id: "relic", name: "古代秘宝", emoji: "🏺", color: "#e67e22" },
   { id: "art", name: "芸術品", emoji: "🎨", color: "#e74c3c" },
   { id: "space", name: "宇宙の秘宝", emoji: "🛸", color: "#9b59b6" },
+  { id: "kingdom", name: "王国", emoji: "🏰", color: "#8b5cf6" },
 ];
 
 // ★6-10=元の1/2, ★5=3%, ★4=8%, 残り87.12%を★1-3に配分
@@ -397,6 +398,19 @@ const MONSTERS = {
     { name: "銀河の心臓", icon: "🌀", desc: "銀河系の中心エネルギー" },
     { name: "ビッグバンの種", icon: "💥", desc: "宇宙誕生の瞬間そのもの" },
     { name: "全次元の鍵", icon: "🗝️", desc: "全並行宇宙を開く究極の鍵" },
+  ],
+  kingdom: [
+    { name: "村の地図", icon: "🗺️", desc: "手書きの村の見取り図" },
+    { name: "城下町の鍵", icon: "🗝️", desc: "古い町の門の鍵" },
+    { name: "騎士の紋章", icon: "🛡️", desc: "名もなき騎士の盾" },
+    { name: "領主の印章", icon: "📜", desc: "小さな領地の証明書" },
+    { name: "王城の設計図", icon: "🏰", desc: "城を建てた建築家の遺産" },
+    { name: "女王の王冠", icon: "👸", desc: "一国を治めた女王の冠" },
+    { name: "帝国の勅令", icon: "⚖️", desc: "大陸を支配した帝国の法典" },
+    { name: "征服王の剣", icon: "⚔️", desc: "世界を征した王の愛剣" },
+    { name: "黄金都市の鍵", icon: "🌟", desc: "エルドラドへの入口" },
+    { name: "全大陸の盟約書", icon: "🌐", desc: "世界統一の条約原本" },
+    { name: "天空王国の玉座", icon: "☁️", desc: "神々が座した天上の王座" },
   ],
 };
 
@@ -1402,7 +1416,7 @@ function MonsterGacha() {
                           {slotCleared && <span className="rank-rainbow" style={{ fontSize: 9, fontWeight: 900, fontFamily: "'Orbitron',sans-serif" }}>🏆CLEAR</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 10, fontSize: 11, opacity: 0.5 }}>
-                          <span>📖 {colCnt}/55</span>
+                          <span>📖 {colCnt}/66</span>
                           <span>🎰 {(data.totalPulls || 0).toLocaleString()}回</span>
                           <span>🪙 {(data.coins || 0).toLocaleString()}</span>
                         </div>
@@ -1570,7 +1584,7 @@ function MonsterGacha() {
 
             <div className="stat-cards">
               <div className="stat-card">
-                <div className="stat-card-val">{colCount}<span style={{ fontSize: 11, opacity: 0.5 }}>/55</span></div>
+                <div className="stat-card-val">{colCount}<span style={{ fontSize: 11, opacity: 0.5 }}>/66</span></div>
                 <div className="stat-card-label">📖 コレクション</div>
               </div>
               <div className="stat-card">
@@ -1614,7 +1628,7 @@ function MonsterGacha() {
                   const monster = MONSTERS[type.id][10]; // ★MAX data
                   return (
                     <div key={type.id} style={{
-                      width: 48, height: 56, borderRadius: 10,
+                      width: 42, height: 52, borderRadius: 10,
                       background: owned ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
                       border: `1px solid ${owned ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -1639,7 +1653,7 @@ function MonsterGacha() {
                 {isComplete ? (
                   <span className="rank-rainbow" style={{ fontSize: 12 }}>✨ COMPLETE ✨</span>
                 ) : (
-                  <span style={{ opacity: 0.3 }}>{maxOwned.filter(Boolean).length} / 5</span>
+                  <span style={{ opacity: 0.3 }}>{maxOwned.filter(Boolean).length} / 6</span>
                 )}
               </div>
             </div>
@@ -2050,7 +2064,7 @@ function MonsterGacha() {
               COMPLETE
             </div>
             <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 16 }}>
-              ★MAX 全5種コンプリート！
+              ★MAX 全6種コンプリート！
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
               {TYPES.map((type, i) => (
@@ -2108,7 +2122,7 @@ function MonsterGacha() {
                       {data ? (
                         <>
                           <span style={{ color: '#fbbf24', fontWeight: 700 }}>💰{formatYen(pwr)}</span>
-                          <span style={{ opacity: 0.4, marginLeft: 6 }}>📖{Object.keys(data.collection || {}).length}/55</span>
+                          <span style={{ opacity: 0.4, marginLeft: 6 }}>📖{Object.keys(data.collection || {}).length}/66</span>
                         </>
                       ) : (
                         <span style={{ opacity: 0.3 }}>空きスロット</span>
@@ -3861,7 +3875,7 @@ function CollectionView({ collection, onSelect }) {
 
   return (
     <div>
-      <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/55</span></div>
+      <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/66</span></div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
