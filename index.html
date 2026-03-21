@@ -1894,6 +1894,7 @@ function MonsterGacha() {
               { id: "tap", icon: "👊", name: "連打バトル", desc: "10秒間ひたすら連打！たまにボーナスも..." },
               { id: "gem", icon: "💎", name: "ジュエルキャッチ", desc: "落ちてくる宝石をリズムよくキャッチ！20秒" },
               { id: "timing", icon: "⏱️", name: "ルパンタイマー", desc: "表示ナシ！体内時計で1〜10秒を10回当てろ！" },
+              { id: "tower", icon: "🪙", name: "コインタワー", desc: "揺れるコインを積み上げろ！PERFECTで幅全回復！20秒" },
               { id: "mathEasy", icon: "➕", name: "計算ゲーム【初級】足し算引き算", desc: "2桁±1桁のかんたん計算！1問正解 = 🪙20（4連続+10）" },
               { id: "kuku", icon: "🔢", name: "計算ゲーム【初級】九九", desc: "九九の掛け算！1問正解 = 🪙20（4連続+10）" },
               { id: "mathMid", icon: "📐", name: "計算ゲーム【中級】足し算引き算", desc: "2桁±2桁の計算！1問正解 = 🪙30（4連続+15）" },
@@ -1909,6 +1910,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
+        {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
         {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => { setCoins(p => p + c); setMiniGame(null); }} />}
@@ -2793,6 +2795,20 @@ function TimingGame({ onDone }) {
 // ============================================================
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
+// Coin Tower BGM: Upbeat stacking rhythm
+const BGM_TOWER = [
+  {n:262,b:0,d:0.1,t:'square',v:0.05},{n:330,b:0.5,d:0.1,t:'square',v:0.04},
+  {n:392,b:1,d:0.1,t:'square',v:0.05},{n:330,b:1.5,d:0.1,t:'square',v:0.04},
+  {n:294,b:2,d:0.1,t:'square',v:0.05},{n:370,b:2.5,d:0.1,t:'square',v:0.04},
+  {n:440,b:3,d:0.1,t:'square',v:0.05},{n:370,b:3.5,d:0.1,t:'square',v:0.04},
+  {n:330,b:4,d:0.1,t:'square',v:0.05},{n:392,b:4.5,d:0.1,t:'square',v:0.04},
+  {n:494,b:5,d:0.12,t:'square',v:0.05},{n:392,b:5.5,d:0.1,t:'square',v:0.04},
+  {n:262,b:6,d:0.1,t:'square',v:0.05},{n:330,b:6.5,d:0.1,t:'square',v:0.04},
+  {n:392,b:7,d:0.15,t:'square',v:0.05},
+  {n:131,b:0,d:0.4,t:'triangle',v:0.03},{n:147,b:2,d:0.4,t:'triangle',v:0.03},
+  {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
+];
+
 const GEM_BGM = [
   {n:196,b:0,d:0.15,t:'sine',v:0.04},{n:262,b:0.5,d:0.15,t:'sine',v:0.035},
   {n:330,b:1,d:0.15,t:'sine',v:0.04},{n:262,b:1.5,d:0.15,t:'sine',v:0.035},
@@ -2806,6 +2822,332 @@ const GEM_BGM = [
   {n:165,b:4,d:0.4,t:'triangle',v:0.03},{n:131,b:6,d:0.4,t:'triangle',v:0.03},
 ];
 
+// ============================================================
+// COIN TOWER GAME
+// ============================================================
+function CoinTowerGame({ onDone }) {
+  const [phase, setPhase] = useState("ready");
+  const [earned, setEarned] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [layers, setLayers] = useState(0);
+  const [perfects, setPerfects] = useState(0);
+  const [perfectStreak, setPerfectStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const startRef = useRef(null);
+  const stateRef = useRef(null);
+  const earnedRef = useRef(0);
+  const DURATION = 20;
+  const CANVAS_W = 300;
+  const CANVAS_H = 420;
+  const BASE_W = 120;
+  const BLOCK_H = 16;
+  const BASE_Y = CANVAS_H - 30;
+
+  const startGame = () => {
+    setPhase("play"); setEarned(0); setTimeLeft(DURATION); setLayers(0); setPerfects(0); setPerfectStreak(0); setMaxStreak(0);
+    earnedRef.current = 0;
+    bgm.playLoop(BGM_TOWER, 150);
+    startRef.current = Date.now();
+
+    const state = {
+      stack: [{ x: CANVAS_W / 2, w: BASE_W }], // base platform
+      current: { x: CANVAS_W / 2, w: BASE_W, dir: 1 },
+      speed: 1.5,
+      layers: 0,
+      perfects: 0,
+      perfectStreak: 0,
+      maxStreak: 0,
+      earned: 0,
+      gameOver: false,
+      floats: [],
+      fid: 0,
+    };
+    stateRef.current = state;
+
+    const loop = () => {
+      const now = Date.now();
+      const elapsed = (now - startRef.current) / 1000;
+      const rem = Math.max(0, DURATION - elapsed);
+      setTimeLeft(rem);
+
+      const s = stateRef.current;
+      if (!s.gameOver && rem > 0) {
+        // Swing speed increases with layers
+        const speedMult = 1 + s.layers * 0.08;
+        const swing = s.speed * speedMult;
+        const top = s.stack[s.stack.length - 1];
+        const halfRange = (CANVAS_W - s.current.w) / 2;
+        s.current.x += s.current.dir * swing;
+        const leftEdge = s.current.x - s.current.w / 2;
+        const rightEdge = s.current.x + s.current.w / 2;
+        if (rightEdge >= CANVAS_W - 10) { s.current.dir = -1; }
+        if (leftEdge <= 10) { s.current.dir = 1; }
+      }
+
+      // Update floats
+      s.floats = s.floats.filter(f => now - f.t < 700);
+
+      // Draw
+      const cvs = canvasRef.current;
+      if (cvs) {
+        const ctx = cvs.getContext('2d');
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Background gradient
+        const bg = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+        bg.addColorStop(0, 'rgba(15,10,40,0.95)');
+        bg.addColorStop(1, 'rgba(6,6,15,0.95)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Calculate camera offset for scrolling
+        const stackHeight = s.stack.length * BLOCK_H;
+        const viewOffset = Math.max(0, stackHeight - (CANVAS_H - 100));
+
+        // Draw stacked layers
+        s.stack.forEach((layer, i) => {
+          const y = BASE_Y - i * BLOCK_H + viewOffset;
+          if (y < -BLOCK_H || y > CANVAS_H + BLOCK_H) return;
+          const hue = (i * 12) % 360;
+          const isPerfect = layer.perfect;
+          ctx.fillStyle = isPerfect
+            ? `hsl(${hue}, 80%, 65%)`
+            : `hsl(${hue}, 60%, 45%)`;
+          ctx.shadowColor = isPerfect ? `hsl(${hue}, 90%, 70%)` : 'transparent';
+          ctx.shadowBlur = isPerfect ? 10 : 0;
+          const rx = layer.x - layer.w / 2;
+          const ry = y - BLOCK_H;
+          const r = 4;
+          ctx.beginPath();
+          ctx.moveTo(rx + r, ry);
+          ctx.lineTo(rx + layer.w - r, ry);
+          ctx.quadraticCurveTo(rx + layer.w, ry, rx + layer.w, ry + r);
+          ctx.lineTo(rx + layer.w, ry + BLOCK_H - r);
+          ctx.quadraticCurveTo(rx + layer.w, ry + BLOCK_H, rx + layer.w - r, ry + BLOCK_H);
+          ctx.lineTo(rx + r, ry + BLOCK_H);
+          ctx.quadraticCurveTo(rx, ry + BLOCK_H, rx, ry + BLOCK_H - r);
+          ctx.lineTo(rx, ry + r);
+          ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Coin emoji on wider blocks
+          if (layer.w > 30) {
+            ctx.font = `${Math.min(BLOCK_H - 2, 14)}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🪙', layer.x, y - BLOCK_H / 2);
+          }
+        });
+
+        // Draw current swinging block
+        if (!s.gameOver && rem > 0) {
+          const cy = BASE_Y - s.stack.length * BLOCK_H + viewOffset - BLOCK_H;
+          const hue = (s.stack.length * 12) % 360;
+          ctx.fillStyle = `hsl(${hue}, 70%, 55%)`;
+          ctx.shadowColor = `hsl(${hue}, 80%, 60%)`;
+          ctx.shadowBlur = 8;
+          const rx = s.current.x - s.current.w / 2;
+          const r = 4;
+          ctx.beginPath();
+          ctx.moveTo(rx + r, cy);
+          ctx.lineTo(rx + s.current.w - r, cy);
+          ctx.quadraticCurveTo(rx + s.current.w, cy, rx + s.current.w, cy + r);
+          ctx.lineTo(rx + s.current.w, cy + BLOCK_H - r);
+          ctx.quadraticCurveTo(rx + s.current.w, cy + BLOCK_H, rx + s.current.w - r, cy + BLOCK_H);
+          ctx.lineTo(rx + r, cy + BLOCK_H);
+          ctx.quadraticCurveTo(rx, cy + BLOCK_H, rx, cy + BLOCK_H - r);
+          ctx.lineTo(rx, cy + r);
+          ctx.quadraticCurveTo(rx, cy, rx + r, cy);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          if (s.current.w > 30) {
+            ctx.font = `${Math.min(BLOCK_H - 2, 14)}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🪙', s.current.x, cy + BLOCK_H / 2);
+          }
+        }
+
+        // Draw floats
+        s.floats.forEach(f => {
+          const age = (now - f.t) / 700;
+          ctx.globalAlpha = 1 - age;
+          ctx.font = 'bold 14px "Orbitron", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = f.color;
+          ctx.fillText(f.label, f.x, f.y - age * 50);
+          ctx.globalAlpha = 1;
+        });
+
+        // Game over overlay
+        if (s.gameOver) {
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          ctx.font = 'bold 24px "Orbitron", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ef4444';
+          ctx.fillText('GAME OVER', CANVAS_W / 2, CANVAS_H / 2 - 10);
+          ctx.font = '14px "Noto Sans JP", sans-serif';
+          ctx.fillStyle = '#fff';
+          ctx.fillText('幅がゼロになりました', CANVAS_W / 2, CANVAS_H / 2 + 20);
+        }
+      }
+
+      if (rem > 0 && !s.gameOver) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        bgm.stop(); sfx('gameFinish');
+        setPhase("done");
+        setEarned(earnedRef.current);
+        setLayers(s.layers);
+        setPerfects(s.perfects);
+        setMaxStreak(s.maxStreak);
+      }
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  const handleTap = () => {
+    if (phase !== "play") return;
+    const s = stateRef.current;
+    if (!s || s.gameOver) return;
+
+    const top = s.stack[s.stack.length - 1];
+    const curLeft = s.current.x - s.current.w / 2;
+    const curRight = s.current.x + s.current.w / 2;
+    const topLeft = top.x - top.w / 2;
+    const topRight = top.x + top.w / 2;
+
+    // Calculate overlap
+    const overlapLeft = Math.max(curLeft, topLeft);
+    const overlapRight = Math.min(curRight, topRight);
+    const overlapW = overlapRight - overlapLeft;
+
+    const PERFECT_THRESHOLD = 5;
+    const offset = Math.abs(s.current.x - top.x);
+    const isPerfect = offset <= PERFECT_THRESHOLD;
+
+    let coins = 0;
+    let label = '';
+    let color = '';
+
+    if (isPerfect) {
+      // PERFECT: full width recovery
+      const newW = BASE_W;
+      const newX = (overlapLeft + overlapRight) / 2;
+      s.stack.push({ x: top.x, w: newW, perfect: true });
+      s.perfects++;
+      s.perfectStreak++;
+      if (s.perfectStreak > s.maxStreak) s.maxStreak = s.perfectStreak;
+      coins = 20;
+      let bonus = 0;
+      if (s.perfectStreak >= 10) bonus = 50;
+      else if (s.perfectStreak >= 5) bonus = 20;
+      else if (s.perfectStreak >= 3) bonus = 10;
+      coins += bonus;
+      label = bonus > 0 ? `PERFECT! +${coins}` : `PERFECT! +20`;
+      color = '#fbbf24';
+      sfx('correctStreak');
+    } else if (overlapW > 0) {
+      // Normal hit: trim width
+      const newX = (overlapLeft + overlapRight) / 2;
+      s.stack.push({ x: newX, w: overlapW, perfect: false });
+      s.perfectStreak = 0;
+      coins = 10;
+      label = `+10`;
+      color = '#a78bfa';
+      sfx('correct');
+    } else {
+      // Missed completely
+      s.gameOver = true;
+      s.perfectStreak = 0;
+      sfx('hit');
+      setEarned(earnedRef.current);
+      setLayers(s.layers);
+      setPerfects(s.perfects);
+      setMaxStreak(s.maxStreak);
+      return;
+    }
+
+    s.layers++;
+    s.earned += coins;
+    earnedRef.current += coins;
+    setEarned(earnedRef.current);
+    setLayers(s.layers);
+    setPerfects(s.perfects);
+    setPerfectStreak(s.perfectStreak);
+    setMaxStreak(s.maxStreak);
+
+    // Add float
+    const stackY = BASE_Y - s.stack.length * BLOCK_H + Math.max(0, s.stack.length * BLOCK_H - (CANVAS_H - 100));
+    s.floats.push({ label, color, x: s.current.x, y: stackY, t: Date.now(), id: ++s.fid });
+
+    // Prepare next block with the new top's width
+    const newTop = s.stack[s.stack.length - 1];
+    if (newTop.w <= 2) {
+      s.gameOver = true;
+      return;
+    }
+    s.current = { x: CANVAS_W / 2, w: newTop.w, dir: s.layers % 2 === 0 ? 1 : -1 };
+  };
+
+  useEffect(() => () => { cancelAnimationFrame(rafRef.current); bgm.stop(); }, []);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🪙 コインタワー</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
+            左右に揺れるコインをタップで積み上げよう！20秒<br/>
+            はみ出すと幅が削れる。PERFECTで幅が全回復！
+          </p>
+          <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
+            1段=🪙10 ／ PERFECT=🪙20<br/>
+            3連続P+10 ／ 5連続P+20 ／ 10連続P+50
+          </div>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ position: 'relative' }}>
+          <div className="sr">
+            <div className="sb">⏱️ {timeLeft.toFixed(1)}s</div>
+            <div className="sb">🪙 {earned}</div>
+            <div className="sb">📦 {layers}段</div>
+            <div className="sb" style={{ color: perfectStreak >= 5 ? '#fbbf24' : perfectStreak >= 3 ? '#f472b6' : '#a78bfa' }}>
+              {perfectStreak > 0 ? `✨${perfectStreak}連P` : '-'}
+            </div>
+          </div>
+          <div className="tb"><div className="tf" style={{ width: `${(timeLeft / DURATION) * 100}%` }} /></div>
+          <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
+            style={{ borderRadius: 14, border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', marginTop: 8, cursor: 'pointer' }}
+            onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }} />
+        </div>
+      )}
+      {phase === "done" && (
+        <>
+          <div style={{ fontSize: 44, margin: '16px 0' }}>🏗️</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {earned} コイン獲得！</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, margin: '12px 0', fontSize: 13 }}>
+            <div><span style={{ color: '#a78bfa', fontWeight: 700 }}>段数</span><br/>{layers}</div>
+            <div><span style={{ color: '#fbbf24', fontWeight: 700 }}>PERFECT</span><br/>{perfects}</div>
+            <div><span style={{ color: '#f472b6', fontWeight: 700 }}>最大連続P</span><br/>{maxStreak}</div>
+          </div>
+          <button className="btn bp" style={{ marginTop: 14 }} onClick={() => onDone(earned)}>受け取る</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// GEM CATCH GAME (ジュエルキャッチ)
+// ============================================================
 function GemCatchGame({ onDone }) {
   const [phase, setPhase] = useState("ready");
   const [earned, setEarned] = useState(0);
