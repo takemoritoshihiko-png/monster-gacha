@@ -4358,16 +4358,10 @@ function GemCatchGame({ onDone }) {
     rafRef.current = requestAnimationFrame(loop);
   };
 
-  // Tap handler
-  const handleTap = (e) => {
-    if (phase !== "play") return;
-    const now = Date.now();
-    if (now - lastTapTimeRef.current < 100) return;
-    lastTapTimeRef.current = now;
-    const cvs = canvasRef.current;
-    if (!cvs) return;
+  // Tap handler for a single lane
+  const processLaneTap = (tapX, cvs) => {
+    if (phase !== "play" || !cvs) return;
     const rect = cvs.getBoundingClientRect();
-    const tapX = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
     const scaleX = cvs.width / rect.width;
     const tapLane = Math.min(Math.floor(tapX * scaleX / (cvs.width / LANES)), LANES - 1);
 
@@ -4394,8 +4388,8 @@ function GemCatchGame({ onDone }) {
     comboRef.current++;
     if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
     if (comboRef.current >= 15) { coins += 4; }
-    else if (comboRef.current >= 10) { coins += 2; }
-    else if (comboRef.current >= 5) { coins += 1; }
+    else if (comboRef.current >= 10) { coins += 3; }
+    else if (comboRef.current >= 5) { coins += 2; }
 
     earnedRef.current += coins;
     setEarned(earnedRef.current);
@@ -4406,8 +4400,32 @@ function GemCatchGame({ onDone }) {
     const fx = (tapLane + 0.5) * (100 / LANES);
     label += ' +' + coins;
     if (comboRef.current >= 10) label += '🔥';
+    else if (comboRef.current >= 5) label += '✨';
     setFloats(p => [...p, { id, label, color, x: fx }]);
     setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 600);
+  };
+
+  // Handle click (mouse)
+  const handleTap = (e) => {
+    if (phase !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const rect = cvs.getBoundingClientRect();
+    const tapX = (e.clientX ?? 0) - rect.left;
+    processLaneTap(tapX, cvs);
+  };
+
+  // Handle multi-touch
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    if (phase !== "play") return;
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const rect = cvs.getBoundingClientRect();
+    for (let i = 0; i < e.touches.length; i++) {
+      const tapX = e.touches[i].clientX - rect.left;
+      processLaneTap(tapX, cvs);
+    }
   };
 
   useEffect(() => () => {
@@ -4424,7 +4442,7 @@ function GemCatchGame({ onDone }) {
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
             落ちてくる宝石をリズムよくキャッチ！20秒<br/>
-            PERFECT = 🪙8 ／ GOOD = 🪙4 ／ コンボで追加ボーナス
+            PERFECT = 🪙8 ／ GOOD = 🪙4 ／ 5コンボ+2 ／ 10コンボ+3 ／ 15コンボ+4
           </p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
@@ -4442,7 +4460,7 @@ function GemCatchGame({ onDone }) {
           <div style={{ position: 'relative', marginTop: 8, display: 'inline-block' }}>
             <canvas ref={canvasRef} width={300} height={GAME_H}
               style={{ borderRadius: 14, background: 'rgba(6,6,15,0.85)', border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', marginBottom: 20 }}
-              onClick={handleTap} onTouchStart={e => { e.preventDefault(); Array.from(e.touches).forEach(touch => handleTap({ clientX: touch.clientX, clientY: touch.clientY, touches: [touch] })); }} />
+              onClick={handleTap} onTouchStart={handleTouchStart} />
             {floats.map(f => (
               <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '70%', fontSize: 12, fontWeight: 900 }}>{f.label}</div>
             ))}
