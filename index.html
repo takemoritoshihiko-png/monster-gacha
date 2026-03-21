@@ -1186,19 +1186,7 @@ function MonsterGacha() {
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
 
-  // Sell
-  const sell = useCallback((key) => {
-    const item = collection[key];
-    if (!item || item.count <= 0) return;
-    sfx('sell');
-    setCoins(c => c + SELL_VALUES[item.rank - 1]);
-    setCollection(prev => {
-      const n = { ...prev };
-      if (n[key].count <= 1) delete n[key]; else n[key] = { ...n[key], count: n[key].count - 1 };
-      return n;
-    });
-    setModal(null);
-  }, [collection]);
+
 
   // Synthesis: same type + same rank × 3 → rank+1. ★10 × 3 → ★MAX
   // Synthesis: ★1-2=2体, ★3-9=3体(同種同ランク), ★10=異種含む3体→★MAXランダム
@@ -2036,12 +2024,7 @@ function MonsterGacha() {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 11, opacity: 0.4 }}>売却: 🪙{SELL_VALUES[modal.rank - 1]}</div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-              {modal.count > 0 && (
-                <button className="btn bd" style={{ fontSize: 12, padding: '8px 14px' }}
-                  onClick={() => sell(`${modal.typeId}_${modal.rank}`)}>売却</button>
-              )}
               <button className="btn bs" style={{ fontSize: 12, padding: '8px 14px' }} onClick={() => setModal(null)}>閉じる</button>
             </div>
           </div>
