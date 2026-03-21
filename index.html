@@ -15,50 +15,6 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-
-    function saveScore(name, score, game) {
-      window.fbDb.ref('leaderboard').push({
-        name: name,
-        score: score,
-        game: game || '',
-        timestamp: Date.now()
-      });
-    }
-
-    function getLeaderboard(callback) {
-      window.fbDb.ref('leaderboard')
-        .orderByChild('score')
-        .limitToLast(10)
-        .on('value', function(snapshot) {
-          var scores = [];
-          snapshot.forEach(function(child) {
-            scores.push(child.val());
-          });
-          scores.reverse();
-          callback(scores);
-        });
-    }
-
-    // One-time migration: adjust Lupin Timer scores (70% of old values)
-    (function() {
-      if (localStorage.getItem('tgacha-timing-migrated-v2')) return;
-      window.fbDb.ref('leaderboard').once('value').then(function(snapshot) {
-        var updates = {};
-        snapshot.forEach(function(child) {
-          var d = child.val();
-          if (d && d.game === 'ルパンタイマー' && d.score) {
-            updates[child.key + '/score'] = Math.round(d.score * 0.7);
-          }
-        });
-        if (Object.keys(updates).length > 0) {
-          window.fbDb.ref('leaderboard').update(updates).then(function() {
-            localStorage.setItem('tgacha-timing-migrated-v2', '1');
-          });
-        } else {
-          localStorage.setItem('tgacha-timing-migrated-v2', '1');
-        }
-      });
-    })();
   </script>
 </head>
 <body>
@@ -1005,6 +961,7 @@ function MonsterGacha() {
   const [saveMsg, setSaveMsg] = useState("");
   const [nickname, setNickname] = useState("");
   const [bestScores, setBestScores] = useState({});
+  const [playCounts, setPlayCounts] = useState({});
   const [rareEffect, setRareEffect] = useState(null);
   const saveTimer = useRef(null);
 
@@ -1129,12 +1086,13 @@ function MonsterGacha() {
       setSpending(d.spending || []);
       setNickname(d.nickname || "");
       setBestScores(d.bestScores || {});
+      setPlayCounts(d.playCounts || {});
       if (d.lastSave) {
         const away = Math.floor((Date.now() - d.lastSave) / 2000);
         if (away > 0) setCoins(c => c + Math.min(away, 5000));
       }
     } else {
-      setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({});
+      setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setBestScores({}); setPlayCounts({});
       // Preserve global nickname for new slots
       try {
         const nk = await window.storage.get('tgacha-nickname');
@@ -1152,7 +1110,7 @@ function MonsterGacha() {
     setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
     setConfirmDeleteId(null);
     if (id === slotId) {
-      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setScreen("home");
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setScreen("home");
     }
     setSaveMsg("🗑 スロット" + id + "を削除しました");
     setTimeout(() => setSaveMsg(""), 2000);
@@ -1162,7 +1120,7 @@ function MonsterGacha() {
   // ---- SAVE: minimal, no lock, no retry ----
   const [showSaveModal, setShowSaveModal] = useState(false);
   const saveDataRef = useRef(null);
-  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores };
+  saveDataRef.current = { coins, collection, totalPulls, loginDay, spending, nickname, bestScores, playCounts };
 
   const saveToSlot = useCallback(async (targetId, silent) => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -1173,7 +1131,7 @@ function MonsterGacha() {
     for (const k of Object.keys(col)) {
       if (col[k] && col[k].count > 0) compressed[k] = col[k].count;
     }
-    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, lastSave: Date.now() };
+    const data = { coins: s.coins, collection: compressed, totalPulls: s.totalPulls, loginDay: s.loginDay, spending: s.spending || [], nickname: s.nickname, bestScores: s.bestScores, playCounts: s.playCounts || {}, lastSave: Date.now() };
     const key = slotKey(targetId);
     try {
       const str = JSON.stringify(data);
@@ -1230,7 +1188,7 @@ function MonsterGacha() {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, updated: Date.now() };
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
         }
@@ -1292,10 +1250,6 @@ function MonsterGacha() {
     if (isComplete && !prevComplete.current) {
       setShowClear(true);
       sfx('reveal10');
-      // Save game clear to leaderboard
-      if (nickname) {
-        saveScore(nickname, totalPower, 'GAME CLEAR');
-      }
     }
     prevComplete.current = isComplete;
   }, [isComplete]);
@@ -1607,7 +1561,6 @@ function MonsterGacha() {
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
-  // Save minigame score to Firebase leaderboard
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級' };
   const handleMiniGameDone = useCallback((gameId, earned) => {
     setCoins(p => p + earned);
@@ -1615,10 +1568,7 @@ function MonsterGacha() {
       if (earned > (prev[gameId] || 0)) return { ...prev, [gameId]: earned };
       return prev;
     });
-    // Save to Firebase leaderboard if nickname is set
-    if (nickname && earned > 0) {
-      saveScore(nickname, earned, GAME_NAMES[gameId] || gameId);
-    }
+    setPlayCounts(prev => ({ ...prev, [gameId]: (prev[gameId] || 0) + 1 }));
     setMiniGame(null);
   }, [nickname]);
 
@@ -2006,9 +1956,9 @@ function MonsterGacha() {
                 <div className="menu-card-icon">🏆</div>
                 <div className="menu-card-label">ランキング</div>
               </div>
-              <div className="menu-card" onClick={() => nav("leaderboard")}>
-                <div className="menu-card-icon">📊</div>
-                <div className="menu-card-label">リーダーボード</div>
+              <div className="menu-card" onClick={() => nav("history")}>
+                <div className="menu-card-icon">📋</div>
+                <div className="menu-card-label">ゲーム履歴</div>
               </div>
               <div className="menu-card" onClick={backToSlots}>
                 <div className="menu-card-icon">🔄</div>
@@ -2334,8 +2284,8 @@ function MonsterGacha() {
         {/* RANKING */}
         {screen === "ranking" && <RankingScreen />}
 
-        {/* LEADERBOARD */}
-        {screen === "leaderboard" && <LeaderboardScreen />}
+        {/* GAME HISTORY */}
+        {screen === "history" && <GameHistoryScreen />}
       </div>
 
       {/* NAV */}
@@ -4551,63 +4501,106 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
 }
 
 // ============================================================
-// LEADERBOARD SCREEN (Firebase global scores)
+// GAME HISTORY SCREEN (Play counts from Firebase rankings)
 // ============================================================
-function LeaderboardScreen() {
-  const [scores, setScores] = useState([]);
+function GameHistoryScreen() {
+  const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [gameTab, setGameTab] = useState("tap");
+
+  const HISTORY_GAMES = {
+    tap: '👊 連打バトル', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー', tower: '🪙 コインタワー',
+    shooting: '🎯 シューティング', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級'
+  };
+
+  const GAME_TABS = [
+    { id: "tap", icon: "👊", name: "連打" },
+    { id: "gem", icon: "💎", name: "キャッチ" },
+    { id: "timing", icon: "⏱️", name: "タイマー" },
+    { id: "tower", icon: "🪙", name: "タワー" },
+    { id: "shooting", icon: "🎯", name: "射的" },
+    { id: "mathEasy", icon: "➕", name: "初級+" },
+    { id: "kuku", icon: "🔢", name: "九九" },
+    { id: "mathMid", icon: "📐", name: "中級+" },
+  ];
 
   useEffect(() => {
     setLoading(true);
-    getLeaderboard((data) => {
-      setScores(data);
+    if (window.fbDb) {
+      window.fbDb.ref('rankings').once('value').then(snapshot => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const d = child.val();
+          if (d && d.name) entries.push(d);
+        });
+        setRankings(entries);
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    } else {
       setLoading(false);
-    });
-    return () => {
-      if (window.fbDb) window.fbDb.ref('leaderboard').off();
-    };
+    }
   }, []);
+
+  const sorted = useMemo(() => {
+    return rankings
+      .filter(r => (r.playCounts?.[gameTab] || 0) > 0)
+      .sort((a, b) => (b.playCounts?.[gameTab] || 0) - (a.playCounts?.[gameTab] || 0));
+  }, [rankings, gameTab]);
 
   const medal = (i) => i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
 
   return (
     <div>
       <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
-        background: 'linear-gradient(160deg, rgba(236,72,153,0.1) 0%, rgba(245,158,11,0.08) 100%)',
-        borderBottom: '1px solid rgba(236,72,153,0.15)', marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>📊 リーダーボード</div>
-        <div style={{ fontSize: 11, opacity: 0.4 }}>ミニゲームスコア TOP10（全デバイス共有）</div>
+        background: 'linear-gradient(160deg, rgba(96,165,250,0.1) 0%, rgba(139,92,246,0.08) 100%)',
+        borderBottom: '1px solid rgba(96,165,250,0.15)', marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>📋 ゲーム履歴</div>
+        <div style={{ fontSize: 11, opacity: 0.4 }}>みんなのプレイ回数</div>
+      </div>
+
+      {/* Game tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+        {GAME_TABS.map(g => (
+          <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
+            style={{ padding: '4px 8px', fontSize: 10 }}
+            onClick={() => setGameTab(g.id)}>
+            {g.icon}{g.name}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: '#93c5fd' }}>
+        {HISTORY_GAMES[gameTab]}
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>読み込み中...</div>
-      ) : scores.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 13 }}>まだスコアデータがありません</div>
-          <div style={{ fontSize: 11, marginTop: 4 }}>ニックネームを設定してミニゲームをプレイしよう！</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 13 }}>まだプレイデータがありません</div>
+          <div style={{ fontSize: 11, marginTop: 4 }}>ミニゲームをプレイしてセーブすると記録されます</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {scores.map((s, i) => (
+          {sorted.map((s, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14,
-              background: i === 0 ? 'linear-gradient(135deg, rgba(255,215,0,0.12), rgba(245,158,11,0.06))'
+              background: i === 0 ? 'linear-gradient(135deg, rgba(96,165,250,0.12), rgba(96,165,250,0.06))'
                 : i === 1 ? 'linear-gradient(135deg, rgba(200,214,229,0.08), rgba(200,214,229,0.03))'
                 : i === 2 ? 'linear-gradient(135deg, rgba(205,127,50,0.08), rgba(205,127,50,0.03))'
                 : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${i === 0 ? 'rgba(255,215,0,0.25)' : i < 3 ? 'rgba(200,214,229,0.15)' : 'rgba(255,255,255,0.06)'}`,
+              border: `1px solid ${i === 0 ? 'rgba(96,165,250,0.25)' : i < 3 ? 'rgba(200,214,229,0.15)' : 'rgba(255,255,255,0.06)'}`,
             }}>
               <div style={{ fontSize: i < 3 ? 24 : 14, width: 32, textAlign: 'center', fontWeight: 900,
                 color: i >= 3 ? 'rgba(255,255,255,0.3)' : undefined }}>
                 {medal(i)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: i === 0 ? '#fbbf24' : '#e0e0e0' }}>{s.name}</div>
-                {s.game && <div style={{ fontSize: 10, opacity: 0.4 }}>{s.game}</div>}
+                <div style={{ fontSize: 14, fontWeight: 900, color: i === 0 ? '#93c5fd' : '#e0e0e0' }}>{s.name}</div>
               </div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>
-                🪙{(s.score || 0).toLocaleString()}
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#93c5fd' }}>
+                {(s.playCounts?.[gameTab] || 0).toLocaleString()}回
               </div>
             </div>
           ))}
