@@ -1418,6 +1418,10 @@ function MonsterGacha() {
           const weekId = getWeekId();
           window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
           window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
+          window.fbDb.ref('pullTracking/daily/' + today + '/' + s.nickname).set(s.totalPulls || 0);
+          window.fbDb.ref('pullTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalPulls || 0);
+          window.fbDb.ref('giftTracking/daily/' + today + '/' + s.nickname).set(s.totalGiftValue || 0);
+          window.fbDb.ref('giftTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalGiftValue || 0);
         }
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
@@ -6541,30 +6545,24 @@ function RankingScreen() {
     });
   }, [rankMode, tab]);
 
-  // Load asset growth data for daily/weekly
+  // Load growth data for daily/weekly (assets, pulls, gifts)
   useEffect(() => {
-    if (tab !== 0 || assetMode === 'cumulative' || !window.fbDb || rankings.length === 0) return;
+    if (![0, 2, 3].includes(tab) || assetMode === 'cumulative' || !window.fbDb || rankings.length === 0) return;
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const weekId = getWeekId();
-    if (assetMode === 'daily') {
-      // Daily: current assets - yesterday's snapshot
-      window.fbDb.ref('assetTracking/daily/' + yesterday).once('value').then(snap => {
-        const base = snap.val() || {};
-        setAssetGrowth(rankings.map(r => ({
-          ...r, growth: (r.totalAssets || 0) - (base[r.name] || 0)
-        })).sort((a, b) => b.growth - a.growth));
-      });
-    } else {
-      // Weekly: current assets - start of week snapshot
-      const prevWeek = (() => { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
-      window.fbDb.ref('assetTracking/weekly/' + prevWeek).once('value').then(snap => {
-        const base = snap.val() || {};
-        setAssetGrowth(rankings.map(r => ({
-          ...r, growth: (r.totalAssets || 0) - (base[r.name] || 0)
-        })).sort((a, b) => b.growth - a.growth));
-      });
-    }
+    const prevWeek = (() => { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
+    const trackingType = tab === 0 ? 'assetTracking' : tab === 2 ? 'pullTracking' : 'giftTracking';
+    const currentField = tab === 0 ? 'totalAssets' : tab === 2 ? 'totalPulls' : 'totalGiftValue';
+    const basePath = assetMode === 'daily'
+      ? trackingType + '/daily/' + yesterday
+      : trackingType + '/weekly/' + prevWeek;
+    window.fbDb.ref(basePath).once('value').then(snap => {
+      const base = snap.val() || {};
+      setAssetGrowth(rankings.map(r => ({
+        ...r, growth: (r[currentField] || 0) - (base[r.name] || 0)
+      })).sort((a, b) => b.growth - a.growth));
+    });
   }, [tab, assetMode, rankings]);
 
   const [gameTab, setGameTab] = useState("tap");
@@ -6598,8 +6596,8 @@ function RankingScreen() {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
-    // Asset tab with daily/weekly growth
-    if (tab === 0 && assetMode !== 'cumulative' && assetGrowth.length > 0) {
+    // Daily/weekly growth for assets, pulls, gifts
+    if ([0, 2, 3].includes(tab) && assetMode !== 'cumulative' && assetGrowth.length > 0) {
       return assetGrowth;
     }
     const list = [...rankings];
@@ -6652,8 +6650,8 @@ function RankingScreen() {
         ))}
       </div>
 
-      {/* Asset period sub-tabs */}
-      {tab === 0 && (
+      {/* Period sub-tabs for assets, pulls, gifts */}
+      {[0, 2, 3].includes(tab) && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
           {[
             { id: 'daily', label: '今日' },
@@ -6733,13 +6731,19 @@ function RankingScreen() {
                   </div>
                 )}
                 {tab === 2 && (
-                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#ec4899' }}>
-                    🎰{(r.totalPulls || 0).toLocaleString()}回
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900,
+                    color: assetMode !== 'cumulative' && (r.growth || 0) > 0 ? '#4ade80' : '#ec4899' }}>
+                    {assetMode !== 'cumulative'
+                      ? ((r.growth || 0) > 0 ? '+' : '') + (r.growth || 0).toLocaleString() + '回'
+                      : '🎰' + (r.totalPulls || 0).toLocaleString() + '回'}
                   </div>
                 )}
                 {tab === 3 && (
-                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
-                    🎁{formatYen(r.totalGiftValue || 0)}
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900,
+                    color: assetMode !== 'cumulative' && (r.growth || 0) > 0 ? '#4ade80' : '#c084fc' }}>
+                    {assetMode !== 'cumulative'
+                      ? ((r.growth || 0) > 0 ? '+' : '') + formatYen(r.growth || 0)
+                      : '🎁' + formatYen(r.totalGiftValue || 0)}
                   </div>
                 )}
                 {tab === 4 && (
