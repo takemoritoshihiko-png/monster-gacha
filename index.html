@@ -2243,9 +2243,7 @@ function MonsterGacha() {
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
-    const maxTarget = Math.max(...candidates.map(c => c.targetRank));
     bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
-    setTimeout(() => playSynthSound(maxTarget), 200);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
 
     // Build rareItems and new collection SYNCHRONOUSLY before calling setState
@@ -2293,6 +2291,8 @@ function MonsterGacha() {
     if (rareItems.length > 0) {
       // Sort by rank ascending: ★8 first → ★MAX last (climactic reveal)
       rareItems.sort((a, b) => a.rank - b.rank);
+      // Play sound for 1st item
+      setTimeout(() => playSynthSound(rareItems[0].rank), 200);
       // Show items one by one with sequential timers (duration varies by rank)
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
@@ -2318,6 +2318,7 @@ function MonsterGacha() {
       }, elapsed + 2000));
       synthQueueRef.current = timers;
     } else {
+      sfx('synth');
       setSynthResult({ batch: true, count: totalSynths });
       synthQueueRef.current = [setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500)];
     }
