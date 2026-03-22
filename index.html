@@ -2432,16 +2432,32 @@ function MonsterGacha() {
 
   useEffect(() => {
     if (!nickname || !window.fbDb) return;
-    // Weekly crowns (for gacha bonus)
     const weekId = getWeekId();
-    window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
-      const entries = [];
-      snapshot.forEach(child => {
-        const scores = child.val();
-        if (scores) entries.push({ name: child.key, bestScores: scores });
+    // Ensure current bestScores are written to this week's rankings
+    window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname).once('value').then(snap => {
+      const existing = snap.val() || {};
+      const bs = bestScores || {};
+      const updates = {};
+      Object.entries(bs).forEach(([gid, score]) => {
+        if (score > 0 && score > (existing[gid] || 0)) {
+          updates[gid] = score;
+        }
       });
-      setCrowns(countCrowns(entries, nickname, false));
+      if (Object.keys(updates).length > 0) {
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname).update(updates);
+      }
     }).catch(() => {});
+    // Weekly crowns (for gacha bonus) - fetch after a short delay to allow writes
+    setTimeout(() => {
+      window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const scores = child.val();
+          if (scores) entries.push({ name: child.key, bestScores: scores });
+        });
+        setCrowns(countCrowns(entries, nickname, false));
+      }).catch(() => {});
+    }, 500);
     // Cumulative crowns (includes gift ranking)
     window.fbDb.ref('rankings').once('value').then(snapshot => {
       const entries = [];
