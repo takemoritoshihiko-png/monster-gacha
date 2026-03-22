@@ -2009,8 +2009,8 @@ function MonsterGacha() {
             histRef.orderByChild('timestamp').once('value').then(snap => {
               const keys = [];
               snap.forEach(child => keys.push(child.key));
-              if (keys.length > 4) {
-                keys.slice(0, keys.length - 4).forEach(k => histRef.child(k).remove());
+              if (keys.length > 6) {
+                keys.slice(0, keys.length - 6).forEach(k => histRef.child(k).remove());
               }
             }).catch(() => {});
           }
@@ -2454,7 +2454,7 @@ function MonsterGacha() {
   // Listen for rare pull notifications
   useEffect(() => {
     if (!window.fbDb) return;
-    const ref = window.fbDb.ref('notifications').orderByChild('timestamp').limitToLast(5);
+    const ref = window.fbDb.ref('notifications').orderByChild('timestamp').limitToLast(6);
     const handler = ref.on('value', snapshot => {
       const notifs = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) notifs.push(d); });
@@ -2469,7 +2469,7 @@ function MonsterGacha() {
   const [rareHistory, setRareHistory] = useState([]);
   useEffect(() => {
     if (!window.fbDb) return;
-    const ref = window.fbDb.ref('notifications/rareHistory').orderByChild('timestamp').limitToLast(4);
+    const ref = window.fbDb.ref('notifications/rareHistory').orderByChild('timestamp').limitToLast(6);
     const handler = ref.on('value', snapshot => {
       const hist = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) hist.push(d); });
@@ -3047,7 +3047,7 @@ function MonsterGacha() {
               {/* Rare pull notifications */}
               {rareNotifs.length > 0 && (
                 <div style={{ margin: '12px 0', position: 'relative', zIndex: 1 }}>
-                  {rareNotifs.slice(0, 4).map((n, i) => {
+                  {rareNotifs.slice(0, 6).map((n, i) => {
                     const d = new Date(n.timestamp);
                     const ts = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
                     return (
