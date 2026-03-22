@@ -4152,11 +4152,11 @@ function TapGame({ onDone }) {
     setShakeKey(k => k + 1);
     const r = Math.random();
     let bonus = 1, label = "+1", snd = "tap", color = "#fff", gemCount = 1;
-    if (r < 0.002) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; gemCount = 8; }
-    else if (r < 0.018) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; gemCount = 5; }
-    else if (r < 0.0378) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; gemCount = 4; }
-    else if (r < 0.0977) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; gemCount = 3; }
-    else if (r < 0.21) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; gemCount = 2; }
+    if (r < 0.0014) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; gemCount = 8; }
+    else if (r < 0.0142) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; gemCount = 5; }
+    else if (r < 0.03) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; gemCount = 4; }
+    else if (r < 0.0779) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; gemCount = 3; }
+    else if (r < 0.168) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; gemCount = 2; }
     sfx(snd);
     setEarned(e => e + bonus);
     const id = ++fid.current;
