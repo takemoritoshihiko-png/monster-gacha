@@ -4159,8 +4159,8 @@ function MathHardMultGame({ onDone }) {
 
   const gen = () => {
     if (Math.random() > 0.5) {
-      // 2桁(30-99) × 1桁(3-9)
-      const a = 30 + Math.floor(Math.random() * 70);
+      // 2桁(20-99) × 1桁(3-9)
+      const a = 20 + Math.floor(Math.random() * 80);
       const b = 3 + Math.floor(Math.random() * 7); // 3-9
       return { text: `${a} × ${b}`, answer: a * b };
     } else {
