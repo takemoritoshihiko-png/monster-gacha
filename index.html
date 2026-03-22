@@ -2668,28 +2668,6 @@ function MonsterGacha() {
 
                 {/* Medal Bars - Weekly (gacha bonus) + All-time */}
                 <div style={{ marginTop: 10, position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                  {/* Weekly */}
-                  <div>
-                    <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 2, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>WEEKLY</div>
-                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(60,40,80,0.6), rgba(35,25,55,0.8))',
-                      border: '1px solid rgba(139,92,246,0.25)', borderRadius: 16, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
-                        title={crowns.goldGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>👑</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>x{crowns.gold}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
-                        title={crowns.silverGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥈</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crowns.silver}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
-                        title={crowns.bronzeGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥉</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crowns.bronze}</span>
-                      </div>
-                    </div>
-                  </div>
                   {/* All-time */}
                   <div>
                     <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 2, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>ALL TIME</div>
@@ -2709,6 +2687,29 @@ function MonsterGacha() {
                         title={crownsAll.bronzeGames.join(', ')}>
                         <span style={{ fontSize: 11 }}>🥉</span>
                         <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crownsAll.bronze}</span>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                  {/* Weekly */}
+                  <div>
+                    <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 2, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>WEEKLY</div>
+                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(60,40,80,0.6), rgba(35,25,55,0.8))',
+                      border: '1px solid rgba(139,92,246,0.25)', borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                        title={crowns.goldGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>👑</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>x{crowns.gold}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                        title={crowns.silverGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥈</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crowns.silver}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
+                        title={crowns.bronzeGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥉</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crowns.bronze}</span>
                       </div>
                     </div>
                   </div>
