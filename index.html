@@ -1382,6 +1382,8 @@ function MonsterGacha() {
   const [dailyProgress, setDailyProgress] = useState({});
   const [dailyCompleted, setDailyCompleted] = useState({});
   const [giftsSentToday, setGiftsSentToday] = useState(0);
+  const [itemRequests, setItemRequests] = useState([]);
+  const [showRequestConfirm, setShowRequestConfirm] = useState(null);
   const [lastGiftDate, setLastGiftDate] = useState(null);
   const [totalGiftValue, setTotalGiftValue] = useState(0);
   const [pendingGifts, setPendingGifts] = useState([]);
@@ -2507,6 +2509,18 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
+  // Item requests (wishlist) - realtime
+  useEffect(() => {
+    if (!window.fbDb) return;
+    const ref = window.fbDb.ref('notifications/itemRequests').orderByChild('timestamp').limitToLast(6);
+    const handler = ref.on('value', snapshot => {
+      const reqs = [];
+      snapshot.forEach(child => { const d = child.val(); if (d && d.name) reqs.push({ fbKey: child.key, ...d }); });
+      reqs.reverse();
+      setItemRequests(reqs);
+    });
+    return () => ref.off('value', handler);
+  }, []);
   // Daily Missions loading
 
   useEffect(() => {
@@ -3129,7 +3143,7 @@ function MonsterGacha() {
               <div style={{ margin: '10px 0', position: 'relative', zIndex: 1 }}>
                 <div style={{ fontSize: 9, textAlign: 'center', opacity: 0.4, marginBottom: 2,
                   fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>DAILY MISSION</div>
-                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>※1人あたり上限: 目標の1/3まで</div>
+                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>全達成で 🪙2,000 ／ 1人上限: 目標の1/3</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {dailyMissions.map(m => {
                     const prog = dailyProgress[m.id] || { total: 0, contributions: {}, target: m.target };
@@ -3313,6 +3327,106 @@ function MonsterGacha() {
             <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.2, marginTop: 20 }}>
               🪙 2秒ごとに1コイン自動回復 ／ 離脱時最大5,000コイン
             </div>
+
+            {/* Item Request Section */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: '#f472b6', marginBottom: 8, textAlign: 'center' }}>💌 アイテムリクエスト</div>
+              {itemRequests.length > 0 ? (
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 10, padding: '6px 10px', border: '1px solid rgba(244,114,182,0.15)', marginBottom: 8 }}>
+                  {itemRequests.map((req, i) => {
+                    const myItem = collection[`${req.typeId}_${req.rank}`];
+                    const canSend = myItem && myItem.count > 1 && req.name !== nickname && req.rank < 11;
+                    return (
+                      <div key={req.fbKey} onClick={() => canSend && setShowRequestConfirm(req)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0',
+                          borderBottom: i < itemRequests.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                          fontSize: 10, cursor: canSend ? 'pointer' : 'default',
+                          opacity: canSend ? 1 : 0.5 }}>
+                        <span style={{ fontSize: 16 }}>{req.icon}</span>
+                        <span style={{ color: '#f472b6', fontWeight: 700 }}>{req.name}</span>
+                        <span style={{ opacity: 0.5 }}>が</span>
+                        <span style={{ fontWeight: 700, color: req.rank >= 10 ? '#ff6b81' : req.rank >= 8 ? '#ffd700' : req.rarity?.color || '#fff' }}>
+                          ★{req.rank} {req.itemName}
+                        </span>
+                        <span style={{ opacity: 0.4 }}>を求めています</span>
+                        {canSend && <span style={{ marginLeft: 'auto', fontSize: 12 }}>🎁</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 9, opacity: 0.2, textAlign: 'center', marginBottom: 8 }}>リクエストはありません</div>
+              )}
+              {nickname && (
+                <button onClick={() => {
+                  // Find items not owned
+                  const notOwned = [];
+                  RARITIES.forEach(r => {
+                    if (r.rank >= 11 || r.rank === 12) return;
+                    TYPES.forEach(type => {
+                      const k = `${type.id}_${r.rank}`;
+                      if (!collection[k]) {
+                        const m = MONSTERS[type.id][r.rank - 1];
+                        if (m) notOwned.push({ typeId: type.id, rank: r.rank, icon: m.icon, name: m.name, rarity: r });
+                      }
+                    });
+                  });
+                  if (notOwned.length === 0) { setSaveMsg('全アイテム保有済みです！'); setTimeout(() => setSaveMsg(''), 2000); return; }
+                  // Pick random not-owned item to request
+                  const pick = notOwned[Math.floor(Math.random() * notOwned.length)];
+                  if (window.fbDb) {
+                    // Remove any existing request from this player
+                    window.fbDb.ref('notifications/itemRequests').orderByChild('name').equalTo(nickname).once('value').then(snap => {
+                      snap.forEach(child => child.ref.remove());
+                      // Add new request
+                      window.fbDb.ref('notifications/itemRequests').push({
+                        name: nickname, typeId: pick.typeId, rank: pick.rank, icon: pick.icon,
+                        itemName: pick.name, rarity: { color: pick.rarity.color, label: pick.rarity.label },
+                        timestamp: Date.now()
+                      }).catch(() => {});
+                    }).catch(() => {});
+                    setSaveMsg(`💌 ★${pick.rank} ${pick.name} をリクエストしました！`);
+                    setTimeout(() => setSaveMsg(''), 3000);
+                  }
+                }} style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontWeight: 700,
+                  background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.25)',
+                  color: '#f472b6', cursor: 'pointer' }}>
+                  💌 持っていないアイテムをリクエストする
+                </button>
+              )}
+            </div>
+
+            {/* Request confirm modal */}
+            {showRequestConfirm && (
+              <div className="mo" onClick={() => setShowRequestConfirm(null)}>
+                <div className="mc" onClick={e => e.stopPropagation()}>
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>{showRequestConfirm.icon}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 4 }}>
+                    ★{showRequestConfirm.rank} {showRequestConfirm.itemName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+                    {showRequestConfirm.name} にプレゼントしますか？
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px' }}
+                      onClick={() => {
+                        const req = showRequestConfirm;
+                        const itemKey = `${req.typeId}_${req.rank}`;
+                        sendGift(itemKey, req.name);
+                        // Remove the request from Firebase
+                        if (window.fbDb) window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().catch(() => {});
+                        setShowRequestConfirm(null);
+                      }}>
+                      🎁 送る
+                    </button>
+                    <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
+                      onClick={() => setShowRequestConfirm(null)}>
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         )}
