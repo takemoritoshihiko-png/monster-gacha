@@ -340,6 +340,69 @@ function sfx(name) {
       );
     },
 
+    // === ★12 CONGRATULATIONS FANFARES ===
+    congrats1: () => {
+      // Tier1 Gold: Deep boom → grand ascending fanfare → majestic chord → sparkle trail (5s)
+      playNote(35, 0.8, 'sawtooth', 0.15);
+      playNote(50, 0.6, 'square', 0.1);
+      playNoise(0.3, 0.1);
+      playSweep(80, 2500, 1.0, 'sine', 0.12);
+      [262, 330, 392, 494, 587, 698, 831, 1047, 1319, 1568].forEach((f, i) =>
+        playNote(f, 0.5, 'sine', 0.12, 0.6 + i * 0.08)
+      );
+      playChord([1047, 1319, 1568, 2093], 1.5, 'sine', 0.1, 1.5);
+      playChord([1319, 1568, 2093], 1.2, 'triangle', 0.06, 1.8);
+      [2093, 2349, 2637, 3136, 3520].forEach((f, i) =>
+        playNote(f, 0.3, 'sine', 0.05, 2.5 + i * 0.12)
+      );
+      playChord([523, 1047, 1568, 2093], 2.0, 'sine', 0.04, 3.2);
+      playChord([659, 1319, 1976], 1.5, 'triangle', 0.03, 3.8);
+    },
+    congrats2: () => {
+      // Tier2 Rainbow: Thunder → sweep storm → double fanfare → rainbow shimmer (5s)
+      playNote(30, 1.0, 'sawtooth', 0.18);
+      playNote(45, 0.8, 'square', 0.12);
+      playNoise(0.4, 0.14);
+      playSweep(60, 3000, 1.2, 'sine', 0.14);
+      playSweep(3000, 100, 0.5, 'sawtooth', 0.04, 0.3);
+      [220, 277, 330, 415, 494, 587, 698, 831, 1047, 1319, 1568, 2093].forEach((f, i) =>
+        playNote(f, 0.5, 'sine', 0.13, 0.5 + i * 0.07)
+      );
+      playChord([1047, 1319, 1568, 2093], 1.8, 'sine', 0.12, 1.4);
+      playChord([1319, 1568, 2093, 2637], 1.5, 'triangle', 0.07, 1.7);
+      playChord([784, 1047, 1568], 1.2, 'sine', 0.06, 2.0);
+      [2093, 2349, 2637, 3136, 3520, 4186].forEach((f, i) =>
+        playNote(f, 0.35, 'sine', 0.05, 2.5 + i * 0.1)
+      );
+      playChord([523, 1047, 1568, 2093, 2637], 2.5, 'sine', 0.04, 3.2);
+      playChord([659, 1319, 1976, 2637], 2.0, 'triangle', 0.03, 3.5);
+      [3520, 4186, 4699].forEach((f, i) => playNote(f, 0.4, 'sine', 0.03, 4.0 + i * 0.15));
+    },
+    congrats3: () => {
+      // Tier3 Ultimate: Earthquake → triple sweep → epic 3-wave fanfare → celestial chorus (5s)
+      playNote(25, 1.2, 'sawtooth', 0.2);
+      playNote(40, 1.0, 'square', 0.15);
+      playNote(55, 0.8, 'sawtooth', 0.1);
+      playNoise(0.5, 0.16);
+      playSweep(50, 4000, 1.5, 'sine', 0.15);
+      playSweep(4000, 80, 0.6, 'sawtooth', 0.05, 0.2);
+      playSweep(100, 3000, 0.8, 'triangle', 0.06, 0.4);
+      [196, 247, 294, 370, 440, 554, 659, 831, 1047, 1319, 1568, 2093, 2637].forEach((f, i) =>
+        playNote(f, 0.6, 'sine', 0.14, 0.4 + i * 0.06)
+      );
+      playChord([1047, 1319, 1568, 2093], 2.0, 'sine', 0.13, 1.2);
+      playChord([1319, 1568, 2093, 2637], 1.8, 'triangle', 0.08, 1.5);
+      playChord([784, 1047, 1568, 2093], 1.5, 'sine', 0.07, 1.8);
+      [2093, 2349, 2637, 3136, 3520, 4186, 4699].forEach((f, i) =>
+        playNote(f, 0.4, 'sine', 0.06, 2.2 + i * 0.1)
+      );
+      playChord([523, 1047, 1568, 2093, 2637, 3136], 2.5, 'sine', 0.05, 3.0);
+      playChord([659, 1319, 1976, 2637, 3520], 2.0, 'triangle', 0.04, 3.3);
+      playChord([784, 1568, 2349, 3136], 2.0, 'sine', 0.04, 3.6);
+      [3520, 4186, 4699, 5274, 5920].forEach((f, i) => playNote(f, 0.5, 'sine', 0.03, 4.0 + i * 0.12));
+      playChord([2093, 2637, 3136, 3520, 4186], 1.5, 'sine', 0.03, 4.6);
+    },
+
     // === GACHA: Pull button ===
     gachaPull: () => {
       // Anticipation whoosh
@@ -1693,6 +1756,7 @@ function MonsterGacha() {
   // Game clear detection - grant ★12 Congratulations items (3 tiers)
   const [showClear, setShowClear] = useState(false);
   const [showClearTier, setShowClearTier] = useState(null);
+  const [clearReady, setClearReady] = useState(false);
   const prevTier = useRef(null);
   useEffect(() => {
     if (prevTier.current === null) {
@@ -1711,8 +1775,11 @@ function MonsterGacha() {
         return n;
       });
       setShowClearTier(CONGRATS_TIERS[congratsTier - 1]);
+      setClearReady(false);
       setShowClear(true);
-      sfx('reveal10');
+      bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+      sfx('congrats' + congratsTier);
+      setTimeout(() => setClearReady(true), 5000);
     }
     prevTier.current = congratsTier;
   }, [congratsTier]);
@@ -3618,10 +3685,18 @@ function MonsterGacha() {
 
       {/* GAME CLEAR */}
       {showClear && showClearTier && (
-        <div className="mo" onClick={() => setShowClear(false)}>
+        <div className="mo">
+          {/* Tier-scaled flash effects */}
           <div className="rare-flash" style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}99, rgba(255,105,180,0.5), rgba(123,104,238,0.5))`, animationDuration: '0.8s' }} />
           <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent 50%)', animationDuration: '1s', animationDelay: '0.3s' }} />
+          {showClearTier.tier >= 2 && <div className="rare-flash" style={{ background: `linear-gradient(45deg, rgba(255,105,180,0.5), rgba(0,255,204,0.4), rgba(123,104,238,0.5))`, animationDuration: '1.2s', animationDelay: '0.6s' }} />}
+          {showClearTier.tier >= 3 && <>
+            <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.5), transparent 40%)', animationDuration: '1.5s', animationDelay: '0.9s' }} />
+            <div className="rare-flash" style={{ background: 'conic-gradient(from 0deg, rgba(255,0,0,0.3), rgba(0,255,0,0.3), rgba(0,0,255,0.3), rgba(255,0,0,0.3))', animationDuration: '1.8s', animationDelay: '1.2s' }} />
+          </>}
           <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+          {showClearTier.tier >= 2 && <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9996, pointerEvents: 'none', animationDelay: '0.5s' }} />}
+          {showClearTier.tier >= 3 && <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9995, pointerEvents: 'none', animationDelay: '1.0s' }} />}
           <div style={{
             background: 'radial-gradient(circle, rgba(25,10,5,0.98), rgba(0,0,0,0.99))',
             borderRadius: 24, padding: '32px 24px', maxWidth: 360, width: '100%',
@@ -3639,13 +3714,31 @@ function MonsterGacha() {
               WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
               WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
             }} />
-            <div style={{ fontSize: 80, marginBottom: 12, animation: 'synthMaxIcon 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1.2s infinite',
-              filter: `drop-shadow(0 0 20px ${showClearTier.tierColor}) drop-shadow(0 0 40px ${showClearTier.tierColor}99) drop-shadow(0 0 60px ${showClearTier.tierColor}66)` }}>
+            <div style={{
+              fontSize: showClearTier.tier >= 3 ? 100 : showClearTier.tier >= 2 ? 90 : 80,
+              marginBottom: 12,
+              animation: 'synthMaxIcon 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1.2s infinite',
+              filter: showClearTier.tier >= 3
+                ? `drop-shadow(0 0 30px ${showClearTier.tierColor}) drop-shadow(0 0 60px rgba(255,215,0,0.7)) drop-shadow(0 0 90px rgba(255,105,180,0.5)) drop-shadow(0 0 120px rgba(123,104,238,0.3))`
+                : showClearTier.tier >= 2
+                  ? `drop-shadow(0 0 25px ${showClearTier.tierColor}) drop-shadow(0 0 50px ${showClearTier.tierColor}99) drop-shadow(0 0 80px rgba(255,215,0,0.4))`
+                  : `drop-shadow(0 0 20px ${showClearTier.tierColor}) drop-shadow(0 0 40px ${showClearTier.tierColor}99) drop-shadow(0 0 60px ${showClearTier.tierColor}66)` }}>
               {showClearTier.icon}
             </div>
+            {/* ★12 Tier3: rotating rainbow ring */}
+            {showClearTier.tier >= 3 && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
+              width: 200, height: 200, borderRadius: '50%', border: '2px solid transparent',
+              background: 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+              WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+              animation: 'synthMaxRotate 2s linear infinite', opacity: 0.5, pointerEvents: 'none' }} />}
+            {/* ★12 Tier2+: pulsing glow */}
+            {showClearTier.tier >= 2 && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
+              width: 180, height: 180, borderRadius: '50%', animation: 'synthMaxPulse 1.5s ease-in-out infinite', pointerEvents: 'none' }} />}
             <div className="rank-congrats" style={{
-              fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900,
-              letterSpacing: 3, marginBottom: 4,
+              fontFamily: "'Orbitron',sans-serif",
+              fontSize: showClearTier.tier >= 3 ? 24 : showClearTier.tier >= 2 ? 22 : 20,
+              fontWeight: 900, letterSpacing: showClearTier.tier >= 3 ? 5 : 3, marginBottom: 4,
             }}>
               CONGRATULATIONS
             </div>
@@ -3684,9 +3777,10 @@ function MonsterGacha() {
                showClearTier.tier === 2 ? '素晴らしい！全★MAXを2個ずつ揃えました！' :
                '圧巻！全★MAXを3個ずつ揃え、究極に到達しました！'}
             </div>
-            <button className="btn bp" style={{ fontSize: 14, padding: '12px 32px' }}
-              onClick={() => setShowClear(false)}>
-              受け取る
+            <button className="btn bp" disabled={!clearReady}
+              style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
+              onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
+              {clearReady ? '受け取る' : '...'}
             </button>
           </div>
         </div>
