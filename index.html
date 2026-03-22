@@ -161,15 +161,29 @@ try {
 if (bgmMaster) bgmMaster.gain.value = volGameBgm;
 if (sfxMaster) sfxMaster.gain.value = volSfx;
 
-// Main BGM: MP3 file player with loop
+// Main BGM: MP3 file player with loop, routed through Web Audio GainNode for mobile volume control
 const mainBgmAudio = new Audio('bgm-main.mp3');
 mainBgmAudio.loop = true;
-mainBgmAudio.volume = volMainBgm;
+let mainBgmGain = null;
+if (audioCtx) {
+  try {
+    const source = audioCtx.createMediaElementSource(mainBgmAudio);
+    mainBgmGain = audioCtx.createGain();
+    mainBgmGain.gain.value = volMainBgm;
+    source.connect(mainBgmGain);
+    mainBgmGain.connect(audioCtx.destination);
+  } catch(e) {
+    // Fallback: no GainNode, use volume directly
+    mainBgmAudio.volume = volMainBgm;
+  }
+}
 
 const mainBgmControl = {
   play() {
     if (volMainBgm === 0) return;
-    mainBgmAudio.volume = volMainBgm;
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (mainBgmGain) mainBgmGain.gain.value = volMainBgm;
+    else mainBgmAudio.volume = volMainBgm;
     mainBgmAudio.play().catch(() => {});
   },
   stop() {
@@ -181,8 +195,14 @@ const mainBgmControl = {
   },
   resume() {
     if (volMainBgm === 0) return;
-    mainBgmAudio.volume = volMainBgm;
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (mainBgmGain) mainBgmGain.gain.value = volMainBgm;
+    else mainBgmAudio.volume = volMainBgm;
     mainBgmAudio.play().catch(() => {});
+  },
+  setVolume(v) {
+    if (mainBgmGain) mainBgmGain.gain.value = v;
+    else mainBgmAudio.volume = v;
   },
   isPlaying() {
     return !mainBgmAudio.paused;
@@ -2113,49 +2133,51 @@ function MonsterGacha() {
     bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setTimeout(() => playSynthSound(maxTarget), 200);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
+
+    // Build rareItems and new collection SYNCHRONOUSLY before calling setState
     const rareItems = [];
-    setCollection(prev => {
-      const n = { ...prev };
-      candidates.forEach(c => {
-        if (c.special === 'star10') {
-          let rem = c.synthCount * 3;
-          for (const tp of TYPES) {
-            if (rem <= 0) break;
-            const k = `${tp.id}_10`;
-            if (n[k] && n[k].count > 1) {
-              const take = Math.min(n[k].count - 1, rem);
-              n[k] = { ...n[k], count: n[k].count - take };
-              rem -= take;
-            }
-          }
-          for (let i = 0; i < c.synthCount; i++) {
-            const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
-            const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
-            const nk = `${rt.id}_11`;
-            if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
-            else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
-            rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1 });
-          }
-        } else {
-          const avail = n[c.key]?.count || 0;
-          const sc = Math.floor((avail - 1) / c.req);
-          if (sc <= 0) return;
-          const left = avail - sc * c.req;
-          n[c.key] = { ...n[c.key], count: left };
-          const tp = TYPES.find(t => t.id === c.typeId);
-          const nm = MONSTERS[c.typeId][c.targetRank - 1]; const nr = RARITIES[c.targetRank - 1];
-          const nk = `${c.typeId}_${c.targetRank}`;
-          if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
-          else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
-          if (c.targetRank >= 8) {
-            rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc });
+    const prev = collection;
+    const n = { ...prev };
+    candidates.forEach(c => {
+      if (c.special === 'star10') {
+        let rem = c.synthCount * 3;
+        for (const tp of TYPES) {
+          if (rem <= 0) break;
+          const k = `${tp.id}_10`;
+          if (n[k] && n[k].count > 1) {
+            const take = Math.min(n[k].count - 1, rem);
+            n[k] = { ...n[k], count: n[k].count - take };
+            rem -= take;
           }
         }
-      });
-      return n;
+        for (let i = 0; i < c.synthCount; i++) {
+          const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+          const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
+          const nk = `${rt.id}_11`;
+          if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
+          else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
+          rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1 });
+        }
+      } else {
+        const avail = n[c.key]?.count || 0;
+        const sc = Math.floor((avail - 1) / c.req);
+        if (sc <= 0) return;
+        const left = avail - sc * c.req;
+        n[c.key] = { ...n[c.key], count: left };
+        const tp = TYPES.find(t => t.id === c.typeId);
+        const nm = MONSTERS[c.typeId][c.targetRank - 1]; const nr = RARITIES[c.targetRank - 1];
+        const nk = `${c.typeId}_${c.targetRank}`;
+        if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
+        else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
+        if (c.targetRank >= 8) {
+          rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc });
+        }
+      }
     });
+    setCollection(n);
+
     if (rareItems.length > 0) {
-      // Sort rare items by rank descending for dramatic reveal
+      // Sort by rank ascending: ★8 first → ★MAX last (climactic reveal)
       rareItems.sort((a, b) => a.rank - b.rank);
       // Show items one by one with sequential timers (duration varies by rank)
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
@@ -2177,13 +2199,13 @@ function MonsterGacha() {
       timers.push(setTimeout(() => {
         setSynthResult(null);
         if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
-      }, perItem * rareItems.length + 2000));
+      }, elapsed + 2000));
       synthQueueRef.current = timers;
     } else {
       setSynthResult({ batch: true, count: totalSynths });
       setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500);
     }
-  }, [findSynthCandidates]);
+  }, [collection, findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
 
@@ -2602,7 +2624,7 @@ function MonsterGacha() {
             {[
               { label: 'BGM', icon: '🎵', val: volMain, set: (v) => {
                 const nv = parseFloat(v); setVolMain(nv); volMainBgm = nv;
-                mainBgmAudio.volume = nv;
+                mainBgmControl.setVolume(nv);
                 if (nv === 0) { mainBgmControl.pause(); mainBgmRef.current = false; }
                 else if (!mainBgmRef.current && screen !== 'minigame') { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
                 localStorage.setItem('gacha_volumes', JSON.stringify({ main: nv, game: volGame, sfx: volSfxState }));
@@ -2632,7 +2654,7 @@ function MonsterGacha() {
             <button onClick={() => {
               setVolMain(0); setVolGame(0); setVolSfxState(0);
               volMainBgm = 0; volGameBgm = 0; volSfx = 0;
-              mainBgmControl.pause(); mainBgmRef.current = false; bgm.stop();
+              mainBgmControl.setVolume(0); mainBgmControl.pause(); mainBgmRef.current = false; bgm.stop();
               if (bgmMaster) bgmMaster.gain.value = 0;
               if (sfxMaster) sfxMaster.gain.value = 0;
               localStorage.setItem('gacha_volumes', JSON.stringify({ main: 0, game: 0, sfx: 0 }));
