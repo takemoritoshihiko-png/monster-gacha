@@ -502,7 +502,7 @@ const MONSTERS = {
     { name: "ダイヤモンド", icon: "💎", desc: "一生モノの最高の輝き" },
     { name: "ピンクダイヤ", icon: "✨", desc: "世界に数個の希少石" },
     { name: "永遠の輝石", icon: "🌟", desc: "伝説の超越宝石" },
-    { name: "神々の宝玉", icon: "💫", desc: "宇宙を創った究極の石" },
+    { name: "神々の宝玉", icon: "💫", desc: "宇宙を創った究極の石", img: "max-gem.png" },
   ],
   gold: [
     { name: "銅貨", icon: "🪙", desc: "古い1円玉みたいな銅貨" },
@@ -515,7 +515,7 @@ const MONSTERS = {
     { name: "戴冠の大冠", icon: "👑", desc: "戴冠式に使われた至宝" },
     { name: "黄金の玉座", icon: "🪑", desc: "帝国の玉座そのもの" },
     { name: "全世界の王笏", icon: "☀️", desc: "全大陸を治めた王の杖" },
-    { name: "天帝の至宝", icon: "🔆", desc: "神が座した黄金の玉座" },
+    { name: "天帝の至宝", icon: "🔆", desc: "神が座した黄金の玉座", img: "max-gold.png" },
   ],
   relic: [
     { name: "欠けた土器", icon: "🫙", desc: "畑から出てきた破片" },
@@ -528,7 +528,7 @@ const MONSTERS = {
     { name: "時空の砂時計", icon: "⏳", desc: "時間を操る古代装置" },
     { name: "創世の書", icon: "📖", desc: "世界の始まりが記された書" },
     { name: "万物の起源石", icon: "🌌", desc: "全ての物質の始まり" },
-    { name: "アトランティスの核", icon: "🕳️", desc: "失われた文明の究極エネルギー" },
+    { name: "アトランティスの核", icon: "🕳️", desc: "失われた文明の究極エネルギー", img: "max-relic.png" },
   ],
   art: [
     { name: "子供の絵", icon: "🖍️", desc: "冷蔵庫に貼るやつ" },
@@ -541,7 +541,7 @@ const MONSTERS = {
     { name: "モナリザ級名画", icon: "🎨", desc: "国宝・門外不出の絵画" },
     { name: "ミケランジェロの天井画", icon: "🌈", desc: "人類史の頂点の芸術" },
     { name: "神殿の壁画", icon: "🌠", desc: "神が描いたとされる壁画" },
-    { name: "創造神の傑作", icon: "✴️", desc: "宇宙そのものが作品" },
+    { name: "創造神の傑作", icon: "✴️", desc: "宇宙そのものが作品", img: "max-art.png" },
   ],
   space: [
     { name: "隕石のカケラ", icon: "☄️", desc: "庭に落ちてきた隕石片" },
@@ -554,7 +554,7 @@ const MONSTERS = {
     { name: "恒星のコア", icon: "🌞", desc: "太陽の心臓部そのもの" },
     { name: "銀河の心臓", icon: "🌀", desc: "銀河系の中心エネルギー" },
     { name: "ビッグバンの種", icon: "💥", desc: "宇宙誕生の瞬間そのもの" },
-    { name: "全次元の鍵", icon: "🗝️", desc: "全並行宇宙を開く究極の鍵" },
+    { name: "全次元の鍵", icon: "🗝️", desc: "全並行宇宙を開く究極の鍵", img: "max-space.png" },
   ],
   kingdom: [
     { name: "村の地図", icon: "🗺️", desc: "手書きの村の見取り図" },
@@ -567,7 +567,7 @@ const MONSTERS = {
     { name: "征服王の剣", icon: "⚔️", desc: "世界を征した王の愛剣" },
     { name: "黄金都市の鍵", icon: "🌟", desc: "エルドラドへの入口" },
     { name: "全大陸の盟約書", icon: "🌐", desc: "世界統一の条約原本" },
-    { name: "天空王国の玉座", icon: "☁️", desc: "神々が座した天上の王座" },
+    { name: "天空王国の玉座", icon: "☁️", desc: "神々が座した天上の王座", img: "max-kingdom.png" },
   ],
 };
 
@@ -598,6 +598,17 @@ function getChestType(rank) {
 }
 
 // Star display: rarity color, 6th onwards brighter+glow for counting
+// Render item icon: image for ★11 with img property, emoji otherwise
+function renderItemIcon(item, size = 40, extraStyle = {}) {
+  if (item.img) {
+    return React.createElement('img', { src: item.img, alt: item.name,
+      style: { width: size, height: size, borderRadius: size * 0.2, objectFit: 'cover',
+        filter: 'drop-shadow(0 0 8px rgba(255,215,0,0.6)) drop-shadow(0 0 16px rgba(255,255,255,0.3)) brightness(1.1)',
+        ...extraStyle } });
+  }
+  return React.createElement('span', { style: { fontSize: size, ...extraStyle } }, item.icon);
+}
+
 function renderStars(rank) {
   if (rank === 12) return <span className="rank-congrats" style={{ letterSpacing: 2 }}>CONGRATS</span>;
   if (rank === 11) return <span className="rank-diamond" style={{ letterSpacing: 2 }}>★MAX</span>;
@@ -2206,7 +2217,7 @@ function MonsterGacha() {
         const nk = `${rt.id}_11`;
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
-        setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
+        setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
         // Check if player owns 5+ unique ★MAX patterns → offer retry
         const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
         if (maxPatternsOwned >= 5) {
@@ -2255,7 +2266,7 @@ function MonsterGacha() {
       const nk = `${rt.id}_11`;
       if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
       else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
-      setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
+      setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
       playSynthSound(11);
       synthQueueRef.current = [setTimeout(() => setSynthResult(null), 4000)];
       return n;
@@ -2293,7 +2304,7 @@ function MonsterGacha() {
           const nk = `${rt.id}_11`;
           if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
           else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
-          rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1 });
+          rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1, img: nm.img });
         }
       } else {
         const avail = n[c.key]?.count || 0;
@@ -2307,7 +2318,7 @@ function MonsterGacha() {
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
         else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
         if (c.targetRank >= 8) {
-          rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc });
+          rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc, img: nm.img });
         }
       }
     });
@@ -3175,10 +3186,15 @@ function MonsterGacha() {
                         {owned && <div style={{ position: 'absolute', inset: 0,
                           background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.3), transparent 60%)`,
                           clipPath: 'polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)' }} />}
-                        <span style={{ fontSize: owned ? 20 : 14, opacity: owned ? 1 : 0.15, position: 'relative', zIndex: 1,
-                          filter: owned ? `drop-shadow(0 0 3px ${type.color})` : 'none' }}>
-                          {owned ? monster.icon : '?'}
-                        </span>
+                        {owned && monster.img ? (
+                          <img src={monster.img} alt={monster.name} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', position: 'relative', zIndex: 1,
+                            filter: `drop-shadow(0 0 4px ${type.color}) brightness(1.1)` }} />
+                        ) : (
+                          <span style={{ fontSize: owned ? 20 : 14, opacity: owned ? 1 : 0.15, position: 'relative', zIndex: 1,
+                            filter: owned ? `drop-shadow(0 0 3px ${type.color})` : 'none' }}>
+                            {owned ? monster.icon : '?'}
+                          </span>
+                        )}
                       </div>
                       {/* Floating platform */}
                       <div style={{ width: 36, height: 8, margin: '2px auto 0', borderRadius: '50%',
@@ -3495,7 +3511,7 @@ function MonsterGacha() {
                         <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : gachaResults[i].rank === 7 ? 'rank7-card' : gachaResults[i].rank === 6 ? 'rank6-card' : ''}`}
                           style={{ borderColor: gachaResults[i].rarity.color, cursor: 'pointer' }}
                           onClick={() => setModal(gachaResults[i])}>
-                          <div style={{ fontSize: 26 }}>{gachaResults[i].icon}</div>
+                          <div>{gachaResults[i].img ? renderItemIcon(gachaResults[i], 30) : <span style={{ fontSize: 26 }}>{gachaResults[i].icon}</span>}</div>
                           <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : gachaResults[i].rank === 7 ? 'rank-epic' : gachaResults[i].rank === 6 ? 'rank-ultra' : ''}
                             style={{ fontSize: 8, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 2, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', padding: '0 1px' }}>{gachaResults[i].name}</div>
                           <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : gachaResults[i].rank === 7 ? 'rank-epic' : gachaResults[i].rank === 6 ? 'rank-ultra' : ''}
@@ -6949,12 +6965,16 @@ function CollectionView({ collection, onSelect }) {
                       background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.04) 50%, transparent 60%)',
                       backgroundSize: '200% 200%', animation: 'gradShift 4s ease infinite', pointerEvents: 'none' }} />}
                     <div style={{
-                      fontSize: owned ? 36 : 24, marginBottom: 4,
+                      marginBottom: 4,
                       filter: owned ? `drop-shadow(0 0 8px ${type.color}) drop-shadow(0 0 16px ${type.color}60)` : 'none',
                       animation: owned ? `heroIconFloat ${2.5 + i * 0.2}s ease-in-out infinite` : 'none',
                       opacity: owned ? 1 : 0.2,
                     }}>
-                      {owned ? monster.icon : '🔒'}
+                      {owned && monster.img ? (
+                        <img src={monster.img} alt={monster.name} style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', filter: 'brightness(1.1)' }} />
+                      ) : (
+                        <span style={{ fontSize: owned ? 36 : 24 }}>{owned ? monster.icon : '🔒'}</span>
+                      )}
                     </div>
                     {owned && count > 1 && <div style={{ position: 'absolute', top: 4, right: 6,
                       fontSize: 8, fontWeight: 900, color: '#fbbf24', background: 'rgba(0,0,0,0.5)',
@@ -7234,7 +7254,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                       : isGod
                         ? 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))'
                         : `drop-shadow(0 0 20px ${item.rarity.color}) drop-shadow(0 0 40px ${item.rarity.color}80)` }}>
-                    {item.icon}
+                    {item.img ? renderItemIcon(item, isMax ? 90 : isGod ? 70 : 70) : item.icon}
                   </div>
                   {/* Title text for ★MAX */}
                   {isMax && <div className="rare-god-text" style={{ fontSize: 14, fontWeight: 900, letterSpacing: 6,
