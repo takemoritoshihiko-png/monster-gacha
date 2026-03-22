@@ -46,7 +46,7 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const audioCtx = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
 const bgmMaster = audioCtx ? audioCtx.createGain() : null;
 const sfxMaster = audioCtx ? audioCtx.createGain() : null;
-if (bgmMaster) { bgmMaster.gain.value = 0.25; bgmMaster.connect(audioCtx.destination); }
+if (bgmMaster) { bgmMaster.gain.value = 0.8; bgmMaster.connect(audioCtx.destination); }
 if (sfxMaster) { sfxMaster.gain.value = 1.0; sfxMaster.connect(audioCtx.destination); }
 
 function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0, dest = null) {
@@ -147,7 +147,7 @@ let bgmEnabled = true;
 // Main BGM: MP3 file player with loop
 const mainBgmAudio = new Audio('bgm-main.mp3');
 mainBgmAudio.loop = true;
-mainBgmAudio.volume = 0.1; // 10% volume
+mainBgmAudio.volume = 0.2; // 20% volume
 
 const mainBgmControl = {
   play() {
