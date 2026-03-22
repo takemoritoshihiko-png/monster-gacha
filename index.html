@@ -6811,9 +6811,75 @@ function CollectionView({ collection, onSelect }) {
           })}
         </div>
       </div>
+      {/* ★11 ★MAX Collection - 6 items exhibition */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.4, marginBottom: 10,
+          fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>★MAX COLLECTION</div>
+        <div style={{ borderRadius: 16, overflow: 'hidden', position: 'relative',
+          background: 'linear-gradient(180deg, rgba(20,15,35,0.9), rgba(10,8,20,0.95))',
+          border: '1px solid rgba(255,255,255,0.08)' }}>
+          {/* Top decorative line */}
+          <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), rgba(139,92,246,0.3), rgba(255,255,255,0.15), transparent)' }} />
+          <div style={{ padding: '14px 12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {TYPES.map((type, i) => {
+                const k = `${type.id}_11`;
+                const ow = collection[k];
+                const owned = !!ow;
+                const monster = MONSTERS[type.id][10];
+                const count = ow?.count || 0;
+                return (
+                  <div key={type.id} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 11, rarity: RARITIES[10], count })}
+                    style={{
+                    borderRadius: 12, padding: '10px 6px', textAlign: 'center',
+                    position: 'relative', overflow: 'hidden', cursor: owned ? 'pointer' : 'default',
+                    background: owned
+                      ? `radial-gradient(ellipse at 50% 30%, ${type.color}15, transparent 70%)`
+                      : 'rgba(255,255,255,0.02)',
+                    border: owned
+                      ? `1px solid ${type.color}40`
+                      : '1px dashed rgba(255,255,255,0.06)',
+                    ...(owned ? { boxShadow: `0 0 15px ${type.color}15, inset 0 1px 0 rgba(255,255,255,0.05)` } : {}),
+                  }}>
+                    {/* Shimmer overlay for owned */}
+                    {owned && <div style={{ position: 'absolute', inset: 0,
+                      background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.04) 50%, transparent 60%)',
+                      backgroundSize: '200% 200%', animation: 'gradShift 4s ease infinite', pointerEvents: 'none' }} />}
+                    <div style={{
+                      fontSize: owned ? 36 : 24, marginBottom: 4,
+                      filter: owned ? `drop-shadow(0 0 8px ${type.color}) drop-shadow(0 0 16px ${type.color}60)` : 'none',
+                      animation: owned ? `heroIconFloat ${2.5 + i * 0.2}s ease-in-out infinite` : 'none',
+                      opacity: owned ? 1 : 0.2,
+                    }}>
+                      {owned ? monster.icon : '🔒'}
+                    </div>
+                    {owned && count > 1 && <div style={{ position: 'absolute', top: 4, right: 6,
+                      fontSize: 8, fontWeight: 900, color: '#fbbf24', background: 'rgba(0,0,0,0.5)',
+                      borderRadius: 6, padding: '0 4px' }}>×{count}</div>}
+                    <div className={owned ? 'rank-diamond' : ''} style={{
+                      fontSize: 8, fontWeight: 900,
+                      color: owned ? undefined : 'rgba(255,255,255,0.15)',
+                    }}>
+                      {owned ? monster.name : '???'}
+                    </div>
+                    <div style={{ fontSize: 7, color: type.color, opacity: owned ? 0.5 : 0.15, marginTop: 1 }}>
+                      {type.emoji} {type.name}
+                    </div>
+                    {owned && <div style={{ fontSize: 7, color: '#a78bfa', opacity: 0.6, marginTop: 1 }}>
+                      💰{formatYen(POWER_VALUES[10])}
+                    </div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Bottom decorative line */}
+          <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.2), rgba(255,215,0,0.15), rgba(139,92,246,0.2), transparent)' }} />
+        </div>
+      </div>
       {/* Legendary Collection - ★9+ items */}
       {(() => {
-        const rareItems = all.filter(m => m.owned && m.rank >= 9);
+        const rareItems = all.filter(m => m.owned && m.rank >= 9 && m.rank <= 10);
         if (rareItems.length === 0) return null;
         return (
           <div style={{ marginBottom: 14, padding: '10px 12px', borderRadius: 12,
