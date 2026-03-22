@@ -508,8 +508,12 @@ const MONSTERS = {
   ],
 };
 
-// ★12 Congratulations item (collection-wide, not per-type)
-const CONGRATS_ITEM = { name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証" };
+// ★12 Congratulations items (3 tiers, collection-wide)
+const CONGRATS_TIERS = [
+  { key: 'congrats_12_1', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Gold", tierColor: "#ffd700" },
+  { key: 'congrats_12_2', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×2を極めし者の証", tier: 2, tierLabel: "Rainbow", tierColor: "#ff69b4" },
+  { key: 'congrats_12_3', name: "永劫の至宝・極", icon: "💠", desc: "★MAX全6種×3を超越せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
+];
 
 const SELL_VALUES = [1, 2, 4, 8, 15, 30, 60, 150, 400, 1000, 5000, 50000];
 // 資産価値（円）: ★1=1,000円～★MAX=400億円, ★12=1,000億円
@@ -1564,7 +1568,6 @@ function MonsterGacha() {
     });
   }, [nickname, slotId, loaded]);
 
-  const [showGiftDestroyed, setShowGiftDestroyed] = useState(null);
   const [volMain, setVolMain] = useState(volMainBgm);
   const [volGame, setVolGame] = useState(volGameBgm);
   const [volSfxState, setVolSfxState] = useState(volSfx);
@@ -1572,19 +1575,11 @@ function MonsterGacha() {
   const receiveGifts = useCallback(() => {
     if (pendingGifts.length === 0) return;
     const accepted = [];
-    const destroyed = [];
     pendingGifts.forEach(gift => {
-      // Check if this ★MAX gift would complete the collection (last 1 of 6)
-      if (gift.rank === 11) {
-        const currentMaxCount = TYPES.filter(t => collection[`${t.id}_11`] && collection[`${t.id}_11`].count > 0).length;
-        const key = `${gift.typeId}_11`;
-        const alreadyOwned = collection[key] && collection[key].count > 0;
-        // If player has 5/6 and this is the missing 6th → DESTROY
-        if (currentMaxCount >= 5 && !alreadyOwned) {
-          destroyed.push(gift);
-          window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
-          return;
-        }
+      // ★11/★12 gifts are blocked - skip and remove
+      if (gift.rank >= 11) {
+        window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
+        return;
       }
       // Normal gift acceptance
       const key = `${gift.typeId}_${gift.rank}`;
@@ -1603,10 +1598,6 @@ function MonsterGacha() {
       accepted.push(gift);
       window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
     });
-    if (destroyed.length > 0) {
-      setShowGiftDestroyed(destroyed);
-      setTimeout(() => setShowGiftDestroyed(null), 6000);
-    }
     if (accepted.length > 0) {
       setShowGiftReceived(accepted);
       setTimeout(() => setShowGiftReceived(null), 4000);
@@ -1687,9 +1678,11 @@ function MonsterGacha() {
 
   const colCount = useMemo(() => Object.keys(collection).length, [collection]);
 
-  // ★MAX ownership tracking
-  const maxOwned = useMemo(() => TYPES.map(t => !!collection[`${t.id}_11`]), [collection]);
-  const isComplete = maxOwned.every(Boolean);
+  // ★MAX ownership tracking - 3 tiers (all×1, all×2, all×3)
+  const maxCounts = useMemo(() => TYPES.map(t => (collection[`${t.id}_11`]?.count) || 0), [collection]);
+  const minMaxCount = Math.min(...maxCounts);
+  const congratsTier = minMaxCount >= 3 ? 3 : minMaxCount >= 2 ? 2 : minMaxCount >= 1 ? 1 : 0;
+  const isComplete = congratsTier >= 1;
 
   const totalSpent = useMemo(() => spending.reduce((s, e) => s + e.amount, 0), [spending]);
 
@@ -1697,28 +1690,32 @@ function MonsterGacha() {
     return Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
   }, [collection]);
 
-  // Game clear detection - grant ★12 Congratulations item
+  // Game clear detection - grant ★12 Congratulations items (3 tiers)
   const [showClear, setShowClear] = useState(false);
-  const prevComplete = useRef(null);
+  const [showClearTier, setShowClearTier] = useState(null);
+  const prevTier = useRef(null);
   useEffect(() => {
-    if (prevComplete.current === null) {
-      prevComplete.current = isComplete;
+    if (prevTier.current === null) {
+      prevTier.current = congratsTier;
       return;
     }
-    if (isComplete && !prevComplete.current) {
-      // Grant ★12 congratulations item (collection-wide, 1 item)
+    if (congratsTier > prevTier.current) {
+      // Grant new tier items
       const nr = RARITIES[11];
       setCollection(prev => {
         const n = { ...prev };
-        const nk = 'congrats_12';
-        if (!n[nk]) n[nk] = { ...CONGRATS_ITEM, typeId: 'congrats', typeName: '図鑑報酬', typeEmoji: '👑', typeColor: '#ffd700', rank: 12, rarity: nr, count: 1 };
+        for (let t = prevTier.current + 1; t <= congratsTier; t++) {
+          const ci = CONGRATS_TIERS[t - 1];
+          if (!n[ci.key]) n[ci.key] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '図鑑報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
+        }
         return n;
       });
+      setShowClearTier(CONGRATS_TIERS[congratsTier - 1]);
       setShowClear(true);
       sfx('reveal10');
     }
-    prevComplete.current = isComplete;
-  }, [isComplete]);
+    prevTier.current = congratsTier;
+  }, [congratsTier]);
 
   // Gacha
   const autoOpenRef = useRef([]);
@@ -3070,10 +3067,14 @@ function MonsterGacha() {
               </div>
               {/* Count */}
               <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, fontWeight: 900 }}>
-                {isComplete ? (
-                  <span className="rank-rainbow" style={{ fontSize: 13 }}>✨ COMPLETE ✨</span>
+                {congratsTier >= 3 ? (
+                  <span className="rank-congrats" style={{ fontSize: 12 }}>✨ ULTIMATE ✨</span>
+                ) : congratsTier === 2 ? (
+                  <span className="rank-congrats" style={{ fontSize: 12 }}>🌈 RAINBOW 🌈</span>
+                ) : congratsTier === 1 ? (
+                  <span className="rank-diamond" style={{ fontSize: 12 }}>👑 COMPLETE 👑</span>
                 ) : (
-                  <span style={{ color: 'rgba(167,139,250,0.4)' }}>{maxOwned.filter(Boolean).length} / 6</span>
+                  <span style={{ color: 'rgba(167,139,250,0.4)' }}>{maxCounts.filter(c => c > 0).length} / 6</span>
                 )}
               </div>
             </div>
@@ -3601,7 +3602,7 @@ function MonsterGacha() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-              {modal.count > 1 && (
+              {modal.count > 1 && modal.rank < 11 && (
                 <button className="btn" style={{ fontSize: 12, padding: '8px 14px',
                   background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#c084fc' }}
                   onClick={() => { setShowGiftModal({ key: `${modal.typeId}_${modal.rank}`, item: modal }); setModal(null); setGiftRecipient(''); }}>
@@ -3616,37 +3617,43 @@ function MonsterGacha() {
       })()}
 
       {/* GAME CLEAR */}
-      {showClear && (
+      {showClear && showClearTier && (
         <div className="mo" onClick={() => setShowClear(false)}>
-          <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.6), rgba(255,105,180,0.5), rgba(123,104,238,0.5), rgba(0,255,204,0.4))', animationDuration: '0.8s' }} />
+          <div className="rare-flash" style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}99, rgba(255,105,180,0.5), rgba(123,104,238,0.5))`, animationDuration: '0.8s' }} />
           <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent 50%)', animationDuration: '1s', animationDelay: '0.3s' }} />
           <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
           <div style={{
             background: 'radial-gradient(circle, rgba(25,10,5,0.98), rgba(0,0,0,0.99))',
             borderRadius: 24, padding: '32px 24px', maxWidth: 360, width: '100%',
-            textAlign: 'center', animation: 'ri 0.5s ease-out',
-            border: '2px solid transparent',
+            textAlign: 'center', border: '2px solid transparent',
             position: 'relative', overflow: 'hidden',
             animation: 'congratsGlow 2s ease-in-out infinite',
           }} onClick={e => e.stopPropagation()}>
             <div style={{ position: 'absolute', inset: -2, borderRadius: 26,
-              background: 'conic-gradient(from 0deg, #ffd700, #ff69b4, #7b68ee, #00ffcc, #ffd700) border-box',
-              animation: 'synthMaxRotate 4s linear infinite',
+              background: showClearTier.tier === 1
+                ? 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700) border-box'
+                : showClearTier.tier === 2
+                  ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
+                  : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box',
+              animation: showClearTier.tier >= 2 ? 'synthMaxRotate 4s linear infinite' : 'none',
               WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
               WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
             }} />
             <div style={{ fontSize: 80, marginBottom: 12, animation: 'synthMaxIcon 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1.2s infinite',
-              filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.9)) drop-shadow(0 0 40px rgba(255,105,180,0.6)) drop-shadow(0 0 60px rgba(123,104,238,0.4))' }}>
-              👑
+              filter: `drop-shadow(0 0 20px ${showClearTier.tierColor}) drop-shadow(0 0 40px ${showClearTier.tierColor}99) drop-shadow(0 0 60px ${showClearTier.tierColor}66)` }}>
+              {showClearTier.icon}
             </div>
             <div className="rank-congrats" style={{
-              fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900,
+              fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900,
               letterSpacing: 3, marginBottom: 4,
             }}>
               CONGRATULATIONS
             </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>
+              {showClearTier.tierLabel}
+            </div>
             <div className="rank-congrats" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 16 }}>
-              ★12 永劫の至宝
+              ★12 {showClearTier.name}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
               {TYPES.map((type, i) => (
@@ -3660,20 +3667,22 @@ function MonsterGacha() {
               ))}
             </div>
             <div style={{
-              background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,105,180,0.05))',
-              border: '1px solid rgba(255,215,0,0.3)',
+              background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
+              border: `1px solid ${showClearTier.tierColor}50`,
               borderRadius: 12, padding: '10px 16px', marginBottom: 16,
             }}>
-              <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>図鑑報酬</div>
+              <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>図鑑報酬 — ★MAX全6種×{showClearTier.tier}</div>
               <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900 }}>
-                👑 永劫の至宝 獲得！
+                {showClearTier.icon} {showClearTier.name} 獲得！
               </div>
               <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 4, fontWeight: 700 }}>
                 資産価値: 1,000億円
               </div>
             </div>
             <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
-              おめでとうございます！<br/>全ての伝説のトレジャーを集め、<br/>究極の証を手に入れました。
+              {showClearTier.tier === 1 ? 'おめでとうございます！\n全ての伝説のトレジャーを集めました。' :
+               showClearTier.tier === 2 ? '素晴らしい！全★MAXを2個ずつ揃えました！' :
+               '圧巻！全★MAXを3個ずつ揃え、究極に到達しました！'}
             </div>
             <button className="btn bp" style={{ fontSize: 14, padding: '12px 32px' }}
               onClick={() => setShowClear(false)}>
@@ -3933,35 +3942,6 @@ function MonsterGacha() {
             ))}
             <button className="btn bp" style={{ marginTop: 12, fontSize: 13, padding: '10px 24px' }}
               onClick={() => setShowGiftReceived(null)}>受け取る！</button>
-          </div>
-        </div>
-      )}
-      {/* ★MAX gift destroyed - oni message */}
-      {showGiftDestroyed && (
-        <div className="mo" onClick={() => setShowGiftDestroyed(null)}>
-          <div className="mc" style={{ borderColor: 'rgba(239,68,68,0.6)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 56, marginBottom: 8 }}>💀</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#ef4444', marginBottom: 8 }}>
-              神の怒り
-            </div>
-            <div style={{ fontSize: 13, color: '#ff6b6b', marginBottom: 12, lineHeight: 1.8 }}>
-              最後の★MAXは自分の手で掴み取れ！！<br/>
-              他人から貰った伝説は…伝説ではない！
-            </div>
-            {showGiftDestroyed.map((g, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
-                justifyContent: 'center', fontSize: 13, opacity: 0.5, textDecoration: 'line-through' }}>
-                <span style={{ fontSize: 24 }}>{g.icon}</span>
-                <span>{g.name}</span>
-                <span style={{ color: '#ef4444' }}>→ 消滅</span>
-              </div>
-            ))}
-            <div style={{ fontSize: 10, opacity: 0.4, marginTop: 8 }}>
-              ※コンプリート最後の1個はギフトでは受け取れません
-            </div>
-            <button className="btn" style={{ marginTop: 12, fontSize: 13, padding: '10px 24px',
-              background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}
-              onClick={() => setShowGiftDestroyed(null)}>...了解</button>
           </div>
         </div>
       )}
@@ -6596,7 +6576,7 @@ function SpendForm({ available, spending, onSpend }) {
 // ============================================================
 function CollectionView({ collection, onSelect }) {
   const [filter, setFilter] = useState("all");
-  const congratsOwned = !!collection['congrats_12'];
+  const ownedTiers = CONGRATS_TIERS.filter(t => !!collection[t.key]);
   const all = useMemo(() => {
     const list = [];
     RARITIES.slice().reverse().forEach(r => {
@@ -6612,12 +6592,12 @@ function CollectionView({ collection, onSelect }) {
     return list;
   }, [collection]);
   const shown = filter === "all" ? all : all.filter(m => m.typeId === filter);
-  const ownCount = all.filter(m => m.owned).length + (congratsOwned ? 1 : 0);
+  const ownCount = all.filter(m => m.owned).length + ownedTiers.length;
   const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
 
   return (
     <div>
-      <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/67</span></div>
+      <div className="st">📖 コレクション <span style={{ fontSize: 13, opacity: 0.5 }}>{ownCount}/69</span></div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(50,40,80,0.5), rgba(35,28,55,0.6))', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
@@ -6628,36 +6608,49 @@ function CollectionView({ collection, onSelect }) {
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
       </div>
-      {/* ★12 Congratulations - ★MAX 6 items framed */}
-      {congratsOwned && (() => {
+      {/* ★12 Congratulations - 3 tiers */}
+      {ownedTiers.length > 0 && (() => {
         const maxItems = TYPES.map(t => {
           const k = `${t.id}_11`;
           const ow = collection[k];
           return { key: k, ...MONSTERS[t.id][10], typeId: t.id, typeColor: t.color, owned: !!ow, count: ow?.count || 0 };
         });
+        const highestTier = ownedTiers[ownedTiers.length - 1];
+        const borderBg = highestTier.tier === 1
+          ? 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700) border-box'
+          : highestTier.tier === 2
+            ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
+            : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box';
         return (
           <div style={{ marginBottom: 14, padding: '14px 12px', borderRadius: 16, position: 'relative', overflow: 'hidden',
             background: 'radial-gradient(circle, rgba(40,25,10,0.8), rgba(15,10,25,0.9))',
-            animation: 'congratsGlow 3s ease-in-out infinite' }}>
+            animation: highestTier.tier >= 2 ? 'congratsGlow 3s ease-in-out infinite' : 'none' }}>
             <div style={{ position: 'absolute', inset: -2, borderRadius: 18,
-              background: 'conic-gradient(from 0deg, #ffd700, #ff69b4, #7b68ee, #00ffcc, #ffd700) border-box',
-              animation: 'synthMaxRotate 6s linear infinite',
+              background: borderBg,
+              animation: highestTier.tier >= 2 ? 'synthMaxRotate 6s linear infinite' : 'none',
               WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
               WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none' }} />
-            <div className="rank-congrats" style={{ fontSize: 11, textAlign: 'center', marginBottom: 4,
+            <div className={highestTier.tier >= 2 ? 'rank-congrats' : 'rank-diamond'} style={{ fontSize: 11, textAlign: 'center', marginBottom: 4,
               fontFamily: "'Orbitron',sans-serif", letterSpacing: 3, fontWeight: 900 }}>★12 CONGRATULATIONS</div>
-            <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 10 }}>★MAX 全6種コンプリート報酬</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10, marginTop: 8 }}>
               {maxItems.map((m, i) => (
                 <div key={m.key} style={{ textAlign: 'center', animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>
-                  <div style={{ fontSize: 32, filter: `drop-shadow(0 0 8px ${m.typeColor}) drop-shadow(0 0 16px rgba(255,215,0,0.4))` }}>{m.owned ? m.icon : '❓'}</div>
+                  <div style={{ fontSize: 30, filter: `drop-shadow(0 0 6px ${m.typeColor})` }}>{m.owned ? m.icon : '❓'}</div>
                 </div>
               ))}
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 4, filter: 'drop-shadow(0 0 12px rgba(255,215,0,0.8)) drop-shadow(0 0 24px rgba(255,105,180,0.5))' }}>👑</div>
-              <div className="rank-congrats" style={{ fontSize: 10, fontWeight: 900 }}>永劫の至宝</div>
-              <div style={{ fontSize: 8, color: '#fbbf24', opacity: 0.7, marginTop: 2 }}>💰 {formatYen(POWER_VALUES[11])}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8 }}>
+              {CONGRATS_TIERS.map(ct => {
+                const owned = !!collection[ct.key];
+                return (
+                  <div key={ct.key} style={{ textAlign: 'center', opacity: owned ? 1 : 0.25 }}>
+                    <div style={{ fontSize: 32, marginBottom: 2, filter: owned ? `drop-shadow(0 0 8px ${ct.tierColor})` : 'none' }}>{ct.icon}</div>
+                    <div style={{ fontSize: 7, fontWeight: 900, color: ct.tierColor }}>{ct.tierLabel}</div>
+                    <div style={{ fontSize: 7, opacity: 0.5 }}>{owned ? ct.name : '???'}</div>
+                    {owned && <div style={{ fontSize: 7, color: '#fbbf24', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[11])}</div>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
