@@ -2034,9 +2034,15 @@ function MonsterGacha() {
       if (targetRank === 10) {
         setRareEffect({ type: 'synthGod', name: MONSTERS[typeId][targetRank - 1].name, icon: MONSTERS[typeId][targetRank - 1].icon });
         setTimeout(() => setRareEffect(null), 3500);
+      } else if (targetRank === 9) {
+        setRareEffect({ type: 'synthMythic', name: MONSTERS[typeId][targetRank - 1].name, icon: MONSTERS[typeId][targetRank - 1].icon, color: RARITIES[targetRank - 1].color });
+        setTimeout(() => setRareEffect(null), 3000);
+      } else if (targetRank === 8) {
+        setRareEffect({ type: 'synthLegend', name: MONSTERS[typeId][targetRank - 1].name, icon: MONSTERS[typeId][targetRank - 1].icon, color: RARITIES[targetRank - 1].color });
+        setTimeout(() => setRareEffect(null), 2500);
       }
     }
-    const synthDuration = targetRank >= 10 ? 4000 : 2000;
+    const synthDuration = targetRank >= 10 ? 4000 : targetRank >= 8 ? 3000 : 2000;
     setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration);
   }, [collection]);
 
@@ -3500,6 +3506,60 @@ function MonsterGacha() {
             </div>
           </div>
         </>
+      )}
+      {rareEffect && rareEffect.type === 'synthMythic' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: 'radial-gradient(circle, rgba(60,40,0,0.9), rgba(0,0,0,0.95))', pointerEvents: 'none' }}>
+          <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.3), transparent 60%)' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 72, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
+              filter: 'drop-shadow(0 0 16px rgba(255,215,0,0.7)) drop-shadow(0 0 32px rgba(255,215,0,0.3))' }}>
+              {rareEffect.icon}
+            </div>
+            <div className="rare-god-text" style={{ fontSize: 14, fontWeight: 700, letterSpacing: 3,
+              color: 'rgba(255,215,0,0.6)', fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
+              ★ ★ ★ ★ ★ ★ ★ ★ ★
+            </div>
+            <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900,
+              background: 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)',
+              backgroundSize: '100% 300%', animation: 'gradShift 2s ease infinite',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.5))',
+              fontFamily: "'Orbitron',sans-serif" }}>
+              MYTHIC 合成
+            </div>
+            <div style={{ fontSize: 16, color: 'rgba(255,215,0,0.8)', marginTop: 8, fontWeight: 900 }}>
+              {rareEffect.name}
+            </div>
+          </div>
+        </div>
+      )}
+      {rareEffect && rareEffect.type === 'synthLegend' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: 'radial-gradient(circle, rgba(40,45,60,0.9), rgba(0,0,0,0.95))', pointerEvents: 'none' }}>
+          <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(200,214,229,0.25), transparent 60%)' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 64, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
+              filter: 'drop-shadow(0 0 12px rgba(200,214,229,0.6)) drop-shadow(0 0 24px rgba(200,214,229,0.3))' }}>
+              {rareEffect.icon}
+            </div>
+            <div className="rare-god-text" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 3,
+              color: 'rgba(200,214,229,0.5)', fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
+              ★ ★ ★ ★ ★ ★ ★ ★
+            </div>
+            <div className="rare-god-text" style={{ fontSize: 20, fontWeight: 900,
+              background: 'linear-gradient(180deg, #e8edf3, #c8d6e5, #e8edf3)',
+              backgroundSize: '100% 300%', animation: 'gradShift 2s ease infinite',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 0 8px rgba(200,214,229,0.4))',
+              fontFamily: "'Orbitron',sans-serif" }}>
+              LEGEND 合成
+            </div>
+            <div style={{ fontSize: 15, color: 'rgba(200,214,229,0.8)', marginTop: 8, fontWeight: 900 }}>
+              {rareEffect.name}
+            </div>
+          </div>
+        </div>
       )}
       {rareEffect && rareEffect.type === 'synthMax' && (
         <>
