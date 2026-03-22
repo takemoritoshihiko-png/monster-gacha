@@ -2134,18 +2134,20 @@ function MonsterGacha() {
         completed[m.id] = total >= m.target;
       });
       setDailyProgress(progress);
-      setDailyCompleted(prev => {
-        // Check if all 3 missions just completed (and weren't before)
-        const allDone = missions.every(m => completed[m.id]);
-        const wasAllDone = missions.every(m => prev[m.id]);
-        if (allDone && !wasAllDone && nickname) {
-          // Award 2000 coins for completing all daily missions
-          setCoins(c => c + 2000);
-          setSaveMsg('🎉 デイリーミッション全達成！ +🪙2,000');
-          setTimeout(() => setSaveMsg(''), 3000);
-        }
-        return completed;
-      });
+      setDailyCompleted(completed);
+      // Check if all 3 missions completed and this player hasn't claimed reward yet
+      const allDone = missions.every(m => completed[m.id]);
+      if (allDone && nickname && window.fbDb) {
+        const claimRef = window.fbDb.ref('dailyMissions/' + today + '/claimed/' + nickname);
+        claimRef.once('value').then(snap => {
+          if (!snap.val()) {
+            claimRef.set(true);
+            setCoins(c => c + 2000);
+            setSaveMsg('🎉 デイリーミッション全達成！ +🪙2,000');
+            setTimeout(() => setSaveMsg(''), 3000);
+          }
+        });
+      }
     });
     return () => ref.off('value', handler);
   }, [loaded, slotId]);
