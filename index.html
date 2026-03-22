@@ -137,37 +137,34 @@ class BGMPlayer {
 }
 const bgm = new BGMPlayer();
 
-// Main BGM: Upbeat adventure / treasure hunt theme
 // Global mute flag
 let bgmEnabled = true;
-const BGM_MAIN = [
-  // Bright upbeat melody - C major, adventurous feel
-  {n:523,b:0,d:0.12,t:'square',v:0.025},{n:659,b:0.25,d:0.1,t:'square',v:0.02},
-  {n:784,b:0.5,d:0.12,t:'square',v:0.025},{n:659,b:0.75,d:0.1,t:'square',v:0.02},
-  {n:784,b:1,d:0.12,t:'square',v:0.025},{n:880,b:1.25,d:0.1,t:'square',v:0.02},
-  {n:784,b:1.5,d:0.15,t:'square',v:0.028},{n:659,b:1.75,d:0.1,t:'square',v:0.02},
-  {n:587,b:2,d:0.12,t:'square',v:0.025},{n:659,b:2.25,d:0.1,t:'square',v:0.02},
-  {n:784,b:2.5,d:0.12,t:'square',v:0.025},{n:880,b:2.75,d:0.1,t:'square',v:0.02},
-  {n:1047,b:3,d:0.2,t:'square',v:0.03},{n:880,b:3.25,d:0.1,t:'square',v:0.02},
-  {n:784,b:3.5,d:0.15,t:'square',v:0.025},{n:659,b:3.75,d:0.1,t:'square',v:0.02},
-  // Second phrase - triumphant
-  {n:880,b:4,d:0.12,t:'square',v:0.025},{n:784,b:4.25,d:0.1,t:'square',v:0.02},
-  {n:659,b:4.5,d:0.12,t:'square',v:0.025},{n:784,b:4.75,d:0.1,t:'square',v:0.02},
-  {n:880,b:5,d:0.12,t:'square',v:0.028},{n:1047,b:5.25,d:0.1,t:'square',v:0.025},
-  {n:880,b:5.5,d:0.12,t:'square',v:0.025},{n:784,b:5.75,d:0.1,t:'square',v:0.02},
-  {n:659,b:6,d:0.12,t:'square',v:0.025},{n:587,b:6.25,d:0.1,t:'square',v:0.02},
-  {n:523,b:6.5,d:0.12,t:'square',v:0.025},{n:587,b:6.75,d:0.1,t:'square',v:0.02},
-  {n:659,b:7,d:0.2,t:'square',v:0.028},{n:784,b:7.5,d:0.25,t:'square',v:0.03},
-  // Driving bass - upbeat rhythm
-  {n:262,b:0,d:0.15,t:'triangle',v:0.02},{n:262,b:0.5,d:0.1,t:'triangle',v:0.015},
-  {n:330,b:1,d:0.15,t:'triangle',v:0.02},{n:330,b:1.5,d:0.1,t:'triangle',v:0.015},
-  {n:294,b:2,d:0.15,t:'triangle',v:0.02},{n:294,b:2.5,d:0.1,t:'triangle',v:0.015},
-  {n:349,b:3,d:0.15,t:'triangle',v:0.02},{n:349,b:3.5,d:0.1,t:'triangle',v:0.015},
-  {n:262,b:4,d:0.15,t:'triangle',v:0.02},{n:262,b:4.5,d:0.1,t:'triangle',v:0.015},
-  {n:330,b:5,d:0.15,t:'triangle',v:0.02},{n:330,b:5.5,d:0.1,t:'triangle',v:0.015},
-  {n:294,b:6,d:0.15,t:'triangle',v:0.02},{n:262,b:6.5,d:0.1,t:'triangle',v:0.015},
-  {n:330,b:7,d:0.15,t:'triangle',v:0.02},{n:392,b:7.5,d:0.2,t:'triangle',v:0.022},
-];
+
+// Main BGM: MP3 file player with loop
+const mainBgmAudio = new Audio('bgm-main.mp3');
+mainBgmAudio.loop = true;
+mainBgmAudio.volume = 0.6; // 60% volume
+
+const mainBgmControl = {
+  play() {
+    if (!bgmEnabled) return;
+    mainBgmAudio.play().catch(() => {});
+  },
+  stop() {
+    mainBgmAudio.pause();
+    mainBgmAudio.currentTime = 0;
+  },
+  pause() {
+    mainBgmAudio.pause();
+  },
+  resume() {
+    if (!bgmEnabled) return;
+    mainBgmAudio.play().catch(() => {});
+  },
+  isPlaying() {
+    return !mainBgmAudio.paused;
+  }
+};
 
 // Tap BGM: Energetic driving beat
 const BGM_TAP = [
@@ -1792,7 +1789,7 @@ function MonsterGacha() {
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
     if (coins < cost) return;
-    bgm.stop(); mainBgmRef.current = false;
+    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
     contributeMission('gacha', n);
@@ -1962,7 +1959,7 @@ function MonsterGacha() {
   };
 
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
-    bgm.stop(); mainBgmRef.current = false;
+    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
     if (rank === 10 && targetRank === 11) {
@@ -2022,7 +2019,7 @@ function MonsterGacha() {
       }
     }
     const synthDuration = targetRank >= 10 ? 4000 : 2000;
-    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; bgm.playLoop(BGM_MAIN, 120); mainBgmRef.current = true; } }, synthDuration);
+    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration);
   }, [collection]);
 
   const doSynthMaxRetry = useCallback(() => {
@@ -2053,7 +2050,7 @@ function MonsterGacha() {
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
     const maxTarget = Math.max(...candidates.map(c => c.targetRank));
-    bgm.stop(); mainBgmRef.current = false;
+    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setTimeout(() => playSynthSound(maxTarget), 200);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
     setCollection(prev => {
@@ -2093,7 +2090,7 @@ function MonsterGacha() {
       return n;
     });
     setSynthResult({ batch: true, count: totalSynths });
-    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; bgm.playLoop(BGM_MAIN, 120); mainBgmRef.current = true; } }, 2500);
+    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500);
   }, [findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
@@ -2109,13 +2106,13 @@ function MonsterGacha() {
     if (shouldPlay && !mainBgmRef.current) {
       const t = setTimeout(() => {
         if (!mainBgmRef.current && bgmEnabled) {
-          bgm.playLoop(BGM_MAIN, 120);
+          mainBgmControl.play();
           mainBgmRef.current = true;
         }
       }, 500);
       return () => clearTimeout(t);
     } else if (!shouldPlay && mainBgmRef.current) {
-      bgm.stop();
+      mainBgmControl.pause();
       mainBgmRef.current = false;
     }
   }, [screen, miniGame, gachaPhase, loaded, slotId, bgmOn]);
@@ -2470,7 +2467,7 @@ function MonsterGacha() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => { const next = !bgmOn; setBgmOn(next); bgmEnabled = next; if (!next) bgm.stop(); else { mainBgmRef.current = false; } }}
+          <button onClick={() => { const next = !bgmOn; setBgmOn(next); bgmEnabled = next; if (!next) { bgm.stop(); mainBgmControl.stop(); mainBgmRef.current = false; } else { mainBgmRef.current = false; } }}
             style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: 4, opacity: bgmOn ? 0.8 : 0.3 }}
             title={bgmOn ? 'BGM ON' : 'BGM OFF'}>{bgmOn ? '🔊' : '🔇'}</button>
           <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
