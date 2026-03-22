@@ -3116,7 +3116,7 @@ function MonsterGacha() {
               {/* Crystal slots on floating platforms */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
                 {TYPES.map((type, i) => {
-                  const owned = maxOwned[i];
+                  const owned = maxCounts[i] > 0;
                   const monster = MONSTERS[type.id][10];
                   return (
                     <div key={type.id} style={{ textAlign: 'center', position: 'relative' }}>
