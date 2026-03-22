@@ -6723,53 +6723,51 @@ function CollectionView({ collection, onSelect }) {
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
       </div>
-      {/* ★12 Congratulations - 3 tiers */}
-      {ownedTiers.length > 0 && (() => {
-        const maxItems = TYPES.map(t => {
-          const k = `${t.id}_11`;
-          const ow = collection[k];
-          return { key: k, ...MONSTERS[t.id][10], typeId: t.id, typeColor: t.color, owned: !!ow, count: ow?.count || 0 };
-        });
-        const highestTier = ownedTiers[ownedTiers.length - 1];
-        const borderBg = highestTier.tier === 1
-          ? 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700) border-box'
-          : highestTier.tier === 2
-            ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
-            : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box';
-        return (
-          <div style={{ marginBottom: 14, padding: '14px 12px', borderRadius: 16, position: 'relative', overflow: 'hidden',
-            background: 'radial-gradient(circle, rgba(40,25,10,0.8), rgba(15,10,25,0.9))',
-            animation: highestTier.tier >= 2 ? 'congratsGlow 3s ease-in-out infinite' : 'none' }}>
-            <div style={{ position: 'absolute', inset: -2, borderRadius: 18,
-              background: borderBg,
-              animation: highestTier.tier >= 2 ? 'synthMaxRotate 6s linear infinite' : 'none',
-              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-              WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none' }} />
-            <div className={highestTier.tier >= 2 ? 'rank-congrats' : 'rank-diamond'} style={{ fontSize: 11, textAlign: 'center', marginBottom: 4,
-              fontFamily: "'Orbitron',sans-serif", letterSpacing: 3, fontWeight: 900 }}>★12 CONGRATULATIONS</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10, marginTop: 8 }}>
-              {maxItems.map((m, i) => (
-                <div key={m.key} style={{ textAlign: 'center', animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>
-                  <div style={{ fontSize: 30, filter: `drop-shadow(0 0 6px ${m.typeColor})` }}>{m.owned ? m.icon : '❓'}</div>
+      {/* ★12 Congratulations - 3 separate slots (always visible) */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.4, marginBottom: 8,
+          fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>★12 CONGRATULATIONS</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {CONGRATS_TIERS.map(ct => {
+            const owned = !!collection[ct.key];
+            const borderStyle = ct.tier === 1
+              ? { border: '1px solid rgba(255,215,0,0.4)', background: owned ? 'linear-gradient(160deg, rgba(50,35,10,0.8), rgba(30,20,5,0.9))' : 'rgba(255,255,255,0.03)' }
+              : ct.tier === 2
+                ? { border: '1px solid rgba(255,105,180,0.4)', background: owned ? 'linear-gradient(160deg, rgba(50,20,30,0.8), rgba(30,10,25,0.9))' : 'rgba(255,255,255,0.03)' }
+                : { border: '1px solid rgba(0,255,204,0.4)', background: owned ? 'linear-gradient(160deg, rgba(10,40,35,0.8), rgba(5,25,30,0.9))' : 'rgba(255,255,255,0.03)' };
+            return (
+              <div key={ct.key} style={{ flex: 1, borderRadius: 14, padding: '12px 8px', textAlign: 'center',
+                position: 'relative', overflow: 'hidden', opacity: owned ? 1 : 0.35,
+                ...borderStyle,
+                ...(owned && ct.tier >= 2 ? { animation: 'congratsGlow 3s ease-in-out infinite' } : {}) }}>
+                {/* Animated border for owned tier2+ */}
+                {owned && ct.tier >= 2 && <div style={{ position: 'absolute', inset: -1, borderRadius: 15,
+                  background: ct.tier === 2
+                    ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
+                    : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box',
+                  animation: 'synthMaxRotate 5s linear infinite',
+                  WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                  WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none' }} />}
+                <div style={{ fontSize: 36, marginBottom: 4,
+                  filter: owned ? `drop-shadow(0 0 10px ${ct.tierColor}) drop-shadow(0 0 20px ${ct.tierColor}80)` : 'none',
+                  animation: owned ? 'heroIconFloat 2.5s ease-in-out infinite' : 'none' }}>
+                  {owned ? ct.icon : '❓'}
                 </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8 }}>
-              {CONGRATS_TIERS.map(ct => {
-                const owned = !!collection[ct.key];
-                return (
-                  <div key={ct.key} style={{ textAlign: 'center', opacity: owned ? 1 : 0.25 }}>
-                    <div style={{ fontSize: 32, marginBottom: 2, filter: owned ? `drop-shadow(0 0 8px ${ct.tierColor})` : 'none' }}>{ct.icon}</div>
-                    <div style={{ fontSize: 7, fontWeight: 900, color: ct.tierColor }}>{ct.tierLabel}</div>
-                    <div style={{ fontSize: 7, opacity: 0.5 }}>{owned ? ct.name : '???'}</div>
-                    {owned && <div style={{ fontSize: 7, color: '#fbbf24', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[11])}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
+                <div className={owned ? (ct.tier >= 3 ? 'rank-ultimate' : ct.tier === 2 ? 'rank-congrats' : 'rank-diamond') : ''}
+                  style={{ fontSize: 8, fontWeight: 900, color: owned ? undefined : 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>
+                  {ct.tierLabel}
+                </div>
+                <div style={{ fontSize: 7, opacity: owned ? 0.6 : 0.3, marginTop: 2 }}>
+                  {owned ? ct.name : '★MAX全6種×' + ct.tier}
+                </div>
+                {owned && <div style={{ fontSize: 7, color: '#fbbf24', marginTop: 2, fontWeight: 700 }}>
+                  💰{formatYen(POWER_VALUES[11])}
+                </div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {/* Legendary Collection - ★9+ items */}
       {(() => {
         const rareItems = all.filter(m => m.owned && m.rank >= 9);
