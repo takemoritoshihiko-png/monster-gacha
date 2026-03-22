@@ -7143,9 +7143,9 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                 ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
                 : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
             pointerEvents: 'auto', animation: 'ri 0.4s ease-out' }}>
-            <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
+            <div style={{ marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
               filter: `drop-shadow(0 0 20px ${synthResult.rarity.color}) drop-shadow(0 0 40px ${synthResult.rarity.color}80)` }}>
-              {synthResult.icon}
+              {synthResult.img ? renderItemIcon(synthResult, 80) : <span style={{ fontSize: 80 }}>{synthResult.icon}</span>}
             </div>
             <div className={synthResult.rank >= 10 ? 'rank-rainbow' : synthResult.rank === 9 ? 'rank-gold' : 'rank-silver'}
               style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
@@ -7285,7 +7285,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', maxWidth: 320 }}>
                 {synthResult.rareItems.map((item, i) => (
                   <div key={i} style={{ textAlign: 'center', animation: `ri 0.3s ease-out ${i * 0.1}s both` }}>
-                    <div style={{ fontSize: 36, filter: `drop-shadow(0 0 8px ${item.rarity.color})` }}>{item.icon}</div>
+                    <div style={{ filter: `drop-shadow(0 0 8px ${item.rarity.color})` }}>{item.img ? renderItemIcon(item, 36) : <span style={{ fontSize: 36 }}>{item.icon}</span>}</div>
                     <div style={{ fontSize: 8, fontWeight: 700, color: item.rarity.color }}>{item.name}{item.count > 1 ? ` ×${item.count}` : ''}</div>
                   </div>
                 ))}
@@ -7301,7 +7301,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: 48 }}>{synthResult.icon}</div>
+                <div>{synthResult.img ? renderItemIcon(synthResult, 48) : <span style={{ fontSize: 48 }}>{synthResult.icon}</span>}</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: synthResult.rarity.color }}>
                   {synthResult.name} 獲得！
                 </div>
@@ -7355,7 +7355,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                 const tRarity = RARITIES[c.targetRank - 1];
                 return (
                   <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
-                    <span>{item.icon}</span>
+                    <span>{item.img ? renderItemIcon(item, 16) : item.icon}</span>
                     <span style={{ color: item.rarity.color, fontWeight: 700 }}>
                       {item.name} ×{c.synthCount * c.req}
                     </span>
@@ -7426,7 +7426,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 <div style={{ textAlign: 'center', minWidth: 56 }}>
-                  <div style={{ fontSize: 28 }}>{item.icon}</div>
+                  <div>{item.img ? renderItemIcon(item, 28) : <span style={{ fontSize: 28 }}>{item.icon}</span>}</div>
                   <div style={{ fontSize: 8, fontWeight: 700, color: item.rarity.color }}>{item.name}</div>
                   <div style={{ fontSize: 8, color: item.rarity.color }}>
                     ★{item.rank} ×{item.count}（{c.req}体で合成）
@@ -7470,7 +7470,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                 borderColor: item.rarity.color + '60',
                 background: synthable ? 'rgba(241,196,15,0.1)' : 'rgba(255,255,255,0.03)',
               }}>
-              <div style={{ fontSize: 22 }}>{item.icon}</div>
+              <div>{item.img ? renderItemIcon(item, 22) : <span style={{ fontSize: 22 }}>{item.icon}</span>}</div>
               {item.count > 0 && <div className="ic">×{item.count}</div>}
               <div className={rkCls} style={{ fontSize: 7, fontWeight: 700, color: rkCls ? undefined : item.rarity.color }}>{item.name}</div>
               <div className={rkCls} style={{ fontSize: 6, color: rkCls ? undefined : item.rarity.color }}>
