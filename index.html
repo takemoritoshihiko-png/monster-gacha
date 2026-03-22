@@ -2526,7 +2526,7 @@ function MonsterGacha() {
               borderRadius: 8, fontSize: 12, cursor: 'pointer', padding: '3px 8px',
               color: soundMode === 0 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 700 }}
             title={soundMode === 0 ? '音OFF' : soundMode === 1 ? 'BGMオフ' : '音ON'}>
-            {soundMode === 0 ? '🔇OFF' : soundMode === 1 ? '🎵OFF' : '♪ON'}</button>
+            {soundMode === 0 ? '🔇OFF' : soundMode === 1 ? '🎵OFF' : '🔊ON'}</button>
           <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
             title="セーブ">💾</button>
           <div className="coin">🪙 {coins.toLocaleString()}</div>
