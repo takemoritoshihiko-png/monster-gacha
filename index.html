@@ -1990,8 +1990,8 @@ function MonsterGacha() {
           histRef.orderByChild('timestamp').once('value').then(snap => {
             const keys = [];
             snap.forEach(child => keys.push(child.key));
-            if (keys.length > 6) {
-              keys.slice(0, keys.length - 6).forEach(k => histRef.child(k).remove());
+            if (keys.length > 8) {
+              keys.slice(0, keys.length - 8).forEach(k => histRef.child(k).remove());
             }
           });
         }
@@ -2449,7 +2449,7 @@ function MonsterGacha() {
   const [rareHistory, setRareHistory] = useState([]);
   useEffect(() => {
     if (!window.fbDb) return;
-    const ref = window.fbDb.ref('rareHistory').orderByChild('timestamp').limitToLast(6);
+    const ref = window.fbDb.ref('rareHistory').orderByChild('timestamp').limitToLast(8);
     const handler = ref.on('value', snapshot => {
       const hist = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) hist.push(d); });
@@ -3281,18 +3281,18 @@ function MonsterGacha() {
                   🔧 ストレージテスト実行
                 </button>
               )}
-              {/* ★9+ Gacha History */}
-              <div style={{ marginTop: 12, marginBottom: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: '#fbbf24', marginBottom: 8 }}>🏆 レアガチャ履歴</div>
+              {/* ★9+ Rare Gacha History (replaces storage log on home) */}
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#fbbf24', marginBottom: 6 }}>🏆 レアガチャ履歴</div>
                 {rareHistory.length > 0 ? (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '8px 10px', border: '1px solid rgba(255,215,0,0.1)' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '6px 10px', border: '1px solid rgba(255,215,0,0.1)' }}>
                     {rareHistory.map((h, i) => {
                       const d = new Date(h.timestamp);
                       const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
                       return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0',
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0',
                           borderBottom: i < rareHistory.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', fontSize: 10 }}>
-                          <span style={{ opacity: 0.4, minWidth: 52 }}>{dateStr}</span>
+                          <span style={{ opacity: 0.4, minWidth: 52, fontSize: 9 }}>{dateStr}</span>
                           <span style={{ fontSize: 16 }}>{h.icon}</span>
                           <span style={{ color: '#c084fc', fontWeight: 700 }}>{h.name}</span>
                           <span style={{ opacity: 0.5 }}>が</span>
@@ -3304,16 +3304,9 @@ function MonsterGacha() {
                     })}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 10, opacity: 0.3, textAlign: 'center', padding: 12 }}>まだ★9以上のガチャ履歴がありません</div>
+                  <div style={{ fontSize: 10, opacity: 0.3, textAlign: 'center', padding: 10 }}>まだ★9以上の履歴がありません</div>
                 )}
               </div>
-              {storageLog.length > 0 && (
-                <div style={{ fontSize: 9, opacity: 0.5, maxHeight: 120, overflowY: 'auto', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: 6, borderRadius: 6, lineHeight: 1.6 }}>
-                  {storageLog.map((l, i) => (
-                    <div key={i}>{new Date(l.t).toLocaleTimeString('ja-JP')} {l.m}</div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
