@@ -2095,24 +2095,27 @@ function MonsterGacha() {
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
 
-  // Main BGM: play on idle screens, stop during minigames
+  // Main BGM: play on idle screens, stop during minigames/gacha opening
   const mainBgmRef = useRef(false);
   useEffect(() => {
-    const shouldPlay = screen !== 'minigame' || !miniGame;
-    if (shouldPlay && !mainBgmRef.current && loaded && slotId !== null) {
-      // Small delay to avoid conflict with other BGM stopping
+    if (!loaded || slotId === null || !bgmEnabled) return;
+    const isMinigamePlaying = screen === 'minigame' && miniGame;
+    const isGachaOpening = screen === 'gacha' && gachaPhase === 'chests';
+    const shouldPlay = !isMinigamePlaying && !isGachaOpening;
+
+    if (shouldPlay && !mainBgmRef.current) {
       const t = setTimeout(() => {
-        if (!mainBgmRef.current) {
+        if (!mainBgmRef.current && bgmEnabled) {
           bgm.playLoop(BGM_MAIN, 120);
           mainBgmRef.current = true;
         }
-      }, 300);
+      }, 500);
       return () => clearTimeout(t);
     } else if (!shouldPlay && mainBgmRef.current) {
       bgm.stop();
       mainBgmRef.current = false;
     }
-  }, [screen, miniGame, loaded, slotId]);
+  }, [screen, miniGame, gachaPhase, loaded, slotId, bgmOn]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
