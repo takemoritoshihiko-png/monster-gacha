@@ -2521,9 +2521,12 @@ function MonsterGacha() {
             else if (next === 1) { bgmEnabled = true; mainBgmControl.stop(); mainBgmRef.current = false; }
             else { bgmEnabled = true; mainBgmRef.current = false; }
           }}
-            style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: 4, opacity: soundMode === 0 ? 0.3 : 0.8 }}
-            title={soundMode === 0 ? '全停止' : soundMode === 1 ? 'ゲーム音のみ' : '全ON'}>
-            {soundMode === 0 ? '🔇' : soundMode === 1 ? '🔉' : '🔊'}</button>
+            style={{ background: soundMode === 2 ? 'rgba(139,92,246,0.2)' : soundMode === 1 ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${soundMode === 2 ? 'rgba(139,92,246,0.4)' : soundMode === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 8, fontSize: 12, cursor: 'pointer', padding: '3px 8px',
+              color: soundMode === 0 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 700 }}
+            title={soundMode === 0 ? '音OFF' : soundMode === 1 ? 'BGMオフ' : '音ON'}>
+            {soundMode === 0 ? '🔇OFF' : soundMode === 1 ? '🎵OFF' : '♪ON'}</button>
           <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
             title="セーブ">💾</button>
           <div className="coin">🪙 {coins.toLocaleString()}</div>
