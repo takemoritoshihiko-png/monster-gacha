@@ -4199,7 +4199,7 @@ function TapGame({ onDone }) {
             }}>{g.icon}</div>
           ))}
           {/* Full-width tap area */}
-          <div onTouchStart={e => { e.preventDefault(); for (let i = 0; i < e.touches.length; i++) handleTap(); }}
+          <div onTouchStart={e => { e.preventDefault(); for (let i = 0; i < Math.min(e.touches.length, 3); i++) handleTap(); }}
             onClick={e => { if (!('ontouchstart' in window)) handleTap(); }}
             style={{ position: 'relative', marginTop: 12, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 1, touchAction: 'none' }}>
             {/* Rock/ore */}
