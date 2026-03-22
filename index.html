@@ -2515,7 +2515,7 @@ function MonsterGacha() {
     const ref = window.fbDb.ref('notifications/itemRequests').orderByChild('timestamp').limitToLast(6);
     const handler = ref.on('value', snapshot => {
       const reqs = [];
-      snapshot.forEach(child => { const d = child.val(); if (d && d.name) reqs.push({ fbKey: child.key, ...d }); });
+      snapshot.forEach(child => { const d = child.val(); if (d && d.name && d.typeId && d.rank && d.icon && d.itemName) reqs.push({ fbKey: child.key, ...d }); });
       reqs.reverse();
       setItemRequests(reqs);
     });
@@ -3357,12 +3357,14 @@ function MonsterGacha() {
               ) : (
                 <div style={{ fontSize: 9, opacity: 0.2, textAlign: 'center', marginBottom: 8 }}>リクエストはありません</div>
               )}
-              {nickname && (
+              {nickname && nickname.trim() && (
                 <button onClick={() => {
+                  const trimName = nickname.trim();
+                  if (!trimName || !window.fbDb) return;
                   // Find items not owned
                   const notOwned = [];
                   RARITIES.forEach(r => {
-                    if (r.rank >= 11 || r.rank === 12) return;
+                    if (r.rank >= 11) return;
                     TYPES.forEach(type => {
                       const k = `${type.id}_${r.rank}`;
                       if (!collection[k]) {
@@ -3372,22 +3374,26 @@ function MonsterGacha() {
                     });
                   });
                   if (notOwned.length === 0) { setSaveMsg('全アイテム保有済みです！'); setTimeout(() => setSaveMsg(''), 2000); return; }
-                  // Pick random not-owned item to request
                   const pick = notOwned[Math.floor(Math.random() * notOwned.length)];
-                  if (window.fbDb) {
-                    // Remove any existing request from this player
-                    window.fbDb.ref('notifications/itemRequests').orderByChild('name').equalTo(nickname).once('value').then(snap => {
-                      snap.forEach(child => child.ref.remove());
-                      // Add new request
-                      window.fbDb.ref('notifications/itemRequests').push({
-                        name: nickname, typeId: pick.typeId, rank: pick.rank, icon: pick.icon,
-                        itemName: pick.name, rarity: { color: pick.rarity.color, label: pick.rarity.label },
-                        timestamp: Date.now()
-                      }).catch(() => {});
-                    }).catch(() => {});
+                  // Remove existing request, then add new one (chained)
+                  const reqRef = window.fbDb.ref('notifications/itemRequests');
+                  reqRef.orderByChild('name').equalTo(trimName).once('value').then(snap => {
+                    const removes = [];
+                    snap.forEach(child => removes.push(child.ref.remove()));
+                    return Promise.all(removes);
+                  }).then(() => {
+                    return reqRef.push({
+                      name: trimName, typeId: pick.typeId, rank: pick.rank, icon: pick.icon,
+                      itemName: pick.name, rarity: { color: pick.rarity.color, label: pick.rarity.label },
+                      timestamp: Date.now()
+                    });
+                  }).then(() => {
                     setSaveMsg(`💌 ★${pick.rank} ${pick.name} をリクエストしました！`);
                     setTimeout(() => setSaveMsg(''), 3000);
-                  }
+                  }).catch(() => {
+                    setSaveMsg('⚠️ リクエストに失敗しました');
+                    setTimeout(() => setSaveMsg(''), 3000);
+                  });
                 }} style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontWeight: 700,
                   background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.25)',
                   color: '#f472b6', cursor: 'pointer' }}>
@@ -3412,9 +3418,24 @@ function MonsterGacha() {
                       onClick={() => {
                         const req = showRequestConfirm;
                         const itemKey = `${req.typeId}_${req.rank}`;
-                        sendGift(itemKey, req.name);
-                        // Remove the request from Firebase
-                        if (window.fbDb) window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().catch(() => {});
+                        // Re-check item availability before sending
+                        const currentItem = collection[itemKey];
+                        if (!currentItem || currentItem.count <= 1) {
+                          setSaveMsg('⚠️ アイテムが不足しています');
+                          setTimeout(() => setSaveMsg(''), 2000);
+                          setShowRequestConfirm(null);
+                          return;
+                        }
+                        // First remove request, then send gift
+                        if (window.fbDb) {
+                          window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().then(() => {
+                            sendGift(itemKey, req.name);
+                          }).catch(() => {
+                            sendGift(itemKey, req.name);
+                          });
+                        } else {
+                          sendGift(itemKey, req.name);
+                        }
                         setShowRequestConfirm(null);
                       }}>
                       🎁 送る
