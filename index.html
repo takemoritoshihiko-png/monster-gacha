@@ -725,7 +725,7 @@ const CSS = `
   cursor: pointer; padding: 4px 8px; transition: all 0.3s;
 }
 .nb.act { color: #a78bfa; }
-.nb span:first-child { font-size: 20px; }
+.nb img { pointer-events: none; }
 .btn {
   border: none; border-radius: 14px; padding: 12px 24px;
   font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700;
@@ -3249,21 +3249,25 @@ function MonsterGacha() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, maxWidth: 340,
               margin: '20px auto 0', position: 'relative', zIndex: 1 }}>
               {[
-                { screen: 'minigame', icon: '🎮', label: 'コイン稼ぎ', glow: 'rgba(245,158,11,0.2)', accent: '#f59e0b' },
-                { screen: 'synth', icon: '⚗️', label: '合成', glow: 'rgba(74,222,128,0.2)', accent: '#4ade80' },
-                { screen: 'collection', icon: '🏛️', label: '展示室', glow: 'rgba(96,165,250,0.2)', accent: '#60a5fa' },
-                { screen: 'spend', icon: '🍽️', label: '資産を使う', glow: 'rgba(192,132,252,0.2)', accent: '#c084fc' },
-                { screen: 'ranking', icon: '🏆', label: 'ランキング', glow: 'rgba(251,191,36,0.25)', accent: '#fbbf24' },
-                { screen: 'history', icon: '📋', label: 'ゲーム履歴', glow: 'rgba(148,163,184,0.15)', accent: '#94a3b8' },
+                { screen: 'minigame', img: 'nav-game.png', label: 'コイン稼ぎ', glow: 'rgba(245,158,11,0.2)' },
+                { screen: 'synth', img: 'nav-synth.png', label: '合成', glow: 'rgba(74,222,128,0.2)' },
+                { screen: 'collection', img: 'nav-collection.png', label: '展示室', glow: 'rgba(96,165,250,0.2)' },
+                { screen: 'spend', icon: '🍽️', label: '資産を使う', glow: 'rgba(192,132,252,0.2)' },
+                { screen: 'ranking', icon: '🏆', label: 'ランキング', glow: 'rgba(251,191,36,0.25)' },
+                { screen: 'history', icon: '📋', label: 'ゲーム履歴', glow: 'rgba(148,163,184,0.15)' },
               ].map(m => (
                 <div key={m.screen} onClick={() => nav(m.screen)} style={{
                   textAlign: 'center', cursor: 'pointer', transition: 'all 0.25s', position: 'relative',
                 }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                  {/* Icon on platform */}
-                  <div style={{ fontSize: 34, marginBottom: 2,
-                    filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${m.glow})` }}>{m.icon}</div>
+                  {m.img ? (
+                    <img src={m.img} alt={m.label} style={{ width: 56, height: 56, objectFit: 'contain',
+                      filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 6px ${m.glow})` }} />
+                  ) : (
+                    <div style={{ fontSize: 34, marginBottom: 2,
+                      filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${m.glow})` }}>{m.icon}</div>
+                  )}
                   {/* Floating platform glow */}
                   <div style={{ width: 50, height: 10, margin: '0 auto', borderRadius: '50%',
                     background: `radial-gradient(ellipse, ${m.glow}, transparent 70%)` }} />
@@ -3688,14 +3692,17 @@ function MonsterGacha() {
       {/* NAV */}
       <div className="nav">
         {[
-          { id: "home", ic: "🏠", lb: "ホーム" },
-          { id: "gacha", ic: "📦", lb: "ガチャ" },
-          { id: "minigame", ic: "🎮", lb: "ゲーム" },
-          { id: "collection", ic: "🏛️", lb: "展示室" },
-          { id: "synth", ic: "⚗️", lb: "合成" },
+          { id: "home", img: "nav-home.png" },
+          { id: "gacha", img: "nav-gacha.png" },
+          { id: "minigame", img: "nav-game.png" },
+          { id: "collection", img: "nav-collection.png" },
+          { id: "synth", img: "nav-synth.png" },
         ].map(n => (
-          <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}>
-            <span>{n.ic}</span><span>{n.lb}</span>
+          <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}
+            style={{ padding: '2px 4px' }}>
+            <img src={n.img} alt={n.id} style={{ width: 48, height: 48, objectFit: 'contain',
+              filter: screen === n.id ? 'brightness(1.2) drop-shadow(0 0 4px rgba(167,139,250,0.5))' : 'brightness(0.7)',
+              transition: 'filter 0.3s' }} />
           </button>
         ))}
       </div>
