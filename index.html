@@ -1370,6 +1370,15 @@ function MonsterGacha() {
   const [rareNotifs, setRareNotifs] = useState([]);
   const [weeklyScores, setWeeklyScores] = useState({});
   const [dailyMissions, setDailyMissions] = useState([]);
+  // Shared date state - updates at midnight, used by login bonus, missions, crowns
+  const [missionDate, setMissionDate] = useState(() => getLocalDate());
+  useEffect(() => {
+    const checker = setInterval(() => {
+      const now = getLocalDate();
+      if (now !== missionDate) setMissionDate(now);
+    }, 30000);
+    return () => clearInterval(checker);
+  }, [missionDate]);
   const [dailyProgress, setDailyProgress] = useState({});
   const [dailyCompleted, setDailyCompleted] = useState({});
   const [giftsSentToday, setGiftsSentToday] = useState(0);
@@ -1746,15 +1755,15 @@ function MonsterGacha() {
     setTimeout(() => setSaveMsg(''), 3000);
   }, [nickname, collection, giftsSentToday, lastGiftDate]);
 
-  // Daily login bonus check
-  const loginCheckedRef = useRef(false);
+  // Daily login bonus check - re-checks when missionDate changes (midnight)
+  const loginCheckedDateRef = useRef(null);
   useEffect(() => {
     if (!loaded || slotId === null) return;
-    if (loginCheckedRef.current) return;
-    // Wait a tick for state to settle after loadSlot
+    const today = missionDate;
+    // Already checked for today
+    if (loginCheckedDateRef.current === today) return;
     const timer = setTimeout(() => {
-      loginCheckedRef.current = true;
-      const today = getLocalDate();
+      loginCheckedDateRef.current = today;
       if (lastLoginDate === today) return;
 
       const yesterday = getLocalDate(new Date(Date.now() - 86400000));
@@ -1769,7 +1778,7 @@ function MonsterGacha() {
       setTimeout(() => setShowLoginBonus(false), 4000);
     }, 500);
     return () => clearTimeout(timer);
-  }, [loaded, slotId, lastLoginDate, loginStreak]);
+  }, [loaded, slotId, lastLoginDate, loginStreak, missionDate]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
   const loginStreakRef = useRef(0);
@@ -2468,7 +2477,7 @@ function MonsterGacha() {
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) entries.push(d); });
       setCrownsAll(countCrowns(entries, nickname, true));
     }).catch(() => {});
-  }, [nickname, bestScores, weeklyScores]);
+  }, [nickname, bestScores, weeklyScores, missionDate]);
   const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
 
   // Listen for rare pull notifications
@@ -2499,15 +2508,6 @@ function MonsterGacha() {
     return () => ref.off('value', handler);
   }, []);
   // Daily Missions loading
-  const [missionDate, setMissionDate] = useState(() => getLocalDate());
-  // Check for date change every 30 seconds
-  useEffect(() => {
-    const checker = setInterval(() => {
-      const now = getLocalDate();
-      if (now !== missionDate) setMissionDate(now);
-    }, 30000);
-    return () => clearInterval(checker);
-  }, [missionDate]);
 
   useEffect(() => {
     if (!window.fbDb) return;
