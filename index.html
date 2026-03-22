@@ -6967,49 +6967,53 @@ function CollectionView({ collection, onSelect }) {
           </div>
         </div>
       </div>
+      {/* Main Gallery - ★8 down, each rank in 3×2 grid */}
       <div style={{ textAlign: 'center', marginBottom: 8, marginTop: 4 }}>
         <div style={{ fontSize: 7, letterSpacing: 4, opacity: 0.25, fontFamily: "'Rajdhani',sans-serif" }}>— MAIN GALLERY —</div>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", opacity: 0.5 }}>ALL TREASURES</div>
       </div>
-      <div className="tf2">
-        <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
-        {TYPES.map(t => (
-          <button key={t.id} className={`tfb ${filter === t.id ? 'act' : ''}`} onClick={() => setFilter(t.id)}>
-            {t.emoji}{t.name}
-          </button>
-        ))}
-      </div>
-      <div className="cg">
-        {/* Congratulations items at the top */}
-        {filter === "all" && CONGRATS_TIERS.map(ct => {
-          const owned = !!collection[ct.key];
-          const rkCls = owned ? (ct.tier >= 3 ? 'rank-ultimate' : ct.tier === 2 ? 'rank-congrats' : 'rank-diamond') : '';
+      <div style={{ borderRadius: 16, overflow: 'hidden',
+        background: 'linear-gradient(180deg, rgba(20,15,35,0.9), rgba(10,8,20,0.95))',
+        border: '1px solid rgba(255,255,255,0.06)' }}>
+        {RARITIES.slice(0, 8).reverse().map((r, ri) => {
+          const rkCls = r.rank === 8 ? 'rank-silver' : r.rank === 7 ? 'rank-epic' : r.rank === 6 ? 'rank-ultra' : '';
           return (
-            <div key={ct.key} className={`ci ${!owned ? 'un' : ''} god`}
-              style={{ borderColor: owned ? ct.tierColor + '60' : 'transparent' }}>
-              <div>{owned ? ct.icon : '❓'}</div>
-              <div className={`cn ${rkCls}`} style={{ color: rkCls ? undefined : '#444' }}>
-                {owned ? ct.name : '???'}
+            <div key={r.rank}>
+              {ri > 0 && <div style={{ height: 1, margin: '0 12px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }} />}
+              <div style={{ padding: ri === 0 ? '12px 12px 8px' : '8px 12px' }}>
+                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 6, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>
+                  ★{r.rank} {r.label.toUpperCase()}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                  {TYPES.map((type, i) => {
+                    const k = `${type.id}_${r.rank}`;
+                    const ow = collection[k];
+                    const owned = !!ow;
+                    const monster = MONSTERS[type.id][r.rank - 1];
+                    const count = ow?.count || 0;
+                    return (
+                      <div key={k} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, count })}
+                        style={{ borderRadius: 10, padding: '6px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
+                        background: owned ? `radial-gradient(ellipse at 50% 30%, ${r.color}10, transparent 70%)` : 'rgba(255,255,255,0.01)',
+                        border: owned ? `1px solid ${r.color}25` : '1px dashed rgba(255,255,255,0.04)',
+                      }}>
+                        <div style={{ fontSize: owned ? 28 : 20, opacity: owned ? 1 : 0.12,
+                          filter: owned ? `drop-shadow(0 0 4px ${r.color}80)` : 'none' }}>
+                          {owned ? monster.icon : '🔒'}
+                        </div>
+                        {owned && count > 1 && <div style={{ fontSize: 7, color: '#fbbf24', fontWeight: 900 }}>×{count}</div>}
+                        <div className={owned ? rkCls : ''} style={{ fontSize: 7, fontWeight: 700, color: owned ? (rkCls ? undefined : r.color) : 'rgba(255,255,255,0.1)' }}>
+                          {owned ? monster.name : '???'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              {owned && <div style={{ fontSize: 6, color: '#a78bfa', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[11])}</div>}
             </div>
           );
         })}
-        {shown.map(m => {
-          const rkCls = m.owned ? (m.rank >= 12 ? 'rank-congrats' : m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : m.rank === 8 ? 'rank-silver' : m.rank === 7 ? 'rank-epic' : m.rank === 6 ? 'rank-ultra' : '') : '';
-          return (
-          <div key={m.key} className={`ci ${!m.owned ? 'un' : ''} ${m.owned && m.rank >= 10 ? 'god' : ''}`}
-            style={{ borderColor: m.owned ? m.rarity.color + '60' : 'transparent' }}
-            onClick={() => m.owned && onSelect(m)}>
-            <div>{m.owned ? m.icon : "❓"}</div>
-            {m.owned && m.count > 1 && <div className="ic">×{m.count}</div>}
-            <div className={`cn ${rkCls}`} style={{ color: rkCls ? undefined : (m.owned ? m.rarity.color : '#444') }}>
-              {m.owned ? m.name : m.rank === 11 ? "★MAX" : `★${m.rank}`}
-            </div>
-            {m.owned && <div style={{ fontSize: 6, color: '#a78bfa', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[m.rank - 1])}</div>}
-          </div>
-          );
-        })}
+        <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)' }} />
       </div>
     </div>
   );
