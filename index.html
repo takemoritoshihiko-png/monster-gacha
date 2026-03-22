@@ -2081,6 +2081,7 @@ function MonsterGacha() {
     bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setTimeout(() => playSynthSound(maxTarget), 200);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
+    const rareItems = [];
     setCollection(prev => {
       const n = { ...prev };
       candidates.forEach(c => {
@@ -2101,6 +2102,7 @@ function MonsterGacha() {
             const nk = `${rt.id}_11`;
             if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
             else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
+            rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1 });
           }
         } else {
           const avail = n[c.key]?.count || 0;
@@ -2113,12 +2115,17 @@ function MonsterGacha() {
           const nk = `${c.typeId}_${c.targetRank}`;
           if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
           else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
+          if (c.targetRank >= 8) {
+            rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc });
+          }
         }
       });
       return n;
     });
-    setSynthResult({ batch: true, count: totalSynths });
-    setTimeout(() => { setSynthResult(null); if (soundMode === 2) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500);
+    const hasRare = rareItems.length > 0;
+    setSynthResult({ batch: true, count: totalSynths, rareItems: hasRare ? rareItems : null });
+    const duration = hasRare ? (maxTarget >= 10 ? 4500 : 3500) : 2500;
+    setTimeout(() => { setSynthResult(null); if (soundMode === 2) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, duration);
   }, [findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
@@ -6640,22 +6647,28 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
 
       {/* Synth result animation */}
       {synthResult && (
-        synthResult.rank >= 9 && !synthResult.batch ? (
+        synthResult.rank >= 8 && !synthResult.batch ? (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            background: synthResult.rank >= 10 ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))' : 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))',
+            background: synthResult.rank >= 10
+              ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))'
+              : synthResult.rank === 9
+                ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
+                : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
             pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
             <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
               filter: `drop-shadow(0 0 20px ${synthResult.rarity.color}) drop-shadow(0 0 40px ${synthResult.rarity.color}80)` }}>
               {synthResult.icon}
             </div>
-            <div className={synthResult.rank >= 10 ? 'rank-rainbow' : 'rank-gold'}
+            <div className={synthResult.rank >= 10 ? 'rank-rainbow' : synthResult.rank === 9 ? 'rank-gold' : 'rank-silver'}
               style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
               {renderStars(synthResult.rank)}
             </div>
             <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900,
               background: synthResult.rank >= 10
                 ? 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)'
-                : 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)',
+                : synthResult.rank === 9
+                  ? 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)'
+                  : 'linear-gradient(180deg, #e8edf3, #c8d6e5, #e8edf3)',
               backgroundSize: synthResult.rank >= 10 ? '200% 100%' : '100% 300%',
               animation: synthResult.rank >= 10 ? 'rainbowText 1.5s linear infinite' : 'gradShift 2s ease infinite',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
@@ -6665,6 +6678,41 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
             </div>
             <div style={{ fontSize: 13, color: synthResult.rarity.color, marginTop: 8, fontWeight: 700, opacity: 0.8 }}>
               {synthResult.rarity.label} 獲得！
+            </div>
+          </div>
+        ) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle, rgba(50,30,10,0.94), rgba(0,0,0,0.97))',
+            pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#fbbf24', marginBottom: 20, letterSpacing: 2, fontFamily: "'Rajdhani',sans-serif" }}>
+              ✨ {synthResult.count}件の合成完了！
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center', maxWidth: 340, padding: '0 16px' }}>
+              {synthResult.rareItems.map((item, i) => (
+                <div key={i} style={{ textAlign: 'center', animation: `ri 0.5s ease-out ${i * 0.15}s both` }}>
+                  <div style={{ fontSize: 52, marginBottom: 6, animation: `heroIconFloat ${2 + i * 0.2}s ease-in-out infinite`,
+                    filter: `drop-shadow(0 0 14px ${item.rarity.color}) drop-shadow(0 0 28px ${item.rarity.color}80)` }}>
+                    {item.icon}
+                  </div>
+                  <div className={item.rank >= 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : 'rank-silver'}
+                    style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, fontFamily: "'Rajdhani',sans-serif", marginBottom: 3 }}>
+                    {renderStars(item.rank)}
+                  </div>
+                  <div className="rare-god-text" style={{ fontSize: 13, fontWeight: 900,
+                    background: item.rank >= 10
+                      ? 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)'
+                      : item.rank === 9
+                        ? 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)'
+                        : 'linear-gradient(180deg, #e8edf3, #c8d6e5, #e8edf3)',
+                    backgroundSize: item.rank >= 10 ? '200% 100%' : '100% 300%',
+                    animation: item.rank >= 10 ? 'rainbowText 1.5s linear infinite' : 'gradShift 2s ease infinite',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    fontFamily: "'Orbitron',sans-serif" }}>
+                    {item.name}
+                  </div>
+                  {item.count > 1 && <div style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, marginTop: 2 }}>×{item.count}</div>}
+                </div>
+              ))}
             </div>
           </div>
         ) : (
