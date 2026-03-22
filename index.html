@@ -1456,9 +1456,25 @@ function MonsterGacha() {
     });
   }, [nickname, slotId, loaded]);
 
+  const [showGiftDestroyed, setShowGiftDestroyed] = useState(null);
   const receiveGifts = useCallback(() => {
     if (pendingGifts.length === 0) return;
+    const accepted = [];
+    const destroyed = [];
     pendingGifts.forEach(gift => {
+      // Check if this ★MAX gift would complete the collection (last 1 of 6)
+      if (gift.rank === 11) {
+        const currentMaxCount = TYPES.filter(t => collection[`${t.id}_11`] && collection[`${t.id}_11`].count > 0).length;
+        const key = `${gift.typeId}_11`;
+        const alreadyOwned = collection[key] && collection[key].count > 0;
+        // If player has 5/6 and this is the missing 6th → DESTROY
+        if (currentMaxCount >= 5 && !alreadyOwned) {
+          destroyed.push(gift);
+          window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
+          return;
+        }
+      }
+      // Normal gift acceptance
       const key = `${gift.typeId}_${gift.rank}`;
       setCollection(prev => {
         const n = { ...prev };
@@ -1472,12 +1488,19 @@ function MonsterGacha() {
         }
         return n;
       });
+      accepted.push(gift);
       window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
     });
-    setShowGiftReceived(pendingGifts);
+    if (destroyed.length > 0) {
+      setShowGiftDestroyed(destroyed);
+      setTimeout(() => setShowGiftDestroyed(null), 6000);
+    }
+    if (accepted.length > 0) {
+      setShowGiftReceived(accepted);
+      setTimeout(() => setShowGiftReceived(null), 4000);
+    }
     setPendingGifts([]);
-    setTimeout(() => setShowGiftReceived(null), 4000);
-  }, [pendingGifts, nickname]);
+  }, [pendingGifts, nickname, collection]);
 
   const sendGift = useCallback((itemKey, recipientName) => {
     if (!nickname || !recipientName || !window.fbDb) return;
@@ -3678,6 +3701,35 @@ function MonsterGacha() {
             ))}
             <button className="btn bp" style={{ marginTop: 12, fontSize: 13, padding: '10px 24px' }}
               onClick={() => setShowGiftReceived(null)}>受け取る！</button>
+          </div>
+        </div>
+      )}
+      {/* ★MAX gift destroyed - oni message */}
+      {showGiftDestroyed && (
+        <div className="mo" onClick={() => setShowGiftDestroyed(null)}>
+          <div className="mc" style={{ borderColor: 'rgba(239,68,68,0.6)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 56, marginBottom: 8 }}>💀</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#ef4444', marginBottom: 8 }}>
+              神の怒り
+            </div>
+            <div style={{ fontSize: 13, color: '#ff6b6b', marginBottom: 12, lineHeight: 1.8 }}>
+              最後の★MAXは自分の手で掴み取れ！！<br/>
+              他人から貰った伝説は…伝説ではない！
+            </div>
+            {showGiftDestroyed.map((g, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
+                justifyContent: 'center', fontSize: 13, opacity: 0.5, textDecoration: 'line-through' }}>
+                <span style={{ fontSize: 24 }}>{g.icon}</span>
+                <span>{g.name}</span>
+                <span style={{ color: '#ef4444' }}>→ 消滅</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 10, opacity: 0.4, marginTop: 8 }}>
+              ※コンプリート最後の1個はギフトでは受け取れません
+            </div>
+            <button className="btn" style={{ marginTop: 12, fontSize: 13, padding: '10px 24px',
+              background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}
+              onClick={() => setShowGiftDestroyed(null)}>...了解</button>
           </div>
         </div>
       )}
