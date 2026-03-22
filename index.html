@@ -1981,29 +1981,29 @@ function MonsterGacha() {
           [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.07, i * 0.04));
           setTimeout(() => setRareEffect(null), 400);
         }
-        // Notify family of rare pull
-        if (r.rank >= 8 && nickname && window.fbDb) {
-          window.fbDb.ref('notifications').push({
-            name: nickname, rank: r.rank, item: r.name, icon: r.icon,
-            rarity: r.rarity.label, timestamp: Date.now()
-          });
-        }
-        // ★8+ gacha history log (max 8, newest first)
-        if (r.rank >= 8 && nickname && window.fbDb) {
-          const histRef = window.fbDb.ref('notifications/rareHistory');
-          histRef.push({
-            name: nickname, rank: r.rank, item: r.name, icon: r.icon,
-            rarity: r.rarity.label, timestamp: Date.now()
-          });
-          // Trim to max 6 entries
-          histRef.orderByChild('timestamp').once('value').then(snap => {
-            const keys = [];
-            snap.forEach(child => keys.push(child.key));
-            if (keys.length > 8) {
-              keys.slice(0, keys.length - 8).forEach(k => histRef.child(k).remove());
-            }
-          });
-        }
+        // Notify family of rare pull + history for ALL ★8+ in this group
+        indices.forEach(idx => {
+          const gi = res[idx];
+          if (gi.rank >= 8 && nickname && window.fbDb) {
+            window.fbDb.ref('notifications').push({
+              name: nickname, rank: gi.rank, item: gi.name, icon: gi.icon,
+              rarity: gi.rarity.label, timestamp: Date.now()
+            }).catch(() => {});
+            // ★8+ gacha history log (max 8, newest first)
+            const histRef = window.fbDb.ref('notifications/rareHistory');
+            histRef.push({
+              name: nickname, rank: gi.rank, item: gi.name, icon: gi.icon,
+              rarity: gi.rarity.label, timestamp: Date.now()
+            }).catch(() => {});
+            histRef.orderByChild('timestamp').once('value').then(snap => {
+              const keys = [];
+              snap.forEach(child => keys.push(child.key));
+              if (keys.length > 8) {
+                keys.slice(0, keys.length - 8).forEach(k => histRef.child(k).remove());
+              }
+            }).catch(() => {});
+          }
+        });
       }, revealDelay);
     }, Number(time)));
   }, [addToCollection, nickname]);
