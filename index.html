@@ -6533,7 +6533,7 @@ function RankingScreen() {
 
   // Load weekly ranking data
   useEffect(() => {
-    if (rankMode !== 'weekly' || !window.fbDb) return;
+    if (tab !== 4 || assetMode === 'cumulative' || !window.fbDb) return;
     const weekId = getWeekId();
     window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
       const entries = [];
@@ -6543,7 +6543,7 @@ function RankingScreen() {
       });
       setWeeklyData(entries);
     });
-  }, [rankMode, tab]);
+  }, [assetMode, tab]);
 
   // Load growth data for daily/weekly (assets, pulls, gifts)
   useEffect(() => {
@@ -6591,7 +6591,15 @@ function RankingScreen() {
   ];
 
   const sorted = useMemo(() => {
-    if (tab === 4 && rankMode === 'weekly') {
+    // Minigame tab: weekly uses weeklyRankings data
+    if (tab === 4 && assetMode === 'weekly') {
+      const list = [...weeklyData];
+      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
+      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+    }
+    // Minigame tab: daily - no tracking yet, show cumulative
+    if (tab === 4 && assetMode === 'daily') {
+      // Use weekly data as daily approximation for minigames
       const list = [...weeklyData];
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
@@ -6623,21 +6631,6 @@ function RankingScreen() {
         <div style={{ fontSize: 11, opacity: 0.4 }}>セーブ時にランキングが更新されます</div>
       </div>
 
-      {/* Weekly / Cumulative toggle - only for minigame tab */}
-      {tab === 4 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, justifyContent: 'center' }}>
-          <button className={`tfb ${rankMode === 'weekly' ? 'act' : ''}`}
-            style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
-            onClick={() => setRankMode('weekly')}>
-            今週
-          </button>
-          <button className={`tfb ${rankMode === 'cumulative' ? 'act' : ''}`}
-            style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
-            onClick={() => setRankMode('cumulative')}>
-            累計
-          </button>
-        </div>
-      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -6650,8 +6643,8 @@ function RankingScreen() {
         ))}
       </div>
 
-      {/* Period sub-tabs for assets, pulls, gifts */}
-      {[0, 2, 3].includes(tab) && (
+      {/* Period sub-tabs for assets, pulls, gifts, minigames */}
+      {[0, 2, 3, 4].includes(tab) && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
           {[
             { id: 'daily', label: '今日' },
