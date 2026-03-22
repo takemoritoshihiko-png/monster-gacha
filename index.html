@@ -4764,7 +4764,7 @@ function TimingGame({ onDone }) {
   const handleTap = () => {
     if (phase !== "playing") return;
     const now = Date.now();
-    if (now - lastTapTime.current < 150) return;
+    if (now - lastTapTime.current < 300) return;
     lastTapTime.current = now;
     const current = tapsRef.current;
     if (current.length >= TOTAL_TAPS) return;
@@ -5268,7 +5268,7 @@ function ShootingGame({ onDone }) {
   const handleTap = (e) => {
     if (phase !== "play") return;
     const now = Date.now();
-    if (now - lastTapTimeRef.current < 150) return;
+    if (now - lastTapTimeRef.current < 50) return;
     lastTapTimeRef.current = now;
     const cvs = canvasRef.current;
     if (!cvs) return;
@@ -6179,7 +6179,7 @@ function QuickDrawGame({ onDone }) {
 
   const handleTap = () => {
     const now = Date.now();
-    if (now - lastTapRef.current < 150) return;
+    if (now - lastTapRef.current < 300) return;
     lastTapRef.current = now;
     const p = phaseRef.current;
 
