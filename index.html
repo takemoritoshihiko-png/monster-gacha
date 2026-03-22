@@ -6513,7 +6513,6 @@ function RankingScreen() {
   const [tab, setTab] = useState(0);
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [rankMode, setRankMode] = useState('weekly');
   const [weeklyData, setWeeklyData] = useState([]);
   const [dailyGameData, setDailyGameData] = useState([]);
   const [assetMode, setAssetMode] = useState('cumulative'); // 'daily' | 'weekly' | 'cumulative'
@@ -6634,7 +6633,7 @@ function RankingScreen() {
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
     return list;
-  }, [rankings, weeklyData, dailyGameData, tab, gameTab, rankMode, assetMode, assetGrowth]);
+  }, [rankings, weeklyData, dailyGameData, tab, gameTab, assetMode, assetGrowth]);
 
   const medal = (i) => `${i + 1}`;
 
