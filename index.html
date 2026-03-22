@@ -2210,9 +2210,13 @@ function MonsterGacha() {
       const weekData = prev._weekId === weekId ? prev : { _weekId: weekId };
       const isNewWeekBest = capped > (weekData[gameId] || 0);
       const updated = isNewWeekBest ? { ...weekData, [gameId]: capped } : weekData;
-      // Write weekly scores to Firebase
+      // Write weekly and daily scores to Firebase
       if (isNewWeekBest && nickname && window.fbDb) {
         window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(capped);
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      if (nickname && window.fbDb) {
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, capped));
       }
       return updated;
     });
@@ -6511,6 +6515,7 @@ function RankingScreen() {
   const [loading, setLoading] = useState(true);
   const [rankMode, setRankMode] = useState('weekly');
   const [weeklyData, setWeeklyData] = useState([]);
+  const [dailyGameData, setDailyGameData] = useState([]);
   const [assetMode, setAssetMode] = useState('cumulative'); // 'daily' | 'weekly' | 'cumulative'
   const [assetGrowth, setAssetGrowth] = useState([]); // [{name, growth}]
 
@@ -6531,9 +6536,21 @@ function RankingScreen() {
     }
   }, []);
 
-  // Load weekly ranking data
+  // Load weekly/daily minigame ranking data
   useEffect(() => {
     if (tab !== 4 || assetMode === 'cumulative' || !window.fbDb) return;
+    // Load daily data
+    if (assetMode === 'daily') {
+      const today = new Date().toISOString().slice(0, 10);
+      window.fbDb.ref('dailyRankings/' + today).once('value').then(snapshot => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const scores = child.val();
+          if (scores) entries.push({ name: child.key, bestScores: scores });
+        });
+        setDailyGameData(entries);
+      });
+    }
     const weekId = getWeekId();
     window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
       const entries = [];
@@ -6597,10 +6614,9 @@ function RankingScreen() {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
-    // Minigame tab: daily - no tracking yet, show cumulative
+    // Minigame tab: daily uses dailyRankings data
     if (tab === 4 && assetMode === 'daily') {
-      // Use weekly data as daily approximation for minigames
-      const list = [...weeklyData];
+      const list = [...dailyGameData];
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
@@ -6618,7 +6634,7 @@ function RankingScreen() {
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
     return list;
-  }, [rankings, weeklyData, tab, gameTab, rankMode, assetMode, assetGrowth]);
+  }, [rankings, weeklyData, dailyGameData, tab, gameTab, rankMode, assetMode, assetGrowth]);
 
   const medal = (i) => `${i + 1}`;
 
