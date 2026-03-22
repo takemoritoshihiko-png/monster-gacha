@@ -3462,15 +3462,29 @@ function MonsterGacha() {
                   {gachaChests.map((ct, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {!opened.has(i) ? (
-                        <div className="chest" style={{ width: 48, height: 48, margin: '0 auto' }}>
-                          <div className={`chest-box ${ct === 'rainbow' ? 'rainbow-box' : ct === 'gold' ? 'gold-box' : ct === 'silver' ? 'silver-box' : 'wood-box'}`}
-                            style={{ width: 44, height: 44, fontSize: 22,
-                              boxShadow: ct === 'rainbow' ? '0 0 15px rgba(255,107,107,0.3), 0 0 30px rgba(107,197,255,0.2)' :
-                                ct === 'gold' ? '0 0 12px rgba(255,215,0,0.4)' :
-                                ct === 'silver' ? '0 0 8px rgba(200,214,229,0.3)' :
-                                '0 3px 8px rgba(0,0,0,0.3)' }}>
-                            {ct === 'rainbow' ? '💎' : ct === 'gold' ? '👑' : ct === 'silver' ? '🪙' : '📦'}
-                          </div>
+                        <div className="chest" style={{ width: 56, height: 56, margin: '0 auto', position: 'relative' }}>
+                          <img src={ct === 'rainbow' ? 'chest-rainbow.png' : ct === 'gold' ? 'chest-gold.png' : ct === 'silver' ? 'chest-silver.png' : 'chest-wood.png'}
+                            alt="chest" style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover',
+                              filter: ct === 'rainbow'
+                                ? 'drop-shadow(0 0 8px rgba(200,100,255,0.6)) drop-shadow(0 0 16px rgba(100,200,255,0.4)) brightness(1.15)'
+                                : ct === 'gold'
+                                  ? 'drop-shadow(0 0 6px rgba(255,215,0,0.6)) drop-shadow(0 0 12px rgba(255,215,0,0.3)) brightness(1.1)'
+                                  : 'none' }} />
+                          {/* Gold shimmer overlay */}
+                          {ct === 'gold' && <div style={{ position: 'absolute', inset: 0, borderRadius: 10,
+                            background: 'linear-gradient(135deg, transparent 30%, rgba(255,215,0,0.15) 45%, rgba(255,255,255,0.2) 50%, rgba(255,215,0,0.15) 55%, transparent 70%)',
+                            backgroundSize: '250% 250%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />}
+                          {/* Rainbow glow overlay */}
+                          {ct === 'rainbow' && <>
+                            <div style={{ position: 'absolute', inset: -2, borderRadius: 12,
+                              background: 'conic-gradient(from 0deg, rgba(255,107,107,0.3), rgba(255,217,61,0.3), rgba(107,255,107,0.3), rgba(107,197,255,0.3), rgba(208,107,255,0.3), rgba(255,107,107,0.3))',
+                              animation: 'synthMaxRotate 3s linear infinite', pointerEvents: 'none',
+                              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                              WebkitMaskComposite: 'xor', maskComposite: 'exclude' }} />
+                            <div style={{ position: 'absolute', inset: 0, borderRadius: 10,
+                              background: 'linear-gradient(135deg, transparent 20%, rgba(255,255,255,0.2) 40%, rgba(200,100,255,0.15) 50%, rgba(100,200,255,0.15) 60%, transparent 80%)',
+                              backgroundSize: '300% 300%', animation: 'gradShift 2s ease infinite', pointerEvents: 'none' }} />
+                          </>}
                         </div>
                       ) : (
                         <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : gachaResults[i].rank === 7 ? 'rank7-card' : gachaResults[i].rank === 6 ? 'rank6-card' : ''}`}
