@@ -1384,6 +1384,7 @@ function MonsterGacha() {
   const [giftsSentToday, setGiftsSentToday] = useState(0);
   const [itemRequests, setItemRequests] = useState([]);
   const [showRequestConfirm, setShowRequestConfirm] = useState(null);
+  const [requestMode, setRequestMode] = useState(false);
   const [lastGiftDate, setLastGiftDate] = useState(null);
   const [totalGiftValue, setTotalGiftValue] = useState(0);
   const [pendingGifts, setPendingGifts] = useState([]);
@@ -2380,7 +2381,7 @@ function MonsterGacha() {
     }
   }, [collection, findSynthCandidates]);
 
-  const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
+  const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); };
 
   // Main BGM: play on idle screens only when volMain > 0
   const mainBgmRef = useRef(false);
@@ -3373,45 +3374,12 @@ function MonsterGacha() {
               )}
               {nickname && nickname.trim() && (
                 <button onClick={() => {
-                  const trimName = nickname.trim();
-                  if (!trimName || !window.fbDb) return;
-                  // Find items not owned
-                  const notOwned = [];
-                  RARITIES.forEach(r => {
-                    if (r.rank >= 11) return;
-                    TYPES.forEach(type => {
-                      const k = `${type.id}_${r.rank}`;
-                      if (!collection[k]) {
-                        const m = MONSTERS[type.id][r.rank - 1];
-                        if (m) notOwned.push({ typeId: type.id, rank: r.rank, icon: m.icon, name: m.name, rarity: r });
-                      }
-                    });
-                  });
-                  if (notOwned.length === 0) { setSaveMsg('全アイテム保有済みです！'); setTimeout(() => setSaveMsg(''), 2000); return; }
-                  const pick = notOwned[Math.floor(Math.random() * notOwned.length)];
-                  // Remove existing request, then add new one (chained)
-                  const reqRef = window.fbDb.ref('notifications/itemRequests');
-                  reqRef.orderByChild('name').equalTo(trimName).once('value').then(snap => {
-                    const removes = [];
-                    snap.forEach(child => removes.push(child.ref.remove()));
-                    return Promise.all(removes);
-                  }).then(() => {
-                    return reqRef.push({
-                      name: trimName, typeId: pick.typeId, rank: pick.rank, icon: pick.icon,
-                      itemName: pick.name, rarity: { color: pick.rarity.color, label: pick.rarity.label },
-                      timestamp: Date.now()
-                    });
-                  }).then(() => {
-                    setSaveMsg(`💌 ★${pick.rank} ${pick.name} をリクエストしました！`);
-                    setTimeout(() => setSaveMsg(''), 3000);
-                  }).catch(() => {
-                    setSaveMsg('⚠️ リクエストに失敗しました');
-                    setTimeout(() => setSaveMsg(''), 3000);
-                  });
+                  setRequestMode(true);
+                  nav('collection');
                 }} style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontWeight: 700,
                   background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.25)',
                   color: '#f472b6', cursor: 'pointer' }}>
-                  💌 持っていないアイテムをリクエストする
+                  💌 アイテムをリクエストする
                 </button>
               )}
             </div>
@@ -3779,7 +3747,31 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onDone={(c) => handleMiniGameDone('mathHardMult', c)} />}
 
         {/* COLLECTION */}
-        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} />}
+        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal}
+          requestMode={requestMode} onRequest={(item) => {
+            const trimName = (nickname || '').trim();
+            if (!trimName || !window.fbDb || item.rank >= 11) return;
+            const reqRef = window.fbDb.ref('notifications/itemRequests');
+            reqRef.orderByChild('name').equalTo(trimName).once('value').then(snap => {
+              const removes = [];
+              snap.forEach(child => removes.push(child.ref.remove()));
+              return Promise.all(removes);
+            }).then(() => {
+              return reqRef.push({
+                name: trimName, typeId: item.typeId, rank: item.rank, icon: item.icon || item.typeEmoji,
+                itemName: item.name, rarity: { color: item.rarity.color, label: item.rarity.label },
+                timestamp: Date.now()
+              });
+            }).then(() => {
+              setSaveMsg(`💌 ★${item.rank} ${item.name} をリクエストしました！`);
+              setTimeout(() => setSaveMsg(''), 3000);
+              setRequestMode(false);
+              nav('home');
+            }).catch(() => {
+              setSaveMsg('⚠️ リクエストに失敗しました');
+              setTimeout(() => setSaveMsg(''), 3000);
+            });
+          }} onCancelRequest={() => setRequestMode(false)} />}
 
         {/* SYNTH */}
         {screen === "synth" && (
@@ -6926,7 +6918,7 @@ function SpendForm({ available, spending, onSpend }) {
 // ============================================================
 // COLLECTION VIEW
 // ============================================================
-function CollectionView({ collection, onSelect }) {
+function CollectionView({ collection, onSelect, requestMode, onRequest, onCancelRequest }) {
   const [filter, setFilter] = useState("all");
   const ownedTiers = CONGRATS_TIERS.filter(t => !!collection[t.key]);
   const all = useMemo(() => {
@@ -6961,6 +6953,19 @@ function CollectionView({ collection, onSelect }) {
         </div>
         <div style={{ position: 'absolute', bottom: 0, left: '5%', right: '5%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.3), transparent)' }} />
       </div>
+      {requestMode && (
+        <div style={{ margin: '0 0 14px', padding: '10px 16px', borderRadius: 12,
+          background: 'linear-gradient(135deg, rgba(244,114,182,0.15), rgba(244,114,182,0.05))',
+          border: '1px solid rgba(244,114,182,0.3)', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#f472b6', marginBottom: 4 }}>
+            💌 リクエストモード
+          </div>
+          <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 8 }}>リクエストしたいアイテムをタップしてください（★1〜★10）</div>
+          <button onClick={onCancelRequest} style={{ fontSize: 10, padding: '4px 16px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+            color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>キャンセル</button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(50,40,80,0.5), rgba(35,28,55,0.6))', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
@@ -7159,7 +7164,11 @@ function CollectionView({ collection, onSelect }) {
                 const monster = MONSTERS[type.id][9];
                 const count = ow?.count || 0;
                 return (
-                  <div key={k} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 10, rarity: RARITIES[9], count })}
+                  <div key={k} onClick={() => {
+                      const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 10, rarity: RARITIES[9], count };
+                      if (requestMode) { onRequest(item); return; }
+                      if (owned) onSelect(item);
+                    }}
                     style={{ borderRadius: 10, padding: '8px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
                     background: owned ? `radial-gradient(ellipse at 50% 30%, ${RARITIES[9].color}12, transparent 70%)` : 'rgba(255,255,255,0.02)',
                     border: owned ? `1px solid ${RARITIES[9].color}30` : '1px dashed rgba(255,255,255,0.05)',
@@ -7191,7 +7200,11 @@ function CollectionView({ collection, onSelect }) {
                 const monster = MONSTERS[type.id][8];
                 const count = ow?.count || 0;
                 return (
-                  <div key={k} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 9, rarity: RARITIES[8], count })}
+                  <div key={k} onClick={() => {
+                      const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 9, rarity: RARITIES[8], count };
+                      if (requestMode) { onRequest(item); return; }
+                      if (owned) onSelect(item);
+                    }}
                     style={{ borderRadius: 10, padding: '8px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
                     background: owned ? `radial-gradient(ellipse at 50% 30%, ${RARITIES[8].color}12, transparent 70%)` : 'rgba(255,255,255,0.02)',
                     border: owned ? `1px solid ${RARITIES[8].color}30` : '1px dashed rgba(255,255,255,0.05)',
@@ -7241,8 +7254,12 @@ function CollectionView({ collection, onSelect }) {
                     const monster = MONSTERS[type.id][r.rank - 1];
                     const count = ow?.count || 0;
                     return (
-                      <div key={k} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, count })}
-                        style={{ borderRadius: 10, padding: '6px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
+                      <div key={k} onClick={() => {
+                          const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, count };
+                          if (requestMode && r.rank < 11) { onRequest(item); return; }
+                          if (owned) onSelect(item);
+                        }}
+                        style={{ borderRadius: 10, padding: '6px 4px', textAlign: 'center', cursor: (requestMode && r.rank < 11) || owned ? 'pointer' : 'default',
                         background: owned ? `radial-gradient(ellipse at 50% 30%, ${r.color}10, transparent 70%)` : 'rgba(255,255,255,0.01)',
                         border: owned ? `1px solid ${r.color}25` : '1px dashed rgba(255,255,255,0.04)',
                       }}>
