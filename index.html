@@ -44,8 +44,12 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
 // SOUND ENGINE (Web Audio API) - Rich Gacha Audio
 // ============================================================
 const audioCtx = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
+const bgmMaster = audioCtx ? audioCtx.createGain() : null;
+const sfxMaster = audioCtx ? audioCtx.createGain() : null;
+if (bgmMaster) { bgmMaster.gain.value = 0.25; bgmMaster.connect(audioCtx.destination); }
+if (sfxMaster) { sfxMaster.gain.value = 1.0; sfxMaster.connect(audioCtx.destination); }
 
-function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0) {
+function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0, dest = null) {
   if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -58,13 +62,13 @@ function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0)
     gain.gain.linearRampToValueAtTime(volume, t + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(dest || sfxMaster || audioCtx.destination);
     osc.start(t);
     osc.stop(t + duration + 0.01);
   } catch(e) {}
 }
 
-function playSweep(startFreq, endFreq, duration = 0.3, type = 'sine', volume = 0.12) {
+function playSweep(startFreq, endFreq, duration = 0.3, type = 'sine', volume = 0.12, dest = null) {
   if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -77,17 +81,17 @@ function playSweep(startFreq, endFreq, duration = 0.3, type = 'sine', volume = 0
     gain.gain.setValueAtTime(volume, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(dest || sfxMaster || audioCtx.destination);
     osc.start(t);
     osc.stop(t + duration + 0.01);
   } catch(e) {}
 }
 
-function playChord(freqs, duration = 0.4, type = 'sine', volume = 0.08, delay = 0) {
-  freqs.forEach(f => playNote(f, duration, type, volume, delay));
+function playChord(freqs, duration = 0.4, type = 'sine', volume = 0.08, delay = 0, dest = null) {
+  freqs.forEach(f => playNote(f, duration, type, volume, delay, dest));
 }
 
-function playNoise(duration = 0.05, volume = 0.08) {
+function playNoise(duration = 0.05, volume = 0.08, dest = null) {
   if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -105,7 +109,7 @@ function playNoise(duration = 0.05, volume = 0.08) {
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(dest || sfxMaster || audioCtx.destination);
     src.start();
   } catch(e) {}
 }
@@ -128,7 +132,7 @@ class BGMPlayer {
       if (!this.playing) return;
       pattern.forEach(({ n, b, d, t, v }) => {
         if (!this.playing) return;
-        this.timers.push(setTimeout(() => { if (this.playing) playNote(n, d || ms/1000*0.8, t||'sine', v||0.04); }, b * ms));
+        this.timers.push(setTimeout(() => { if (this.playing) playNote(n, d || ms/1000*0.8, t||'sine', v||0.04, 0, bgmMaster); }, b * ms));
       });
       this.loopTimer = setTimeout(() => once(), (Math.max(...pattern.map(p => p.b)) + 1) * ms);
     };
