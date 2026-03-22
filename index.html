@@ -2099,7 +2099,7 @@ function MonsterGacha() {
       });
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
-    const synthDuration = targetRank >= 10 ? 4000 : targetRank >= 8 ? 3000 : 2000;
+    const synthDuration = targetRank >= 11 ? 4500 : targetRank === 10 ? 3500 : targetRank === 9 ? 2500 : targetRank === 8 ? 1500 : 2000;
     setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration);
   }, [collection]);
 
@@ -2183,7 +2183,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const getDuration = (r) => r >= 11 ? 4500 : r === 10 ? 3500 : 2500;
+      const getDuration = (r) => r >= 11 ? 4500 : r === 10 ? 3500 : r === 9 ? 2500 : 1500;
       let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
         const ms = elapsed;
@@ -6667,7 +6667,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
               : synthResult.rank === 9
                 ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
                 : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
-            pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
+            pointerEvents: 'auto', animation: 'ri 0.4s ease-out' }}>
             <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
               filter: `drop-shadow(0 0 20px ${synthResult.rarity.color}) drop-shadow(0 0 40px ${synthResult.rarity.color}80)` }}>
               {synthResult.icon}
@@ -6719,7 +6719,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                       : item.rank === 9
                         ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
                         : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
-                  pointerEvents: 'none' }}>
+                  pointerEvents: 'auto' }}>
                   {/* ★MAX: rotating rainbow ring */}
                   {isMax && <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%',
                     border: '3px solid transparent',
@@ -6803,7 +6803,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
           })() : (
             <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               background: 'radial-gradient(circle, rgba(30,20,50,0.94), rgba(0,0,0,0.97))',
-              pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
+              pointerEvents: 'auto', animation: 'ri 0.4s ease-out' }}>
               <div style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24', marginBottom: 16, fontFamily: "'Orbitron',sans-serif" }}>
                 ✨ {synthResult.count}件の合成完了！
               </div>
