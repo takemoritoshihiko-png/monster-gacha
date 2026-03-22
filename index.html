@@ -3718,7 +3718,7 @@ function MonsterGacha() {
         return (
         <div className="mo" onClick={() => setModal(null)}>
           <div className={`mc ${cardCls}`} style={{ borderColor: modal.rarity.color }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 64 }}>{modal.icon}</div>
+            <div>{modal.img ? renderItemIcon(modal, 80) : <span style={{ fontSize: 64 }}>{modal.icon}</span>}</div>
             <div className={rkCls} style={{ fontSize: 20, fontWeight: 900, color: rkCls ? undefined : modal.rarity.color, marginTop: 8 }}>{modal.name}</div>
             <div className={rkCls} style={{ color: rkCls ? undefined : modal.rarity.color, letterSpacing: 2, marginTop: 4, fontSize: 14 }}>
               {renderStars(modal.rank)}
