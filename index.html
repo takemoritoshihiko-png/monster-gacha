@@ -5964,26 +5964,8 @@ function QuickDrawGame({ onDone }) {
     setWaitText(texts[Math.floor(Math.random() * texts.length)]);
 
     const waitTime = 1500 + Math.random() * 2500;
-    const willFake = Math.random() < 0.3;
-
-    if (willFake) {
-      const fakeAt = 800 + Math.random() * 1200;
-      fakeTimerRef.current = setTimeout(() => {
-        if (phaseRef.current !== "waiting") return;
-        setPhase("fake");
-        phaseRef.current = "fake";
-        playNote(200, 0.05, 'triangle', 0.04);
-        setTimeout(() => {
-          if (phaseRef.current === "fake") {
-            setPhase("waiting");
-            phaseRef.current = "waiting";
-          }
-        }, 300);
-      }, fakeAt);
-    }
 
     waitTimerRef.current = setTimeout(() => {
-      clearTimeout(fakeTimerRef.current);
       setPhase("draw");
       phaseRef.current = "draw";
       setDrawTime(Date.now());
@@ -6026,7 +6008,7 @@ function QuickDrawGame({ onDone }) {
     lastTapRef.current = now;
     const p = phaseRef.current;
 
-    if (p === "waiting" || p === "fake") {
+    if (p === "waiting") {
       clearAllTimers();
       sfx('wrong');
       handleRoundResult(0, 'お手つき！', '#ef4444', 'early');
@@ -6065,7 +6047,7 @@ function QuickDrawGame({ onDone }) {
       {phase === "ready" && (
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
-            敵が振り返った瞬間にタップ！<br/>全6ラウンド。お手つき注意！
+            ピッと鳴ったら最速でタップ！<br/>全6ラウンド反射神経勝負！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
             神速(&lt;0.2s)=🪙130 ／ 超速い(&lt;0.25s)=🪙105<br/>
@@ -6074,7 +6056,7 @@ function QuickDrawGame({ onDone }) {
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
-      {["waiting","fake","draw","result"].includes(phase) && (
+      {["waiting","draw","result"].includes(phase) && (
         <div onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}
           style={{ minHeight: 350, display: 'flex', flexDirection: 'column', alignItems: 'center',
             cursor: 'pointer', userSelect: 'none', touchAction: 'none', position: 'relative' }}>
@@ -6089,12 +6071,6 @@ function QuickDrawGame({ onDone }) {
                 <div style={{ fontSize: 60 }}>🧍</div>
                 <div style={{ fontSize: 14, opacity: 0.5 }}>{waitText}</div>
                 <div style={{ fontSize: 11, opacity: 0.3 }}>⚡ 振り返ったら撃て！</div>
-              </>
-            )}
-            {phase === "fake" && (
-              <>
-                <div className="enemy-shake" style={{ fontSize: 60 }}>🧍💨</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>...！</div>
               </>
             )}
             {phase === "draw" && (
