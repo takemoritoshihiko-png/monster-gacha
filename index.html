@@ -46,7 +46,7 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const audioCtx = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
 
 function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0) {
-  if (!audioCtx) return;
+  if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const t = audioCtx.currentTime + delay;
@@ -65,7 +65,7 @@ function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0)
 }
 
 function playSweep(startFreq, endFreq, duration = 0.3, type = 'sine', volume = 0.12) {
-  if (!audioCtx) return;
+  if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const t = audioCtx.currentTime;
@@ -88,7 +88,7 @@ function playChord(freqs, duration = 0.4, type = 'sine', volume = 0.08, delay = 
 }
 
 function playNoise(duration = 0.05, volume = 0.08) {
-  if (!audioCtx) return;
+  if (!audioCtx || !bgmEnabled) return;
   try {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const bufferSize = audioCtx.sampleRate * duration;
@@ -121,6 +121,7 @@ class BGMPlayer {
     if (this.loopTimer) clearTimeout(this.loopTimer); this.loopTimer = null;
   }
   playLoop(pattern, bpm = 140) {
+    if (!bgmEnabled) return;
     this.stop(); this.playing = true;
     const ms = 60000 / bpm;
     const once = () => {
@@ -136,30 +137,36 @@ class BGMPlayer {
 }
 const bgm = new BGMPlayer();
 
-// Main BGM: Adventure/treasure hunting theme
+// Main BGM: Upbeat adventure / treasure hunt theme
+// Global mute flag
+let bgmEnabled = true;
 const BGM_MAIN = [
-  // Melody - adventurous and uplifting
-  {n:330,b:0,d:0.2,t:'square',v:0.02},{n:392,b:0.5,d:0.15,t:'square',v:0.018},
-  {n:440,b:1,d:0.2,t:'square',v:0.02},{n:523,b:1.5,d:0.15,t:'square',v:0.018},
-  {n:494,b:2,d:0.2,t:'square',v:0.02},{n:440,b:2.5,d:0.15,t:'square',v:0.018},
-  {n:392,b:3,d:0.25,t:'square',v:0.022},{n:440,b:3.5,d:0.15,t:'square',v:0.018},
-  {n:523,b:4,d:0.2,t:'square',v:0.02},{n:587,b:4.5,d:0.15,t:'square',v:0.018},
-  {n:659,b:5,d:0.2,t:'square',v:0.022},{n:587,b:5.5,d:0.15,t:'square',v:0.018},
-  {n:523,b:6,d:0.2,t:'square',v:0.02},{n:494,b:6.5,d:0.15,t:'square',v:0.018},
-  {n:440,b:7,d:0.2,t:'square',v:0.02},{n:392,b:7.5,d:0.15,t:'square',v:0.018},
-  {n:440,b:8,d:0.2,t:'square',v:0.02},{n:523,b:8.5,d:0.15,t:'square',v:0.018},
-  {n:587,b:9,d:0.2,t:'square',v:0.022},{n:523,b:9.5,d:0.15,t:'square',v:0.018},
-  {n:494,b:10,d:0.2,t:'square',v:0.02},{n:440,b:10.5,d:0.15,t:'square',v:0.018},
-  {n:392,b:11,d:0.2,t:'square',v:0.02},{n:330,b:11.5,d:0.15,t:'square',v:0.018},
-  {n:349,b:12,d:0.2,t:'square',v:0.02},{n:392,b:12.5,d:0.15,t:'square',v:0.018},
-  {n:440,b:13,d:0.2,t:'square',v:0.022},{n:523,b:13.5,d:0.15,t:'square',v:0.018},
-  {n:494,b:14,d:0.25,t:'square',v:0.02},{n:440,b:14.5,d:0.15,t:'square',v:0.018},
-  {n:392,b:15,d:0.4,t:'square',v:0.025},
-  // Bass line - steady rhythm
-  {n:165,b:0,d:0.3,t:'triangle',v:0.015},{n:196,b:2,d:0.3,t:'triangle',v:0.015},
-  {n:165,b:4,d:0.3,t:'triangle',v:0.015},{n:220,b:6,d:0.3,t:'triangle',v:0.015},
-  {n:175,b:8,d:0.3,t:'triangle',v:0.015},{n:196,b:10,d:0.3,t:'triangle',v:0.015},
-  {n:165,b:12,d:0.3,t:'triangle',v:0.015},{n:147,b:14,d:0.4,t:'triangle',v:0.018},
+  // Bright upbeat melody - C major, adventurous feel
+  {n:523,b:0,d:0.12,t:'square',v:0.025},{n:659,b:0.25,d:0.1,t:'square',v:0.02},
+  {n:784,b:0.5,d:0.12,t:'square',v:0.025},{n:659,b:0.75,d:0.1,t:'square',v:0.02},
+  {n:784,b:1,d:0.12,t:'square',v:0.025},{n:880,b:1.25,d:0.1,t:'square',v:0.02},
+  {n:784,b:1.5,d:0.15,t:'square',v:0.028},{n:659,b:1.75,d:0.1,t:'square',v:0.02},
+  {n:587,b:2,d:0.12,t:'square',v:0.025},{n:659,b:2.25,d:0.1,t:'square',v:0.02},
+  {n:784,b:2.5,d:0.12,t:'square',v:0.025},{n:880,b:2.75,d:0.1,t:'square',v:0.02},
+  {n:1047,b:3,d:0.2,t:'square',v:0.03},{n:880,b:3.25,d:0.1,t:'square',v:0.02},
+  {n:784,b:3.5,d:0.15,t:'square',v:0.025},{n:659,b:3.75,d:0.1,t:'square',v:0.02},
+  // Second phrase - triumphant
+  {n:880,b:4,d:0.12,t:'square',v:0.025},{n:784,b:4.25,d:0.1,t:'square',v:0.02},
+  {n:659,b:4.5,d:0.12,t:'square',v:0.025},{n:784,b:4.75,d:0.1,t:'square',v:0.02},
+  {n:880,b:5,d:0.12,t:'square',v:0.028},{n:1047,b:5.25,d:0.1,t:'square',v:0.025},
+  {n:880,b:5.5,d:0.12,t:'square',v:0.025},{n:784,b:5.75,d:0.1,t:'square',v:0.02},
+  {n:659,b:6,d:0.12,t:'square',v:0.025},{n:587,b:6.25,d:0.1,t:'square',v:0.02},
+  {n:523,b:6.5,d:0.12,t:'square',v:0.025},{n:587,b:6.75,d:0.1,t:'square',v:0.02},
+  {n:659,b:7,d:0.2,t:'square',v:0.028},{n:784,b:7.5,d:0.25,t:'square',v:0.03},
+  // Driving bass - upbeat rhythm
+  {n:262,b:0,d:0.15,t:'triangle',v:0.02},{n:262,b:0.5,d:0.1,t:'triangle',v:0.015},
+  {n:330,b:1,d:0.15,t:'triangle',v:0.02},{n:330,b:1.5,d:0.1,t:'triangle',v:0.015},
+  {n:294,b:2,d:0.15,t:'triangle',v:0.02},{n:294,b:2.5,d:0.1,t:'triangle',v:0.015},
+  {n:349,b:3,d:0.15,t:'triangle',v:0.02},{n:349,b:3.5,d:0.1,t:'triangle',v:0.015},
+  {n:262,b:4,d:0.15,t:'triangle',v:0.02},{n:262,b:4.5,d:0.1,t:'triangle',v:0.015},
+  {n:330,b:5,d:0.15,t:'triangle',v:0.02},{n:330,b:5.5,d:0.1,t:'triangle',v:0.015},
+  {n:294,b:6,d:0.15,t:'triangle',v:0.02},{n:262,b:6.5,d:0.1,t:'triangle',v:0.015},
+  {n:330,b:7,d:0.15,t:'triangle',v:0.02},{n:392,b:7.5,d:0.2,t:'triangle',v:0.022},
 ];
 
 // Tap BGM: Energetic driving beat
@@ -1457,6 +1464,7 @@ function MonsterGacha() {
   }, [nickname, slotId, loaded]);
 
   const [showGiftDestroyed, setShowGiftDestroyed] = useState(null);
+  const [bgmOn, setBgmOn] = useState(true);
   const receiveGifts = useCallback(() => {
     if (pendingGifts.length === 0) return;
     const accepted = [];
@@ -2095,7 +2103,7 @@ function MonsterGacha() {
       // Small delay to avoid conflict with other BGM stopping
       const t = setTimeout(() => {
         if (!mainBgmRef.current) {
-          bgm.playLoop(BGM_MAIN, 90);
+          bgm.playLoop(BGM_MAIN, 120);
           mainBgmRef.current = true;
         }
       }, 300);
@@ -2456,6 +2464,9 @@ function MonsterGacha() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => { const next = !bgmOn; setBgmOn(next); bgmEnabled = next; if (!next) bgm.stop(); else { mainBgmRef.current = false; } }}
+            style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: 4, opacity: bgmOn ? 0.8 : 0.3 }}
+            title={bgmOn ? 'BGM ON' : 'BGM OFF'}>{bgmOn ? '🔊' : '🔇'}</button>
           <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
             title="セーブ">💾</button>
           <div className="coin">🪙 {coins.toLocaleString()}</div>
