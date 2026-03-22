@@ -4726,7 +4726,7 @@ function TimingGame({ onDone }) {
 
   const getScore = (diff) => {
     if (diff === 0) return { coins: 50, label: "PERFECT!", color: "#fbbf24" };
-    if (diff <= 0.1) return { coins: 25, label: "GREAT!", color: "#4ade80" };
+    if (diff <= 0.1) return { coins: 20, label: "GREAT!", color: "#4ade80" };
     if (diff <= 0.2) return { coins: 15, label: "GOOD!", color: "#60a5fa" };
     if (diff <= 0.4) return { coins: 10, label: "OK", color: "#a78bfa" };
     if (diff <= 0.5) return { coins: 5, label: "CLOSE", color: "#94a3b8" };
@@ -4736,7 +4736,7 @@ function TimingGame({ onDone }) {
   const calcPerfectBonus = (tapList) => {
     const pc = tapList.filter(t => t.diff === 0).length;
     if (pc >= 10) return { bonus: 400, label: "ALL PERFECT!! +400" };
-    if (pc >= 7) return { bonus: 150, label: "7 PERFECT! +150" };
+    if (pc >= 7) return { bonus: 100, label: "7 PERFECT! +100" };
     if (pc >= 5) return { bonus: 80, label: "5 PERFECT! +80" };
     if (pc >= 3) return { bonus: 50, label: "3 PERFECT +50" };
     return { bonus: 0, label: "" };
