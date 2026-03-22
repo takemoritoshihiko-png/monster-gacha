@@ -46,8 +46,8 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const audioCtx = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
 const bgmMaster = audioCtx ? audioCtx.createGain() : null;
 const sfxMaster = audioCtx ? audioCtx.createGain() : null;
-if (bgmMaster) { bgmMaster.gain.value = 0.8; bgmMaster.connect(audioCtx.destination); }
-if (sfxMaster) { sfxMaster.gain.value = 1.0; sfxMaster.connect(audioCtx.destination); }
+if (bgmMaster) { bgmMaster.connect(audioCtx.destination); }
+if (sfxMaster) { sfxMaster.connect(audioCtx.destination); }
 
 function playNote(freq, duration = 0.1, type = 'sine', volume = 0.15, delay = 0, dest = null) {
   if (!audioCtx) return;
@@ -158,18 +158,18 @@ try {
   if (sv.game !== undefined) volGameBgm = sv.game;
   if (sv.sfx !== undefined) volSfx = sv.sfx;
 } catch(e) {}
-if (bgmMaster) bgmMaster.gain.value = volGameBgm * 0.8;
+if (bgmMaster) bgmMaster.gain.value = volGameBgm;
 if (sfxMaster) sfxMaster.gain.value = volSfx;
 
 // Main BGM: MP3 file player with loop
 const mainBgmAudio = new Audio('bgm-main.mp3');
 mainBgmAudio.loop = true;
-mainBgmAudio.volume = volMainBgm * 0.4;
+mainBgmAudio.volume = volMainBgm;
 
 const mainBgmControl = {
   play() {
     if (volMainBgm === 0) return;
-    mainBgmAudio.volume = volMainBgm * 0.4;
+    mainBgmAudio.volume = volMainBgm;
     mainBgmAudio.play().catch(() => {});
   },
   stop() {
@@ -181,7 +181,7 @@ const mainBgmControl = {
   },
   resume() {
     if (volMainBgm === 0) return;
-    mainBgmAudio.volume = volMainBgm * 0.4;
+    mainBgmAudio.volume = volMainBgm;
     mainBgmAudio.play().catch(() => {});
   },
   isPlaying() {
@@ -2602,14 +2602,14 @@ function MonsterGacha() {
             {[
               { label: 'BGM', icon: '🎵', val: volMain, set: (v) => {
                 const nv = parseFloat(v); setVolMain(nv); volMainBgm = nv;
-                mainBgmAudio.volume = nv * 0.4;
+                mainBgmAudio.volume = nv;
                 if (nv === 0) { mainBgmControl.pause(); mainBgmRef.current = false; }
                 else if (!mainBgmRef.current && screen !== 'minigame') { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
                 localStorage.setItem('gacha_volumes', JSON.stringify({ main: nv, game: volGame, sfx: volSfxState }));
               }},
               { label: 'ゲーム音', icon: '🎮', val: volGame, set: (v) => {
                 const nv = parseFloat(v); setVolGame(nv); volGameBgm = nv;
-                if (bgmMaster) bgmMaster.gain.value = nv * 0.8;
+                if (bgmMaster) bgmMaster.gain.value = nv;
                 if (nv === 0) bgm.stop();
                 localStorage.setItem('gacha_volumes', JSON.stringify({ main: volMain, game: nv, sfx: volSfxState }));
               }},
