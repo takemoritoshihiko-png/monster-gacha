@@ -3644,7 +3644,7 @@ function TapGame({ onDone }) {
     }, 50);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const handleTap = () => {
     if (phase !== "play") return;
@@ -3778,7 +3778,7 @@ function KukuGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3880,7 +3880,7 @@ function MathMidGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -3981,7 +3981,7 @@ function MathEasyGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -4085,7 +4085,7 @@ function MathHardAddGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase, earned, onDone]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -4190,7 +4190,7 @@ function MathHardMultGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase, earned, onDone]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -4367,7 +4367,7 @@ function TimingGame({ onDone }) {
   const { bonus: perfectBonus, label: bonusLabel } = calcPerfectBonus(taps);
   const totalCoins = baseCoins + (phase === "done" ? perfectBonus : 0);
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -4870,7 +4870,7 @@ function ShootingGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -5203,7 +5203,7 @@ function CoinTowerGame({ onDone }) {
   };
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -5887,7 +5887,7 @@ function GemCatchGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 3000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
