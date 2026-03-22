@@ -136,6 +136,32 @@ class BGMPlayer {
 }
 const bgm = new BGMPlayer();
 
+// Main BGM: Adventure/treasure hunting theme
+const BGM_MAIN = [
+  // Melody - adventurous and uplifting
+  {n:330,b:0,d:0.2,t:'square',v:0.02},{n:392,b:0.5,d:0.15,t:'square',v:0.018},
+  {n:440,b:1,d:0.2,t:'square',v:0.02},{n:523,b:1.5,d:0.15,t:'square',v:0.018},
+  {n:494,b:2,d:0.2,t:'square',v:0.02},{n:440,b:2.5,d:0.15,t:'square',v:0.018},
+  {n:392,b:3,d:0.25,t:'square',v:0.022},{n:440,b:3.5,d:0.15,t:'square',v:0.018},
+  {n:523,b:4,d:0.2,t:'square',v:0.02},{n:587,b:4.5,d:0.15,t:'square',v:0.018},
+  {n:659,b:5,d:0.2,t:'square',v:0.022},{n:587,b:5.5,d:0.15,t:'square',v:0.018},
+  {n:523,b:6,d:0.2,t:'square',v:0.02},{n:494,b:6.5,d:0.15,t:'square',v:0.018},
+  {n:440,b:7,d:0.2,t:'square',v:0.02},{n:392,b:7.5,d:0.15,t:'square',v:0.018},
+  {n:440,b:8,d:0.2,t:'square',v:0.02},{n:523,b:8.5,d:0.15,t:'square',v:0.018},
+  {n:587,b:9,d:0.2,t:'square',v:0.022},{n:523,b:9.5,d:0.15,t:'square',v:0.018},
+  {n:494,b:10,d:0.2,t:'square',v:0.02},{n:440,b:10.5,d:0.15,t:'square',v:0.018},
+  {n:392,b:11,d:0.2,t:'square',v:0.02},{n:330,b:11.5,d:0.15,t:'square',v:0.018},
+  {n:349,b:12,d:0.2,t:'square',v:0.02},{n:392,b:12.5,d:0.15,t:'square',v:0.018},
+  {n:440,b:13,d:0.2,t:'square',v:0.022},{n:523,b:13.5,d:0.15,t:'square',v:0.018},
+  {n:494,b:14,d:0.25,t:'square',v:0.02},{n:440,b:14.5,d:0.15,t:'square',v:0.018},
+  {n:392,b:15,d:0.4,t:'square',v:0.025},
+  // Bass line - steady rhythm
+  {n:165,b:0,d:0.3,t:'triangle',v:0.015},{n:196,b:2,d:0.3,t:'triangle',v:0.015},
+  {n:165,b:4,d:0.3,t:'triangle',v:0.015},{n:220,b:6,d:0.3,t:'triangle',v:0.015},
+  {n:175,b:8,d:0.3,t:'triangle',v:0.015},{n:196,b:10,d:0.3,t:'triangle',v:0.015},
+  {n:165,b:12,d:0.3,t:'triangle',v:0.015},{n:147,b:14,d:0.4,t:'triangle',v:0.018},
+];
+
 // Tap BGM: Energetic driving beat
 const BGM_TAP = [
   {n:130,b:0,d:0.12,t:'square',v:0.06},{n:330,b:0,d:0.08,t:'sine',v:0.03},
@@ -1726,6 +1752,7 @@ function MonsterGacha() {
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
     if (coins < cost) return;
+    bgm.stop(); mainBgmRef.current = false;
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
     contributeMission('gacha', n);
@@ -2027,6 +2054,25 @@ function MonsterGacha() {
   }, [findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
+
+  // Main BGM: play on idle screens, stop during minigames
+  const mainBgmRef = useRef(false);
+  useEffect(() => {
+    const shouldPlay = screen !== 'minigame' || !miniGame;
+    if (shouldPlay && !mainBgmRef.current && loaded && slotId !== null) {
+      // Small delay to avoid conflict with other BGM stopping
+      const t = setTimeout(() => {
+        if (!mainBgmRef.current) {
+          bgm.playLoop(BGM_MAIN, 90);
+          mainBgmRef.current = true;
+        }
+      }, 300);
+      return () => clearTimeout(t);
+    } else if (!shouldPlay && mainBgmRef.current) {
+      bgm.stop();
+      mainBgmRef.current = false;
+    }
+  }, [screen, miniGame, loaded, slotId]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
@@ -2154,6 +2200,7 @@ function MonsterGacha() {
     if (gameId === 'shooting') contributeMission('shooting', capped);
     if (gameId === 'bubble') contributeMission('bubble', capped);
     if (gameId === 'memory') contributeMission('memory', capped);
+    mainBgmRef.current = false; // Allow main BGM to restart
     setMiniGame(null);
   }, [nickname]);
 
