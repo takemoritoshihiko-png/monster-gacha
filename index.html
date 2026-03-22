@@ -6960,7 +6960,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
           <div style={{ fontSize: 13, fontWeight: 900, color: '#f472b6', marginBottom: 4 }}>
             💌 リクエストモード
           </div>
-          <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 8 }}>リクエストしたいアイテムをタップしてください（★1〜★10）</div>
+          <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 8 }}>保有アイテムからリクエストしたいものをタップ（★1〜★10）</div>
           <button onClick={onCancelRequest} style={{ fontSize: 10, padding: '4px 16px', borderRadius: 8,
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
             color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>キャンセル</button>
@@ -7165,9 +7165,10 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                 const count = ow?.count || 0;
                 return (
                   <div key={k} onClick={() => {
+                      if (!owned) return;
                       const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 10, rarity: RARITIES[9], count };
                       if (requestMode) { onRequest(item); return; }
-                      if (owned) onSelect(item);
+                      onSelect(item);
                     }}
                     style={{ borderRadius: 10, padding: '8px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
                     background: owned ? `radial-gradient(ellipse at 50% 30%, ${RARITIES[9].color}12, transparent 70%)` : 'rgba(255,255,255,0.02)',
@@ -7201,9 +7202,10 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                 const count = ow?.count || 0;
                 return (
                   <div key={k} onClick={() => {
+                      if (!owned) return;
                       const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 9, rarity: RARITIES[8], count };
                       if (requestMode) { onRequest(item); return; }
-                      if (owned) onSelect(item);
+                      onSelect(item);
                     }}
                     style={{ borderRadius: 10, padding: '8px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
                     background: owned ? `radial-gradient(ellipse at 50% 30%, ${RARITIES[8].color}12, transparent 70%)` : 'rgba(255,255,255,0.02)',
@@ -7255,11 +7257,12 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     const count = ow?.count || 0;
                     return (
                       <div key={k} onClick={() => {
+                          if (!owned) return;
                           const item = { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, count };
                           if (requestMode && r.rank < 11) { onRequest(item); return; }
-                          if (owned) onSelect(item);
+                          onSelect(item);
                         }}
-                        style={{ borderRadius: 10, padding: '6px 4px', textAlign: 'center', cursor: (requestMode && r.rank < 11) || owned ? 'pointer' : 'default',
+                        style={{ borderRadius: 10, padding: '6px 4px', textAlign: 'center', cursor: owned ? 'pointer' : 'default',
                         background: owned ? `radial-gradient(ellipse at 50% 30%, ${r.color}10, transparent 70%)` : 'rgba(255,255,255,0.01)',
                         border: owned ? `1px solid ${r.color}25` : '1px dashed rgba(255,255,255,0.04)',
                       }}>
