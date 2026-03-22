@@ -148,7 +148,7 @@ class BGMPlayer {
 const bgm = new BGMPlayer();
 
 // Global volume levels (0.0 - 1.0)
-let volMainBgm = 0.3;
+let volMainBgm = 0.5;
 let volGameBgm = 1.0;
 let volSfx = 1.0;
 // Load saved volumes
@@ -162,6 +162,8 @@ if (bgmMaster) bgmMaster.gain.value = volGameBgm;
 if (sfxMaster) sfxMaster.gain.value = volSfx;
 
 // Main BGM: MP3 file player with loop, routed through Web Audio GainNode for mobile volume control
+// Slider 0-100% maps to actual volume 0-30%
+const bgmRealVol = (v) => v * 0.3;
 const mainBgmAudio = new Audio('bgm-main.mp3');
 mainBgmAudio.loop = true;
 let mainBgmGain = null;
@@ -169,12 +171,11 @@ if (audioCtx) {
   try {
     const source = audioCtx.createMediaElementSource(mainBgmAudio);
     mainBgmGain = audioCtx.createGain();
-    mainBgmGain.gain.value = volMainBgm;
+    mainBgmGain.gain.value = bgmRealVol(volMainBgm);
     source.connect(mainBgmGain);
     mainBgmGain.connect(audioCtx.destination);
   } catch(e) {
-    // Fallback: no GainNode, use volume directly
-    mainBgmAudio.volume = volMainBgm;
+    mainBgmAudio.volume = bgmRealVol(volMainBgm);
   }
 }
 
@@ -182,8 +183,8 @@ const mainBgmControl = {
   play() {
     if (volMainBgm === 0) return;
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    if (mainBgmGain) mainBgmGain.gain.value = volMainBgm;
-    else mainBgmAudio.volume = volMainBgm;
+    if (mainBgmGain) mainBgmGain.gain.value = bgmRealVol(volMainBgm);
+    else mainBgmAudio.volume = bgmRealVol(volMainBgm);
     mainBgmAudio.play().catch(() => {});
   },
   stop() {
@@ -196,13 +197,14 @@ const mainBgmControl = {
   resume() {
     if (volMainBgm === 0) return;
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    if (mainBgmGain) mainBgmGain.gain.value = volMainBgm;
-    else mainBgmAudio.volume = volMainBgm;
+    if (mainBgmGain) mainBgmGain.gain.value = bgmRealVol(volMainBgm);
+    else mainBgmAudio.volume = bgmRealVol(volMainBgm);
     mainBgmAudio.play().catch(() => {});
   },
   setVolume(v) {
-    if (mainBgmGain) mainBgmGain.gain.value = v;
-    else mainBgmAudio.volume = v;
+    const rv = bgmRealVol(v);
+    if (mainBgmGain) mainBgmGain.gain.value = rv;
+    else mainBgmAudio.volume = rv;
   },
   isPlaying() {
     return !mainBgmAudio.paused;
