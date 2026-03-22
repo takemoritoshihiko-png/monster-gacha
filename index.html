@@ -1290,14 +1290,19 @@ input[type="number"] { font-size: 16px; }
 .draw-text { animation: drawText 0.3s ease-out; }
 `;
 
+// Local date string (YYYY-MM-DD) - NOT UTC
+function getLocalDate(date) {
+  const d = date || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function getWeekId() {
   const d = new Date();
   d.setHours(0,0,0,0);
-  // Monday-based week: reset at Monday 0:00 (Sunday 24:00)
   const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Sunday=6 days back, Mon=0, Tue=1...
+  const diff = day === 0 ? 6 : day - 1;
   d.setDate(d.getDate() - diff);
-  return d.toISOString().slice(0, 10);
+  return getLocalDate(d);
 }
 
 const DAILY_MISSION_POOL = [
@@ -1623,7 +1628,7 @@ function MonsterGacha() {
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
           // Track daily and weekly asset snapshots
-          const today = new Date().toISOString().slice(0, 10);
+          const today = getLocalDate();
           const weekId = getWeekId();
           window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
           window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
@@ -1714,7 +1719,7 @@ function MonsterGacha() {
     if (!nickname || !trimmedName || !window.fbDb) return;
     if (trimmedName === nickname) return;
     if (trimmedName.length > 20) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDate();
     const todayCount = lastGiftDate === today ? giftsSentToday : 0;
     if (todayCount >= 3) return;
     const item = collection[itemKey];
@@ -1749,10 +1754,10 @@ function MonsterGacha() {
     // Wait a tick for state to settle after loadSlot
     const timer = setTimeout(() => {
       loginCheckedRef.current = true;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalDate();
       if (lastLoginDate === today) return;
 
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const yesterday = getLocalDate(new Date(Date.now() - 86400000));
       const newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
       const bonusCoins = newStreak * 400;
 
@@ -2494,11 +2499,11 @@ function MonsterGacha() {
     return () => ref.off('value', handler);
   }, []);
   // Daily Missions loading
-  const [missionDate, setMissionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [missionDate, setMissionDate] = useState(() => getLocalDate());
   // Check for date change every 30 seconds
   useEffect(() => {
     const checker = setInterval(() => {
-      const now = new Date().toISOString().slice(0, 10);
+      const now = getLocalDate();
       if (now !== missionDate) setMissionDate(now);
     }, 30000);
     return () => clearInterval(checker);
@@ -2544,7 +2549,7 @@ function MonsterGacha() {
 
   const contributeMission = useCallback((missionType, amount) => {
     if (!nickname || !window.fbDb) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDate();
     const missions = generateDailyMissions(today);
     const mission = missions.find(m => m.type === missionType);
     if (!mission) return;
@@ -2595,7 +2600,7 @@ function MonsterGacha() {
       if (isNewWeekBest && nickname && window.fbDb) {
         window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(capped);
       }
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalDate();
       if (nickname && window.fbDb) {
         window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, capped));
       }
@@ -4101,7 +4106,7 @@ function MonsterGacha() {
               border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10, padding: '8px 12px',
               fontSize: 14, color: '#fff', outline: 'none', textAlign: 'center', marginBottom: 12 }} />
             <div style={{ fontSize: 9, opacity: 0.4, marginBottom: 12 }}>
-              本日の残り: {3 - (lastGiftDate === new Date().toISOString().slice(0, 10) ? giftsSentToday : 0)}回
+              本日の残り: {3 - (lastGiftDate === getLocalDate() ? giftsSentToday : 0)}回
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px' }}
@@ -7655,7 +7660,7 @@ function RankingScreen() {
     if (tab !== 4 || assetMode === 'cumulative' || !window.fbDb) return;
     // Load daily data
     if (assetMode === 'daily') {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalDate();
       window.fbDb.ref('dailyRankings/' + today).once('value').then(snapshot => {
         const entries = [];
         snapshot.forEach(child => {
@@ -7679,10 +7684,10 @@ function RankingScreen() {
   // Load growth data for daily/weekly (assets, pulls, gifts)
   useEffect(() => {
     if (![0, 2, 3].includes(tab) || assetMode === 'cumulative' || !window.fbDb || rankings.length === 0) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const today = getLocalDate();
+    const yesterday = getLocalDate(new Date(Date.now() - 86400000));
     const weekId = getWeekId();
-    const prevWeek = (() => { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
+    const prevWeek = (() => { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return getLocalDate(d); })();
     const trackingType = tab === 0 ? 'assetTracking' : tab === 2 ? 'pullTracking' : 'giftTracking';
     const currentField = tab === 0 ? 'totalAssets' : tab === 2 ? 'totalPulls' : 'totalGiftValue';
     const basePath = assetMode === 'daily'
