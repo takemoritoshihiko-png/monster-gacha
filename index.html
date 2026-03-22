@@ -573,9 +573,9 @@ const MONSTERS = {
 
 // ★12 Congratulations items (3 tiers, collection-wide)
 const CONGRATS_TIERS = [
-  { key: 'congrats_12_1', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Gold", tierColor: "#ffd700" },
-  { key: 'congrats_12_2', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×2を極めし者の証", tier: 2, tierLabel: "Rainbow", tierColor: "#ff69b4" },
-  { key: 'congrats_12_3', name: "永劫の至宝・極", icon: "💠", desc: "★MAX全6種×3を超越せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
+  { key: 'cg1_12', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Gold", tierColor: "#ffd700" },
+  { key: 'cg2_12', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×2を極めし者の証", tier: 2, tierLabel: "Rainbow", tierColor: "#ff69b4" },
+  { key: 'cg3_12', name: "永劫の至宝・極", icon: "💠", desc: "★MAX全6種×3を超越せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
 ];
 
 const SELL_VALUES = [1, 2, 4, 8, 15, 30, 60, 150, 400, 1000, 5000, 50000];
@@ -1405,6 +1405,13 @@ function MonsterGacha() {
     for (const k in c) {
       const count = typeof c[k] === 'number' ? c[k] : c[k]?.count;
       if (!count || count <= 0) continue;
+      // ★12 Congratulations items (cg1_12, cg2_12, cg3_12)
+      const ct = CONGRATS_TIERS.find(t => t.key === k);
+      if (ct) {
+        const nr = RARITIES[11];
+        col[k] = { name: ct.name, icon: ct.icon, desc: ct.desc, typeId: 'congrats', typeName: '図鑑報酬', typeEmoji: ct.icon, typeColor: ct.tierColor, rank: 12, rarity: nr, count };
+        continue;
+      }
       const [typeId, rankStr] = k.split('_');
       const rank = parseInt(rankStr);
       const type = TYPES.find(t => t.id === typeId);
