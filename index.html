@@ -5769,7 +5769,7 @@ function BubbleGame({ onDone }) {
       const b = next[id];
       if (b.popped) return prev;
       b.taps++;
-      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.08;
+      const chance = b.taps <= 5 ? 0 : (b.taps - 5) * 0.1;
       if (Math.random() < chance) {
         b.popped = true;
         sfx('wrong');
@@ -5858,7 +5858,7 @@ function BubbleGame({ onDone }) {
                     )}
                     {b.taps >= 5 && !b.popped && (
                       <div style={{ position: 'absolute', bottom: -14, fontSize: 8, color: b.taps >= 9 ? '#ef4444' : '#fbbf24', fontWeight: 700 }}>
-                        ⚠️{(b.taps - 4) * 8}%
+                        ⚠️{(b.taps - 4) * 10}%
                       </div>
                     )}
                   </div>
@@ -6640,24 +6640,53 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
 
       {/* Synth result animation */}
       {synthResult && (
-        <div style={{ textAlign: 'center', margin: '16px 0', animation: 'ri 0.4s ease-out',
-          background: 'rgba(139,92,246,0.08)', borderRadius: 14, padding: 16 }}>
-          {synthResult.batch ? (
-            <div style={{ fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>
-              ✨ {synthResult.count}件の合成完了！
+        synthResult.rank >= 9 && !synthResult.batch ? (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: synthResult.rank >= 10 ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))' : 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))',
+            pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
+            <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
+              filter: `drop-shadow(0 0 20px ${synthResult.rarity.color}) drop-shadow(0 0 40px ${synthResult.rarity.color}80)` }}>
+              {synthResult.icon}
             </div>
-          ) : (
-            <div>
-              <div style={{ fontSize: 48 }}>{synthResult.icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: synthResult.rarity.color }}>
-                {synthResult.name} 獲得！
-              </div>
-              <div style={{ fontSize: 12, color: synthResult.rarity.color }}>
-                {renderStars(synthResult.rank)}
-              </div>
+            <div className={synthResult.rank >= 10 ? 'rank-rainbow' : 'rank-gold'}
+              style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
+              {renderStars(synthResult.rank)}
             </div>
-          )}
-        </div>
+            <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900,
+              background: synthResult.rank >= 10
+                ? 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)'
+                : 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)',
+              backgroundSize: synthResult.rank >= 10 ? '200% 100%' : '100% 300%',
+              animation: synthResult.rank >= 10 ? 'rainbowText 1.5s linear infinite' : 'gradShift 2s ease infinite',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: `drop-shadow(0 0 10px ${synthResult.rarity.color}80)`,
+              fontFamily: "'Orbitron',sans-serif" }}>
+              {synthResult.name}
+            </div>
+            <div style={{ fontSize: 13, color: synthResult.rarity.color, marginTop: 8, fontWeight: 700, opacity: 0.8 }}>
+              {synthResult.rarity.label} 獲得！
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', margin: '16px 0', animation: 'ri 0.4s ease-out',
+            background: 'rgba(139,92,246,0.08)', borderRadius: 14, padding: 16 }}>
+            {synthResult.batch ? (
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>
+                ✨ {synthResult.count}件の合成完了！
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 48 }}>{synthResult.icon}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: synthResult.rarity.color }}>
+                  {synthResult.name} 獲得！
+                </div>
+                <div style={{ fontSize: 12, color: synthResult.rarity.color }}>
+                  {renderStars(synthResult.rank)}
+                </div>
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* Batch synth button */}
