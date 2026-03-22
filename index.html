@@ -2492,11 +2492,23 @@ function MonsterGacha() {
     return () => ref.off('value', handler);
   }, []);
   // Daily Missions loading
+  const [missionDate, setMissionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // Check for date change every 30 seconds
+  useEffect(() => {
+    const checker = setInterval(() => {
+      const now = new Date().toISOString().slice(0, 10);
+      if (now !== missionDate) setMissionDate(now);
+    }, 30000);
+    return () => clearInterval(checker);
+  }, [missionDate]);
+
   useEffect(() => {
     if (!window.fbDb) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = missionDate;
     const missions = generateDailyMissions(today);
     setDailyMissions(missions);
+    setDailyCompleted({});
+    setDailyProgress({});
 
     const ref = window.fbDb.ref('dailyMissions/' + today);
     const handler = ref.on('value', snapshot => {
@@ -2526,7 +2538,7 @@ function MonsterGacha() {
       }
     });
     return () => ref.off('value', handler);
-  }, [loaded, slotId]);
+  }, [loaded, slotId, missionDate]);
 
   const contributeMission = useCallback((missionType, amount) => {
     if (!nickname || !window.fbDb) return;
