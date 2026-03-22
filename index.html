@@ -2145,10 +2145,31 @@ function MonsterGacha() {
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
-  // Load ranking crowns from Firebase
+  // Load ranking crowns from Firebase (weekly + cumulative)
   const [crowns, setCrowns] = useState({ gold: 0, silver: 0, bronze: 0, goldGames: [], silverGames: [], bronzeGames: [] });
+  const [crownsAll, setCrownsAll] = useState({ gold: 0, silver: 0, bronze: 0, goldGames: [], silverGames: [], bronzeGames: [] });
+
+  const countCrowns = (entries, nick, includeGift) => {
+    let gold = 0, silver = 0, bronze = 0, goldGames = [], silverGames = [], bronzeGames = [];
+    GAME_IDS.forEach(gid => {
+      const scores = entries.filter(e => (e.bestScores?.[gid] || 0) > 0).sort((a, b) => (b.bestScores?.[gid] || 0) - (a.bestScores?.[gid] || 0));
+      if (scores.length > 0 && scores[0].name === nick) { gold++; goldGames.push(GAME_NAMES[gid]); }
+      else if (scores.length > 1 && scores[1].name === nick) { silver++; silverGames.push(GAME_NAMES[gid]); }
+      else if (scores.length > 2 && scores[2].name === nick) { bronze++; bronzeGames.push(GAME_NAMES[gid]); }
+    });
+    // Gift count ranking
+    if (includeGift) {
+      const giftRank = entries.filter(e => (e.totalGiftValue || 0) > 0).sort((a, b) => (b.totalGiftValue || 0) - (a.totalGiftValue || 0));
+      if (giftRank.length > 0 && giftRank[0].name === nick) { gold++; goldGames.push('ギフト'); }
+      else if (giftRank.length > 1 && giftRank[1].name === nick) { silver++; silverGames.push('ギフト'); }
+      else if (giftRank.length > 2 && giftRank[2].name === nick) { bronze++; bronzeGames.push('ギフト'); }
+    }
+    return { gold, silver, bronze, goldGames, silverGames, bronzeGames };
+  };
+
   useEffect(() => {
     if (!nickname || !window.fbDb) return;
+    // Weekly crowns (for gacha bonus)
     const weekId = getWeekId();
     window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
       const entries = [];
@@ -2156,14 +2177,13 @@ function MonsterGacha() {
         const scores = child.val();
         if (scores) entries.push({ name: child.key, bestScores: scores });
       });
-      let gold = 0, silver = 0, bronze = 0, goldGames = [], silverGames = [], bronzeGames = [];
-      GAME_IDS.forEach(gid => {
-        const scores = entries.filter(e => (e.bestScores?.[gid] || 0) > 0).sort((a, b) => (b.bestScores?.[gid] || 0) - (a.bestScores?.[gid] || 0));
-        if (scores.length > 0 && scores[0].name === nickname) { gold++; goldGames.push(GAME_NAMES[gid]); }
-        else if (scores.length > 1 && scores[1].name === nickname) { silver++; silverGames.push(GAME_NAMES[gid]); }
-        else if (scores.length > 2 && scores[2].name === nickname) { bronze++; bronzeGames.push(GAME_NAMES[gid]); }
-      });
-      setCrowns({ gold, silver, bronze, goldGames, silverGames, bronzeGames });
+      setCrowns(countCrowns(entries, nickname, false));
+    }).catch(() => {});
+    // Cumulative crowns (includes gift ranking)
+    window.fbDb.ref('rankings').once('value').then(snapshot => {
+      const entries = [];
+      snapshot.forEach(child => { const d = child.val(); if (d && d.name) entries.push(d); });
+      setCrownsAll(countCrowns(entries, nickname, true));
     }).catch(() => {});
   }, [nickname, bestScores]);
   const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
@@ -2646,26 +2666,50 @@ function MonsterGacha() {
                   </div>
                 </div>
 
-                {/* Medal Bar */}
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 0, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.6), rgba(50,35,15,0.8))',
-                    border: '1px solid rgba(201,168,76,0.3)', borderRadius: 20, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
-                      borderRight: '1px solid rgba(201,168,76,0.2)' }}
-                      title={crowns.goldGames.join(', ')}>
-                      <span style={{ fontSize: 13 }}>👑</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#e8d5a3' }}>王冠 x{crowns.gold}</span>
+                {/* Medal Bars - Weekly (gacha bonus) + All-time */}
+                <div style={{ marginTop: 10, position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                  {/* Weekly */}
+                  <div>
+                    <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 2, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>WEEKLY</div>
+                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(60,40,80,0.6), rgba(35,25,55,0.8))',
+                      border: '1px solid rgba(139,92,246,0.25)', borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                        title={crowns.goldGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>👑</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>x{crowns.gold}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                        title={crowns.silverGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥈</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crowns.silver}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
+                        title={crowns.bronzeGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥉</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crowns.bronze}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
-                      borderRight: '1px solid rgba(201,168,76,0.2)' }}
-                      title={crowns.silverGames.join(', ')}>
-                      <span style={{ fontSize: 13 }}>🥈</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#c8d6e5' }}>銀メダル x{crowns.silver}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px' }}
-                      title={crowns.bronzeGames.join(', ')}>
-                      <span style={{ fontSize: 13 }}>🥉</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#cd7f32' }}>銅メダル x{crowns.bronze}</span>
+                  </div>
+                  {/* All-time */}
+                  <div>
+                    <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.4, marginBottom: 2, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>ALL TIME</div>
+                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.5), rgba(50,35,15,0.7))',
+                      border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(201,168,76,0.15)' }}
+                        title={crownsAll.goldGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>👑</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#e8d5a3' }}>x{crownsAll.gold}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(201,168,76,0.15)' }}
+                        title={crownsAll.silverGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥈</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crownsAll.silver}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
+                        title={crownsAll.bronzeGames.join(', ')}>
+                        <span style={{ fontSize: 11 }}>🥉</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crownsAll.bronze}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
