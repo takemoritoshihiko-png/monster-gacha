@@ -1592,7 +1592,12 @@ function MonsterGacha() {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
         }, 0);
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, updated: Date.now() };
+        const cTier = (() => {
+          const mc = TYPES.map(t => { const c = compressed[`${t.id}_11`]; return typeof c === 'number' ? c : 0; });
+          const mn = Math.min(...mc);
+          return mn >= 3 ? 3 : mn >= 2 ? 2 : mn >= 1 ? 1 : 0;
+        })();
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
           // Track daily and weekly asset snapshots
@@ -2651,7 +2656,7 @@ function MonsterGacha() {
                           {slotCleared && <span className="rank-rainbow" style={{ fontSize: 9, fontWeight: 900, fontFamily: "'Orbitron',sans-serif" }}>🏆CLEAR</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 10, fontSize: 11, opacity: 0.5 }}>
-                          <span>📖 {colCnt}/66</span>
+                          <span>📖 {colCnt}/69</span>
                           <span>🎰 {(data.totalPulls || 0).toLocaleString()}回</span>
                           <span>🪙 {(data.coins || 0).toLocaleString()}</span>
                         </div>
@@ -3065,7 +3070,7 @@ function MonsterGacha() {
                 border: '1px solid rgba(139,92,246,0.12)', textAlign: 'center' }}>
                 <div style={{ fontSize: 8, opacity: 0.4 }}>📖 図鑑</div>
                 <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 13, fontWeight: 900, color: '#c084fc' }}>
-                  {colCount}<span style={{ fontSize: 8, opacity: 0.4 }}>/66</span>
+                  {colCount}<span style={{ fontSize: 8, opacity: 0.4 }}>/69</span>
                 </div>
               </div>
               <div style={{ flex: 1, padding: '6px 8px', borderRadius: 8,
@@ -3921,7 +3926,7 @@ function MonsterGacha() {
                       {data ? (
                         <>
                           <span style={{ color: '#fbbf24', fontWeight: 700 }}>💰{formatYen(pwr)}</span>
-                          <span style={{ opacity: 0.4, marginLeft: 6 }}>📖{Object.keys(data.collection || {}).length}/66</span>
+                          <span style={{ opacity: 0.4, marginLeft: 6 }}>📖{Object.keys(data.collection || {}).length}/69</span>
                         </>
                       ) : (
                         <span style={{ opacity: 0.3 }}>空きスロット</span>
@@ -7526,10 +7531,25 @@ function RankingScreen() {
                 {medal(i)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: '#e0e0e0' }}>{r.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={r.congratsTier >= 3 ? 'rank-congrats' : r.congratsTier === 2 ? 'rank-congrats' : r.congratsTier === 1 ? 'rank-diamond' : ''}
+                    style={{ fontSize: 14, fontWeight: 900, color: r.congratsTier ? undefined : '#e0e0e0' }}>{r.name}</span>
+                  {r.congratsTier >= 3 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                    background: 'linear-gradient(135deg, rgba(0,255,204,0.2), rgba(123,104,238,0.15))',
+                    border: '1px solid rgba(0,255,204,0.4)', fontWeight: 900, letterSpacing: 1 }}>
+                    <span className="rank-congrats" style={{ fontSize: 9 }}>💠ULT</span></span>}
+                  {r.congratsTier === 2 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                    background: 'linear-gradient(135deg, rgba(255,105,180,0.15), rgba(255,215,0,0.1))',
+                    border: '1px solid rgba(255,105,180,0.3)', fontWeight: 900, letterSpacing: 1 }}>
+                    <span className="rank-congrats" style={{ fontSize: 9 }}>🌈RBW</span></span>}
+                  {r.congratsTier === 1 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                    background: 'rgba(255,215,0,0.1)',
+                    border: '1px solid rgba(255,215,0,0.3)', fontWeight: 900 }}>
+                    <span style={{ fontSize: 9, color: '#ffd700' }}>👑</span></span>}
+                </div>
                 <div style={{ fontSize: 11, opacity: 0.5, display: 'flex', gap: 8 }}>
                   <span>💰{formatYen(r.totalAssets || 0)}</span>
-                  <span>📖{r.colCount || 0}/66</span>
+                  <span>📖{r.colCount || 0}/69</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -7549,7 +7569,7 @@ function RankingScreen() {
                 )}
                 {tab === 1 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
-                    {r.colCount || 0}<span style={{ fontSize: 10, opacity: 0.5 }}>/66</span>
+                    {r.colCount || 0}<span style={{ fontSize: 10, opacity: 0.5 }}>/69</span>
                   </div>
                 )}
                 {tab === 2 && (
