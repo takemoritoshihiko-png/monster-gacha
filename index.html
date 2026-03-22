@@ -1413,6 +1413,11 @@ function MonsterGacha() {
         const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
+          // Track daily and weekly asset snapshots
+          const today = new Date().toISOString().slice(0, 10);
+          const weekId = getWeekId();
+          window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
+          window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
         }
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
@@ -6502,6 +6507,8 @@ function RankingScreen() {
   const [loading, setLoading] = useState(true);
   const [rankMode, setRankMode] = useState('weekly');
   const [weeklyData, setWeeklyData] = useState([]);
+  const [assetMode, setAssetMode] = useState('cumulative'); // 'daily' | 'weekly' | 'cumulative'
+  const [assetGrowth, setAssetGrowth] = useState([]); // [{name, growth}]
 
   useEffect(() => {
     setLoading(true);
@@ -6534,6 +6541,32 @@ function RankingScreen() {
     });
   }, [rankMode, tab]);
 
+  // Load asset growth data for daily/weekly
+  useEffect(() => {
+    if (tab !== 0 || assetMode === 'cumulative' || !window.fbDb || rankings.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const weekId = getWeekId();
+    if (assetMode === 'daily') {
+      // Daily: current assets - yesterday's snapshot
+      window.fbDb.ref('assetTracking/daily/' + yesterday).once('value').then(snap => {
+        const base = snap.val() || {};
+        setAssetGrowth(rankings.map(r => ({
+          ...r, growth: (r.totalAssets || 0) - (base[r.name] || 0)
+        })).sort((a, b) => b.growth - a.growth));
+      });
+    } else {
+      // Weekly: current assets - start of week snapshot
+      const prevWeek = (() => { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
+      window.fbDb.ref('assetTracking/weekly/' + prevWeek).once('value').then(snap => {
+        const base = snap.val() || {};
+        setAssetGrowth(rankings.map(r => ({
+          ...r, growth: (r.totalAssets || 0) - (base[r.name] || 0)
+        })).sort((a, b) => b.growth - a.growth));
+      });
+    }
+  }, [tab, assetMode, rankings]);
+
   const [gameTab, setGameTab] = useState("tap");
 
   const tabs = [
@@ -6565,6 +6598,10 @@ function RankingScreen() {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
+    // Asset tab with daily/weekly growth
+    if (tab === 0 && assetMode !== 'cumulative' && assetGrowth.length > 0) {
+      return assetGrowth;
+    }
     const list = [...rankings];
     if (tab === 0) list.sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
@@ -6575,7 +6612,7 @@ function RankingScreen() {
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
     }
     return list;
-  }, [rankings, weeklyData, tab, gameTab, rankMode]);
+  }, [rankings, weeklyData, tab, gameTab, rankMode, assetMode, assetGrowth]);
 
   const medal = (i) => `${i + 1}`;
 
@@ -6612,6 +6649,23 @@ function RankingScreen() {
           </button>
         ))}
       </div>
+
+      {/* Asset period sub-tabs */}
+      {tab === 0 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+          {[
+            { id: 'daily', label: '今日' },
+            { id: 'weekly', label: '今週' },
+            { id: 'cumulative', label: '累計' },
+          ].map(m => (
+            <button key={m.id} className={`tfb ${assetMode === m.id ? 'act' : ''}`}
+              style={{ flex: 1, textAlign: 'center', padding: '6px 4px', fontSize: 11 }}
+              onClick={() => setAssetMode(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Game sub-tabs for minigame ranking */}
       {tab === 4 && (
@@ -6658,8 +6712,17 @@ function RankingScreen() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 {tab === 0 && (
-                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#fbbf24' }}>
-                    {formatYen(r.totalAssets || 0)}
+                  <div style={{ textAlign: 'right' }}>
+                    {assetMode !== 'cumulative' ? (
+                      <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900,
+                        color: (r.growth || 0) > 0 ? '#4ade80' : '#fbbf24' }}>
+                        {(r.growth || 0) > 0 ? '+' : ''}{formatYen(r.growth || 0)}
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 12, fontWeight: 900, color: '#fbbf24' }}>
+                        {formatYen(r.totalAssets || 0)}
+                      </div>
+                    )}
                   </div>
                 )}
                 {tab === 1 && (
