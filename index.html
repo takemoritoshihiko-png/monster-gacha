@@ -4058,14 +4058,12 @@ function MathHardAddGame({ onDone }) {
   const st = useRef(null);
 
   const gen = () => {
-    const a = 10 + Math.floor(Math.random() * 90);
+    const a = 100 + Math.floor(Math.random() * 900);
     const b = 10 + Math.floor(Math.random() * 90);
     if (Math.random() > 0.5) {
       return { text: `${a} + ${b}`, answer: a + b };
     } else {
-      const big = Math.max(a, b);
-      const small = Math.min(a, b);
-      return { text: `${big} − ${small}`, answer: big - small };
+      return { text: `${a} − ${b}`, answer: a - b };
     }
   };
 
@@ -4103,7 +4101,7 @@ function MathHardAddGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>🧮 計算ゲーム【上級】足し算引き算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁±2桁を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で3桁±2桁を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
@@ -4161,14 +4159,14 @@ function MathHardMultGame({ onDone }) {
 
   const gen = () => {
     if (Math.random() > 0.5) {
-      // 2桁 × 1桁
-      const a = 10 + Math.floor(Math.random() * 90);
-      const b = 2 + Math.floor(Math.random() * 8); // 2-9
+      // 2桁(30-99) × 1桁(3-9)
+      const a = 30 + Math.floor(Math.random() * 70);
+      const b = 3 + Math.floor(Math.random() * 7); // 3-9
       return { text: `${a} × ${b}`, answer: a * b };
     } else {
-      // 2桁 ÷ 1桁 (割り切れる問題のみ)
-      const b = 2 + Math.floor(Math.random() * 8); // 2-9
-      const quotient = 2 + Math.floor(Math.random() * (99 / b - 2)); // 商が2以上
+      // 3桁 ÷ 1桁 (割り切れる問題のみ)
+      const b = 3 + Math.floor(Math.random() * 7); // 3-9
+      const quotient = 10 + Math.floor(Math.random() * 90); // 商が10-99
       const a = quotient * b;
       return { text: `${a} ÷ ${b}`, answer: quotient };
     }
@@ -4208,7 +4206,7 @@ function MathHardMultGame({ onDone }) {
       <div className="st" style={{ justifyContent: 'center' }}>✖️ 計算ゲーム【上級】掛け算割り算</div>
       {phase === "ready" && (
         <>
-          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で2桁×1桁・2桁÷1桁を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
+          <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>20秒間で大きな掛け算・割り算を解こう！<br/>1問正解 = 🪙52コイン（4連続で+26）</p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
