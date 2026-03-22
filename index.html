@@ -1653,18 +1653,20 @@ function MonsterGacha() {
     if (!silent) setTimeout(() => setSaveMsg(""), 5000);
   }, []);
 
-  // ---- AUTO-SAVE: 30秒に1回 ----
-  const prevSig = useRef("");
+  // ---- AUTO-SAVE: 30秒に1回（定期実行、タイマーリセットなし） ----
+  const lastAutoSave = useRef(Date.now());
   useEffect(() => {
     if (!loaded || slotId === null) return;
-    const totalItems = Object.values(collection).reduce((s, m) => s + (m.count || 0), 0);
-    const sig = totalItems + '-' + totalPulls + '-' + spending.length;
-    if (sig === prevSig.current) return;
-    prevSig.current = sig;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { addLog("自動セーブ実行"); saveToSlot(slotId, true); }, 30000);
-    return () => clearTimeout(saveTimer.current);
-  }, [collection, totalPulls, spending, loaded, slotId, saveToSlot]);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastAutoSave.current >= 30000) {
+        lastAutoSave.current = now;
+        addLog("自動セーブ実行");
+        saveToSlot(slotId, true);
+      }
+    }, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [loaded, slotId, saveToSlot]);
 
   // ---- GIFT SYSTEM: Check for pending gifts ----
   useEffect(() => {
@@ -2422,6 +2424,18 @@ function MonsterGacha() {
     }
   }, [screen, miniGame, gachaPhase, loaded, slotId, volMain]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
+
+  // Auto-save when all gacha chests are opened (prevent reload exploit)
+  const gachaSavedRef = useRef(false);
+  useEffect(() => {
+    if (allOpened && !gachaSavedRef.current && slotId !== null) {
+      gachaSavedRef.current = true;
+      lastAutoSave.current = Date.now();
+      addLog("ガチャ結果セーブ");
+      saveToSlot(slotId, true);
+    }
+    if (!allOpened) gachaSavedRef.current = false;
+  }, [allOpened, slotId, saveToSlot]);
 
   const GAME_NAMES = { tap: '連打バトル', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', bubble: 'バブルポップ', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
