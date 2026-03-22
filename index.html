@@ -4104,11 +4104,11 @@ function TapGame({ onDone }) {
     setShakeKey(k => k + 1);
     const r = Math.random();
     let bonus = 1, label = "+1", snd = "tap", color = "#fff", gemCount = 1;
-    if (r < 0.0039) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; gemCount = 8; }
-    else if (r < 0.0235) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; gemCount = 5; }
-    else if (r < 0.0495) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; gemCount = 4; }
-    else if (r < 0.1279) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; gemCount = 3; }
-    else if (r < 0.2749) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; gemCount = 2; }
+    if (r < 0.0031) { bonus = 100; label = "+100!!!"; snd = "tapBonus100"; color = "#f1c40f"; gemCount = 8; }
+    else if (r < 0.0188) { bonus = 10; label = "+10!"; snd = "tapBonus10"; color = "#e84393"; gemCount = 5; }
+    else if (r < 0.0396) { bonus = 6; label = "+6!"; snd = "tapBonus6"; color = "#e74c3c"; gemCount = 4; }
+    else if (r < 0.1023) { bonus = 4; label = "+4"; snd = "tapBonus4"; color = "#9b59b6"; gemCount = 3; }
+    else if (r < 0.2199) { bonus = 2; label = "+2"; snd = "tapBonus2"; color = "#3498db"; gemCount = 2; }
     sfx(snd);
     setEarned(e => e + bonus);
     const id = ++fid.current;
@@ -4136,6 +4136,11 @@ function TapGame({ onDone }) {
       {phase === "ready" && (
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>岩を叩いて宝石を掘り出せ！10秒間！</p>
+          <div style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)',
+            borderRadius: 10, padding: '8px 12px', margin: '0 0 16px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 900, color: '#a78bfa', marginBottom: 2 }}>👆👆 同時タップ対応！</div>
+            <div style={{ fontSize: 9, opacity: 0.5 }}>複数の指で同時にタップすると、その分カウントされます</div>
+          </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
       )}
