@@ -3215,19 +3215,20 @@ function MonsterGacha() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
+              // 上段: アクションゲーム（左） + 計算ゲーム（右）
               { id: "tap", icon: "👊", name: "連打バトル", isAction: true },
-              { id: "shooting", icon: "🎯", name: "シューティング", isAction: true },
-              { id: "gem", icon: "💎", name: "ジュエルキャッチ", isAction: true },
               { id: "mathEasy", icon: "➕", name: "初級 足し引き", isAction: false },
-              { id: "timing", icon: "⏱️", name: "ルパンタイマー", isAction: true },
+              { id: "shooting", icon: "🎯", name: "シューティング", isAction: true },
               { id: "kuku", icon: "🔢", name: "初級 九九", isAction: false },
-              { id: "tower", icon: "🪙", name: "コインタワー", isAction: true },
+              { id: "gem", icon: "💎", name: "ジュエルキャッチ", isAction: true },
               { id: "mathMid", icon: "📐", name: "中級 足し引き", isAction: false },
-              { id: "memory", icon: "🃏", name: "神経衰弱", isAction: true },
+              { id: "timing", icon: "⏱️", name: "ルパンタイマー", isAction: true },
               { id: "mathHardAdd", icon: "🧮", name: "上級 足し引き", isAction: false },
-              { id: "bubble", icon: "🫧", name: "バブルポップ", isAction: true },
-              { id: "quickdraw", icon: "🔫", name: "早撃ちガンマン", isAction: true },
+              { id: "tower", icon: "🪙", name: "コインタワー", isAction: true },
               { id: "mathHardMult", icon: "✖️", name: "上級 掛け割り", isAction: false },
+              { id: "memory", icon: "🃏", name: "神経衰弱", isAction: true },
+              { id: "quickdraw", icon: "🔫", name: "早撃ちガンマン", isAction: true },
+              { id: "bubble", icon: "🫧", name: "バブルポップ", isAction: true },
             ].map((g, gi) => (
               <div key={g.id} onClick={() => { sfx('click'); setMiniGame(g.id); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 12px',
