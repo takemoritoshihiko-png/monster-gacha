@@ -2227,12 +2227,29 @@ function MonsterGacha() {
     const shouldPlay = !isMinigamePlaying && !isGachaOpening;
 
     if (shouldPlay && !mainBgmRef.current) {
-      const t = setTimeout(() => {
-        if (!mainBgmRef.current && volMain > 0) {
+      const tryPlay = () => {
+        if (mainBgmRef.current) return;
+        if (audioCtx && audioCtx.state === 'suspended') {
+          // AudioContext still suspended — wait for user interaction
+          const resumeOnTouch = () => {
+            document.removeEventListener('touchstart', resumeOnTouch);
+            document.removeEventListener('click', resumeOnTouch);
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            setTimeout(() => {
+              if (!mainBgmRef.current && volMain > 0) {
+                mainBgmControl.play();
+                mainBgmRef.current = true;
+              }
+            }, 200);
+          };
+          document.addEventListener('touchstart', resumeOnTouch, { once: true });
+          document.addEventListener('click', resumeOnTouch, { once: true });
+        } else {
           mainBgmControl.play();
           mainBgmRef.current = true;
         }
-      }, 500);
+      };
+      const t = setTimeout(tryPlay, 500);
       return () => clearTimeout(t);
     } else if (!shouldPlay && mainBgmRef.current) {
       mainBgmControl.pause();
