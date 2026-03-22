@@ -2006,7 +2006,7 @@ function MonsterGacha() {
         }
       }, revealDelay);
     }, Number(time)));
-  }, [addToCollection]);
+  }, [addToCollection, nickname]);
 
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
