@@ -2099,7 +2099,7 @@ function MonsterGacha() {
       });
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
-    const synthDuration = targetRank >= 11 ? 4500 : targetRank === 10 ? 3500 : targetRank === 9 ? 2500 : targetRank === 8 ? 1500 : 2000;
+    const synthDuration = targetRank >= 11 ? 4500 : targetRank === 10 ? 3500 : targetRank === 9 ? 3000 : targetRank === 8 ? 2500 : 2000;
     setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration);
   }, [collection]);
 
@@ -2183,7 +2183,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const getDuration = (r) => r >= 11 ? 4500 : r === 10 ? 3500 : r === 9 ? 2500 : 1500;
+      const getDuration = (r) => r >= 11 ? 4500 : r === 10 ? 3500 : r === 9 ? 3000 : 2500;
       let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
         const ms = elapsed;
