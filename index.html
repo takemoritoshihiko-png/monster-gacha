@@ -2047,7 +2047,10 @@ function MonsterGacha() {
     }
   };
 
+  const synthQueueRef = useRef(null);
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
+    // Clear any pending synth timers from previous synthesis
+    if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
     setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
@@ -2102,7 +2105,7 @@ function MonsterGacha() {
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
     const synthDuration = targetRank >= 11 ? 4500 : targetRank === 10 ? 3500 : targetRank === 9 ? 3000 : targetRank === 8 ? 2500 : 2000;
-    setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration);
+    synthQueueRef.current = [setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration)];
   }, [collection]);
 
   const doSynthMaxRetry = useCallback(() => {
@@ -2121,14 +2124,15 @@ function MonsterGacha() {
       else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
       setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
       playSynthSound(11);
-      setTimeout(() => setSynthResult(null), 4000);
+      synthQueueRef.current = [setTimeout(() => setSynthResult(null), 4000)];
       return n;
     });
     setSynthRetry(null);
   }, [synthRetry]);
 
-  const synthQueueRef = useRef(null);
   const doSynthAll = useCallback(() => {
+    // Clear any pending synth timers from previous synthesis
+    if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
     const maxTarget = Math.max(...candidates.map(c => c.targetRank));
@@ -2205,7 +2209,7 @@ function MonsterGacha() {
       synthQueueRef.current = timers;
     } else {
       setSynthResult({ batch: true, count: totalSynths });
-      setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500);
+      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2500)];
     }
   }, [collection, findSynthCandidates]);
 
