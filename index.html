@@ -2433,21 +2433,18 @@ function MonsterGacha() {
   useEffect(() => {
     if (!nickname || !window.fbDb) return;
     const weekId = getWeekId();
-    // Ensure current bestScores are written to this week's rankings
-    window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname).once('value').then(snap => {
-      const existing = snap.val() || {};
-      const bs = bestScores || {};
+    // Ensure this week's weeklyScores are written (only scores earned THIS week, not all-time bestScores)
+    const ws = weeklyScores || {};
+    if (ws._weekId === weekId) {
       const updates = {};
-      Object.entries(bs).forEach(([gid, score]) => {
-        if (score > 0 && score > (existing[gid] || 0)) {
-          updates[gid] = score;
-        }
+      Object.entries(ws).forEach(([gid, score]) => {
+        if (gid !== '_weekId' && score > 0) updates[gid] = score;
       });
       if (Object.keys(updates).length > 0) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname).update(updates);
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname).update(updates).catch(() => {});
       }
-    }).catch(() => {});
-    // Weekly crowns (for gacha bonus) - fetch after a short delay to allow writes
+    }
+    // Weekly crowns (for gacha bonus)
     setTimeout(() => {
       window.fbDb.ref('weeklyRankings/' + weekId).once('value').then(snapshot => {
         const entries = [];
@@ -2457,14 +2454,14 @@ function MonsterGacha() {
         });
         setCrowns(countCrowns(entries, nickname, false));
       }).catch(() => {});
-    }, 500);
+    }, 300);
     // Cumulative crowns (includes gift ranking)
     window.fbDb.ref('rankings').once('value').then(snapshot => {
       const entries = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) entries.push(d); });
       setCrownsAll(countCrowns(entries, nickname, true));
     }).catch(() => {});
-  }, [nickname, bestScores]);
+  }, [nickname, bestScores, weeklyScores]);
   const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
 
   // Listen for rare pull notifications
