@@ -708,6 +708,7 @@ const CSS = `
   border: 1px solid rgba(245,158,11,0.25);
   border-radius: 20px; padding: 4px 14px;
   font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; color: #fbbf24;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
 }
 .cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }
 .nav {
@@ -1159,6 +1160,7 @@ body { overscroll-behavior: none; }
   .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }
   .md { font-size: 28px !important; }
   .mi { font-size: 20px !important; width: 160px !important; }
+  .nb img { width: 40px !important; height: 40px !important; }
 }
 
 @media (min-width: 381px) and (max-width: 480px) {
@@ -6796,7 +6798,7 @@ function CollectionView({ collection, onSelect }) {
       {/* Exhibition Hall Header */}
       <div style={{ textAlign: 'center', marginBottom: 16, padding: '16px 0 12px', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 0, left: '5%', right: '5%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.3), transparent)' }} />
-        <div style={{ fontSize: 8, letterSpacing: 6, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>TREASURE EXHIBITION</div>
+        <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>TREASURE EXHIBITION</div>
         <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif" }}>
           <img src="nav-collection.png" alt="展示室" style={{ width: 28, height: 28, objectFit: 'contain', verticalAlign: 'middle' }} /> 展示室
         </div>
@@ -6819,7 +6821,7 @@ function CollectionView({ collection, onSelect }) {
       <div style={{ marginBottom: 20 }}>
         <div style={{ textAlign: 'center', marginBottom: 12, position: 'relative', padding: '8px 0' }}>
           <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }} />
-          <div style={{ fontSize: 8, letterSpacing: 5, opacity: 0.35, fontFamily: "'Rajdhani',sans-serif", color: '#ffd700' }}>— HALL OF GLORY —</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.35, fontFamily: "'Rajdhani',sans-serif", color: '#ffd700' }}>— HALL OF GLORY —</div>
           <div className="rank-diamond" style={{ fontSize: 13, fontWeight: 900, letterSpacing: 4, fontFamily: "'Orbitron',sans-serif" }}>CONGRATULATIONS</div>
           <div style={{ position: 'absolute', bottom: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }} />
         </div>
@@ -6911,7 +6913,7 @@ function CollectionView({ collection, onSelect }) {
       <div style={{ marginBottom: 16 }}>
         <div style={{ textAlign: 'center', marginBottom: 10, position: 'relative', padding: '6px 0' }}>
           <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)' }} />
-          <div style={{ fontSize: 8, letterSpacing: 5, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", color: '#a78bfa' }}>— LEGEND WING —</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", color: '#a78bfa' }}>— LEGEND WING —</div>
           <div className="rank-diamond" style={{ fontSize: 12, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif" }}>★MAX COLLECTION</div>
           <div style={{ position: 'absolute', bottom: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)' }} />
         </div>
@@ -6985,7 +6987,7 @@ function CollectionView({ collection, onSelect }) {
       <div style={{ marginBottom: 20 }}>
         <div style={{ textAlign: 'center', marginBottom: 10, position: 'relative', padding: '6px 0' }}>
           <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.15), transparent)' }} />
-          <div style={{ fontSize: 8, letterSpacing: 5, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", color: '#fbbf24' }}>— RARE WING —</div>
+          <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", color: '#fbbf24' }}>— RARE WING —</div>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif", opacity: 0.6 }}>LEGENDARY COLLECTION</div>
           <div style={{ position: 'absolute', bottom: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.15), transparent)' }} />
         </div>
@@ -7059,7 +7061,7 @@ function CollectionView({ collection, onSelect }) {
       {/* Main Gallery - ★8 down, each rank in 3×2 grid */}
       <div style={{ textAlign: 'center', marginBottom: 10, marginTop: 20, position: 'relative' }}>
         <div style={{ position: 'absolute', top: -10, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.2), transparent)' }} />
-        <div style={{ fontSize: 7, letterSpacing: 4, opacity: 0.25, fontFamily: "'Rajdhani',sans-serif" }}>— TREASURE VAULT —</div>
+        <div style={{ fontSize: 7, letterSpacing: 2, opacity: 0.25, fontFamily: "'Rajdhani',sans-serif" }}>— TREASURE VAULT —</div>
         <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", opacity: 0.5 }}>COLLECTION ARCHIVE</div>
         <div style={{ fontSize: 8, opacity: 0.2, marginTop: 2 }}>★1 ~ ★8</div>
       </div>
@@ -7366,14 +7368,14 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                 const target = MONSTERS[c.typeId][c.targetRank - 1];
                 const tRarity = RARITIES[c.targetRank - 1];
                 return (
-                  <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
-                    <span>{item.img ? renderItemIcon(item, 16) : item.icon}</span>
-                    <span style={{ color: item.rarity.color, fontWeight: 700 }}>
+                  <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 11 }}>
+                    <span style={{ flexShrink: 0 }}>{item.img ? renderItemIcon(item, 14) : item.icon}</span>
+                    <span style={{ color: item.rarity.color, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                       {item.name} ×{c.synthCount * c.req}
                     </span>
-                    <span style={{ color: '#fbbf24' }}>→</span>
-                    <span>{target.icon}</span>
-                    <span style={{ color: tRarity.color, fontWeight: 700 }}>
+                    <span style={{ color: '#fbbf24', flexShrink: 0 }}>→</span>
+                    <span style={{ flexShrink: 0 }}>{target.icon}</span>
+                    <span style={{ color: tRarity.color, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                       {target.name} ×{c.synthCount}
                     </span>
                   </div>
@@ -7765,9 +7767,9 @@ function RankingScreen() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         {tabs.map((t, i) => (
           <button key={i} className={`tfb ${tab === i ? 'act' : ''}`}
-            style={{ flex: 1, textAlign: 'center', padding: '8px 4px' }}
+            style={{ flex: 1, textAlign: 'center', padding: '6px 2px', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden' }}
             onClick={() => setTab(i)}>
-            {t.icon} {t.label}
+            <span style={{ fontSize: 14 }}>{t.icon}</span><br/><span style={{ fontSize: 8 }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -7828,7 +7830,7 @@ function RankingScreen() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span className={r.congratsTier >= 3 ? 'rank-ultimate' : r.congratsTier === 2 ? 'rank-congrats' : r.congratsTier === 1 ? 'rank-diamond' : ''}
-                    style={{ fontSize: 14, fontWeight: 900, color: r.congratsTier ? undefined : '#e0e0e0' }}>{r.name}</span>
+                    style={{ fontSize: 13, fontWeight: 900, color: r.congratsTier ? undefined : '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{r.name}</span>
                   {r.congratsTier >= 3 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
                     background: 'linear-gradient(135deg, rgba(0,255,204,0.25), rgba(123,104,238,0.2))',
                     border: '1px solid rgba(0,255,204,0.5)', fontWeight: 900, letterSpacing: 1,
