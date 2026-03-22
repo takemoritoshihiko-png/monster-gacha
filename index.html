@@ -6625,19 +6625,21 @@ function RankingScreen() {
         <div style={{ fontSize: 11, opacity: 0.4 }}>セーブ時にランキングが更新されます</div>
       </div>
 
-      {/* Weekly / Cumulative toggle */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10, justifyContent: 'center' }}>
-        <button className={`tfb ${rankMode === 'weekly' ? 'act' : ''}`}
-          style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
-          onClick={() => setRankMode('weekly')}>
-          今週
-        </button>
-        <button className={`tfb ${rankMode === 'cumulative' ? 'act' : ''}`}
-          style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
-          onClick={() => setRankMode('cumulative')}>
-          累計
-        </button>
-      </div>
+      {/* Weekly / Cumulative toggle - only for minigame tab */}
+      {tab === 4 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, justifyContent: 'center' }}>
+          <button className={`tfb ${rankMode === 'weekly' ? 'act' : ''}`}
+            style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
+            onClick={() => setRankMode('weekly')}>
+            今週
+          </button>
+          <button className={`tfb ${rankMode === 'cumulative' ? 'act' : ''}`}
+            style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700 }}
+            onClick={() => setRankMode('cumulative')}>
+            累計
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
