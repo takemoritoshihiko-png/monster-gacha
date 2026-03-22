@@ -1089,6 +1089,29 @@ input[type="number"] { font-size: 16px; }
 .rare-god-text {
   animation: rareGodText 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+@keyframes synthMaxPulse {
+  0%, 100% { box-shadow: 0 0 60px rgba(255,215,0,0.3), 0 0 120px rgba(255,107,255,0.2), inset 0 0 60px rgba(255,215,0,0.1); }
+  50% { box-shadow: 0 0 100px rgba(255,215,0,0.6), 0 0 200px rgba(255,107,255,0.4), inset 0 0 100px rgba(255,215,0,0.2); }
+}
+@keyframes synthMaxRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes synthMaxIcon {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  60% { transform: scale(1.3) rotate(10deg); opacity: 1; }
+  80% { transform: scale(0.95) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes synthMaxBurst {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(3); opacity: 0; }
+}
+@keyframes synthGodIcon {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 @keyframes cardFlip {
   0% { transform: scaleX(1); }
   50% { transform: scaleX(0); }
@@ -2134,20 +2157,23 @@ function MonsterGacha() {
     if (rareItems.length > 0) {
       // Sort rare items by rank descending for dramatic reveal
       rareItems.sort((a, b) => a.rank - b.rank);
-      // Show items one by one with sequential timers
+      // Show items one by one with sequential timers (duration varies by rank)
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const perItem = 2500;
+      const getDuration = (r) => r >= 11 ? 4500 : r === 10 ? 3500 : 2500;
+      let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
+        const ms = elapsed;
         timers.push(setTimeout(() => {
           setSynthResult(prev => prev ? { ...prev, rareIndex: i } : null);
-        }, perItem * i));
+        }, ms));
+        elapsed += getDuration(rareItems[i].rank);
       }
       // After last item, show summary briefly then clear
       timers.push(setTimeout(() => {
         setSynthResult(prev => prev ? { ...prev, rareIndex: -1 } : null);
-      }, perItem * rareItems.length));
+      }, elapsed));
       timers.push(setTimeout(() => {
         setSynthResult(null);
         if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
@@ -6648,43 +6674,109 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
         ) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? (
           synthResult.rareIndex >= 0 ? (() => {
             const item = synthResult.rareItems[synthResult.rareIndex];
+            const isMax = item.rank >= 11;
+            const isGod = item.rank === 10;
             return (
-              <div key={synthResult.rareIndex} style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                background: item.rank >= 10
-                  ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))'
-                  : item.rank === 9
-                    ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
-                    : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
-                pointerEvents: 'none', animation: 'ri 0.4s ease-out' }}>
-                <div style={{ position: 'absolute', top: 24, right: 20, fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Rajdhani',sans-serif" }}>
-                  {synthResult.rareIndex + 1} / {synthResult.rareItems.length}
+              <React.Fragment key={synthResult.rareIndex}>
+                {/* ★MAX: triple burst flash */}
+                {isMax && <>
+                  <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.6), rgba(255,107,255,0.5), rgba(107,197,255,0.5), rgba(107,255,107,0.4))', animationDuration: '0.6s' }} />
+                  <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.5), transparent 50%)', animationDuration: '0.8s', animationDelay: '0.2s' }} />
+                  <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+                </>}
+                {/* ★10: GOD flash + shake (same as gacha) */}
+                {isGod && <>
+                  <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,107,107,0.4), rgba(255,209,61,0.4), rgba(107,255,107,0.4), rgba(107,197,255,0.4), rgba(208,107,255,0.4))' }} />
+                  <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+                </>}
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  background: isMax
+                    ? 'radial-gradient(circle, rgba(50,20,0,0.95), rgba(0,0,0,0.98))'
+                    : isGod
+                      ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))'
+                      : item.rank === 9
+                        ? 'radial-gradient(circle, rgba(60,40,0,0.92), rgba(0,0,0,0.97))'
+                        : 'radial-gradient(circle, rgba(40,45,60,0.92), rgba(0,0,0,0.97))',
+                  pointerEvents: 'none' }}>
+                  {/* ★MAX: rotating rainbow ring */}
+                  {isMax && <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%',
+                    border: '3px solid transparent',
+                    background: 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+                    WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                    WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+                    animation: 'synthMaxRotate 3s linear infinite',
+                    opacity: 0.6 }} />}
+                  {/* ★MAX: pulsing glow */}
+                  {isMax && <div style={{ position: 'absolute', width: 320, height: 320, borderRadius: '50%',
+                    animation: 'synthMaxPulse 2s ease-in-out infinite' }} />}
+                  {/* ★MAX: burst particles */}
+                  {isMax && <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(255,215,0,0.4), transparent 70%)',
+                    animation: 'synthMaxBurst 1.5s ease-out forwards' }} />}
+                  {/* Counter */}
+                  <div style={{ position: 'absolute', top: 24, right: 20, fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Rajdhani',sans-serif" }}>
+                    {synthResult.rareIndex + 1} / {synthResult.rareItems.length}
+                  </div>
+                  {/* Icon */}
+                  <div className={isMax ? '' : isGod ? 'rare-rainbow' : ''} style={{
+                    fontSize: isMax ? 100 : isGod ? 80 : 80, marginBottom: isMax ? 16 : 12,
+                    animation: isMax ? 'synthMaxIcon 1s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1s infinite' : 'synthGodIcon 0.6s ease-out forwards, heroIconFloat 2s ease-in-out 0.6s infinite',
+                    filter: isMax
+                      ? 'drop-shadow(0 0 30px rgba(255,215,0,0.9)) drop-shadow(0 0 60px rgba(255,107,255,0.5)) drop-shadow(0 0 90px rgba(255,255,255,0.3))'
+                      : isGod
+                        ? 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))'
+                        : `drop-shadow(0 0 20px ${item.rarity.color}) drop-shadow(0 0 40px ${item.rarity.color}80)` }}>
+                    {item.icon}
+                  </div>
+                  {/* Title text for ★MAX */}
+                  {isMax && <div className="rare-god-text" style={{ fontSize: 14, fontWeight: 900, letterSpacing: 6,
+                    color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.4)',
+                    fontFamily: "'Rajdhani',sans-serif", marginBottom: 10 }}>
+                    ★ M A X
+                  </div>}
+                  {/* Title text for ★10 GOD */}
+                  {isGod && <div className="rare-god-text" style={{ fontSize: 28, fontWeight: 900,
+                    background: 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)',
+                    backgroundSize: '200% 100%', animation: 'rareGodText 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, rainbowText 1.5s linear 0.8s infinite',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    filter: 'drop-shadow(0 0 15px rgba(255,215,0,0.6))',
+                    fontFamily: "'Orbitron',sans-serif", letterSpacing: 8 }}>
+                    G O D 合 成
+                  </div>}
+                  {/* Stars for ★8-9 */}
+                  {!isMax && !isGod && <div className={item.rank === 9 ? 'rank-gold' : 'rank-silver'}
+                    style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
+                    {renderStars(item.rank)}
+                  </div>}
+                  {/* Name */}
+                  <div className="rare-god-text" style={{
+                    fontSize: isMax ? 26 : isGod ? 22 : 22, fontWeight: 900, marginTop: isGod ? 12 : 0,
+                    background: isMax
+                      ? 'linear-gradient(135deg, #ffd700, #fff, #ff69b4, #ffd700)'
+                      : isGod
+                        ? 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)'
+                        : item.rank === 9
+                          ? 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)'
+                          : 'linear-gradient(180deg, #e8edf3, #c8d6e5, #e8edf3)',
+                    backgroundSize: isMax ? '300% 300%' : (isGod ? '200% 100%' : '100% 300%'),
+                    animation: isMax ? 'rareGodText 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, gradShift 2s ease 0.8s infinite' : (isGod ? 'rareGodText 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, rainbowText 1.5s linear 0.8s infinite' : 'rareGodText 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, gradShift 2s ease 0.8s infinite'),
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    filter: isMax ? 'drop-shadow(0 0 15px rgba(255,255,255,0.6))' : `drop-shadow(0 0 10px ${item.rarity.color}80)`,
+                    fontFamily: "'Orbitron',sans-serif" }}>
+                    {isMax ? `伝説の${item.name}！` : item.name}
+                  </div>
+                  {/* Subtitle */}
+                  <div style={{ fontSize: isMax ? 15 : 13, color: isMax ? '#ffd700' : item.rarity.color, marginTop: 8, fontWeight: 700, opacity: 0.8,
+                    textShadow: isMax ? '0 0 10px rgba(255,215,0,0.5)' : 'none' }}>
+                    {isMax ? '至高の合成' : isGod ? 'GOD 獲得！' : `${item.rarity.label} 獲得！`}
+                  </div>
+                  {/* ★10 stars */}
+                  {isGod && <div style={{ fontSize: 12, color: 'rgba(255,215,0,0.5)', marginTop: 6, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 4 }}>
+                    ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
+                  </div>}
+                  {item.count > 1 && <div style={{ fontSize: 14, color: '#fbbf24', fontWeight: 900, marginTop: 6 }}>×{item.count}</div>}
                 </div>
-                <div style={{ fontSize: 80, marginBottom: 12, animation: 'heroIconFloat 2s ease-in-out infinite',
-                  filter: `drop-shadow(0 0 20px ${item.rarity.color}) drop-shadow(0 0 40px ${item.rarity.color}80)` }}>
-                  {item.icon}
-                </div>
-                <div className={item.rank >= 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : 'rank-silver'}
-                  style={{ fontSize: 12, fontWeight: 700, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>
-                  {renderStars(item.rank)}
-                </div>
-                <div className="rare-god-text" style={{ fontSize: 22, fontWeight: 900,
-                  background: item.rank >= 10
-                    ? 'linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b)'
-                    : item.rank === 9
-                      ? 'linear-gradient(180deg, #ffd700, #fff8dc, #ffd700)'
-                      : 'linear-gradient(180deg, #e8edf3, #c8d6e5, #e8edf3)',
-                  backgroundSize: item.rank >= 10 ? '200% 100%' : '100% 300%',
-                  animation: item.rank >= 10 ? 'rainbowText 1.5s linear infinite' : 'gradShift 2s ease infinite',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  filter: `drop-shadow(0 0 10px ${item.rarity.color}80)`,
-                  fontFamily: "'Orbitron',sans-serif" }}>
-                  {item.name}
-                </div>
-                <div style={{ fontSize: 13, color: item.rarity.color, marginTop: 8, fontWeight: 700, opacity: 0.8 }}>
-                  {item.rarity.label} 獲得！
-                </div>
-                {item.count > 1 && <div style={{ fontSize: 14, color: '#fbbf24', fontWeight: 900, marginTop: 6 }}>×{item.count}</div>}
-              </div>
+              </React.Fragment>
             );
           })() : (
             <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
