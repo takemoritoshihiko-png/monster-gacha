@@ -1953,9 +1953,9 @@ function MonsterGacha() {
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr });
-        // Check if player owns 3+ unique ★MAX patterns → offer retry
+        // Check if player owns 5+ unique ★MAX patterns → offer retry
         const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
-        if (maxPatternsOwned >= 3) {
+        if (maxPatternsOwned >= 5) {
           setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon });
         }
         setRareEffect({ type: 'synthMax', name: nm.name, icon: nm.icon });
@@ -3514,7 +3514,7 @@ function MonsterGacha() {
               {synthRetry.resultName}が出ました
             </div>
             <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
-              ★MAXを3種類以上持っているため、<br/>1回だけやり直せます！
+              ★MAXを5種類以上持っているため、<br/>1回だけやり直せます！
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px',
