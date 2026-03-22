@@ -4723,10 +4723,10 @@ const QUICKDRAW_BGM = [
 
 const DRAW_REWARDS = [
   { maxMs: 150, coins: 130, label: '神速！', color: '#ffd700' },
-  { maxMs: 250, coins: 105, label: '超速い！', color: '#4ade80' },
-  { maxMs: 350, coins: 80, label: '速い！', color: '#60a5fa' },
-  { maxMs: 500, coins: 55, label: 'まあまあ', color: '#a78bfa' },
-  { maxMs: 800, coins: 30, label: '遅い...', color: '#94a3b8' },
+  { maxMs: 200, coins: 105, label: '超速い！', color: '#4ade80' },
+  { maxMs: 250, coins: 80, label: '速い！', color: '#60a5fa' },
+  { maxMs: 300, coins: 55, label: 'まあまあ', color: '#a78bfa' },
+  { maxMs: 500, coins: 30, label: '遅い...', color: '#94a3b8' },
   { maxMs: 9999, coins: 10, label: 'ギリギリ', color: '#64748b' },
 ];
 
@@ -5936,7 +5936,7 @@ function QuickDrawGame({ onDone }) {
   const perfectBonus = results.length >= TOTAL_ROUNDS && results.every(r => r.type === 'hit' && parseInt(r.label) < 250) ? 100 : 0;
   // Simpler perfect check
   const allFast = results.length >= TOTAL_ROUNDS && results.filter(r => r.type === 'hit').length === TOTAL_ROUNDS &&
-    results.every(r => { const m = r.label.match(/(\d+\.\d+)秒/); return m && parseFloat(m[1]) < 0.25; });
+    results.every(r => { const m = r.label.match(/(\d+\.\d+)秒/); return m && parseFloat(m[1]) < 0.20; });
   const totalWithBonus = currentTotal + (allFast ? 100 : 0);
 
   useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalWithBonus), 2000); return () => clearTimeout(t); } }, [phase]);
@@ -5950,8 +5950,8 @@ function QuickDrawGame({ onDone }) {
             敵が振り返った瞬間にタップ！<br/>全6ラウンド。お手つき注意！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            神速(&lt;0.15s)=🪙130 ／ 超速い(&lt;0.25s)=🪙105<br/>
-            速い(&lt;0.35s)=🪙80 ／ まあまあ(&lt;0.5s)=🪙55
+            神速(&lt;0.15s)=🪙130 ／ 超速い(&lt;0.2s)=🪙105<br/>
+            速い(&lt;0.25s)=🪙80 ／ まあまあ(&lt;0.3s)=🪙55
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
