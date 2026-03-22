@@ -2009,8 +2009,8 @@ function MonsterGacha() {
             histRef.orderByChild('timestamp').once('value').then(snap => {
               const keys = [];
               snap.forEach(child => keys.push(child.key));
-              if (keys.length > 8) {
-                keys.slice(0, keys.length - 8).forEach(k => histRef.child(k).remove());
+              if (keys.length > 4) {
+                keys.slice(0, keys.length - 4).forEach(k => histRef.child(k).remove());
               }
             }).catch(() => {});
           }
@@ -2469,7 +2469,7 @@ function MonsterGacha() {
   const [rareHistory, setRareHistory] = useState([]);
   useEffect(() => {
     if (!window.fbDb) return;
-    const ref = window.fbDb.ref('notifications/rareHistory').orderByChild('timestamp').limitToLast(8);
+    const ref = window.fbDb.ref('notifications/rareHistory').orderByChild('timestamp').limitToLast(4);
     const handler = ref.on('value', snapshot => {
       const hist = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name) hist.push(d); });
