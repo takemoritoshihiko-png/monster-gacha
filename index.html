@@ -443,7 +443,6 @@ function formatYen(n) {
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
 const GACHA_COST_20 = 400;
-const GACHA_COST_30 = 600;
 
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
@@ -458,10 +457,10 @@ function renderStars(rank) {
   const rColor = RARITIES[rank - 1]?.color || '#fbbf24';
   // 6th star onward: use a brighter accent color (no blur/glow)
   const accentColors = {
-    '#8e9aab': '#b0c0d0', '#a3b18a': '#c5d4a8', '#2ecc71': '#5eff9e',
-    '#3498db': '#6bc5ff', '#9b59b6': '#c084fc', '#e67e22': '#ffaa44',
-    '#ff4757': '#ff8a94', '#c8d6e5': '#ffffff', '#ffd700': '#fff4a3',
-    '#ff6b81': '#ffb3c1',
+    '#8e9aab': '#d0dae5', '#a3b18a': '#d4e8b0', '#2ecc71': '#80ffb0',
+    '#3498db': '#80d4ff', '#9b59b6': '#d4a0f0', '#e67e22': '#ffcc44',
+    '#ff4757': '#ff99a8', '#c8d6e5': '#ffffff', '#ffd700': '#ffff88',
+    '#ff6b81': '#ffc0cc',
   };
   const accent = accentColors[rColor] || '#ffffff';
   const stars = [];
@@ -1725,7 +1724,7 @@ function MonsterGacha() {
   }, [addToCollection]);
 
   const pull = useCallback((n) => {
-    const cost = n === 1 ? GACHA_COST_1 : n === 10 ? GACHA_COST_10 : n === 20 ? GACHA_COST_20 : GACHA_COST_30;
+    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
     if (coins < cost) return;
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
@@ -2886,9 +2885,9 @@ function MonsterGacha() {
                 )}
 
                 {/* Pull buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300, margin: '20px auto', padding: '0 8px' }}>
+                <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '16px auto', padding: '0 8px' }}>
                   <button className="btn bp" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
-                    style={{ width: '100%', justifyContent: 'center', fontSize: 18, fontWeight: 900, padding: '16px 24px',
+                    style={{ flex: 1, justifyContent: 'center', fontSize: 16, fontWeight: 900, padding: '14px 16px',
                       background: 'linear-gradient(180deg, rgba(100,60,160,0.7), rgba(60,35,100,0.85), rgba(100,60,160,0.7))',
                       border: '2px solid rgba(167,139,250,0.4)',
                       boxShadow: '0 4px 20px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
@@ -2897,22 +2896,13 @@ function MonsterGacha() {
                       backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
                     💎 10連（🪙{GACHA_COST_10}）
                   </button>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button className="btn bp" disabled={coins < GACHA_COST_20} onClick={() => pull(20)}
-                      style={{ flex: 1, justifyContent: 'center', fontSize: 14, padding: '12px 8px',
-                        background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
-                        border: '1px solid rgba(139,92,246,0.25)',
-                        boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                      🔥 20連（🪙{GACHA_COST_20}）
-                    </button>
-                    <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(30)}
-                      style={{ flex: 1, justifyContent: 'center', fontSize: 14, padding: '12px 8px',
-                        background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
-                        border: '1px solid rgba(139,92,246,0.25)',
-                        boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                      🌟 30連（🪙{GACHA_COST_30}）
-                    </button>
-                  </div>
+                  <button className="btn bp" disabled={coins < GACHA_COST_20} onClick={() => pull(20)}
+                    style={{ flex: 1, justifyContent: 'center', fontSize: 16, fontWeight: 900, padding: '14px 16px',
+                      background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
+                      border: '1px solid rgba(139,92,246,0.25)',
+                      boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                    🔥 20連（🪙{GACHA_COST_20}）
+                  </button>
                 </div>
 
                 {/* Probability table */}
@@ -2978,24 +2968,33 @@ function MonsterGacha() {
                 </div>
                 {/* Best pull highlight */}
                 {allOpened && (() => {
-                  const best = gachaResults.reduce((a, b) => a.rank > b.rank ? a : b);
-                  if (best.rank >= 6) {
-                    const rkCls = best.rank >= 10 ? 'rank-rainbow' : best.rank === 9 ? 'rank-gold' : best.rank === 8 ? 'rank-silver' : best.rank === 7 ? 'rank-epic' : 'rank-ultra';
-                    const cardCls = best.rank >= 10 ? 'rank10-card' : best.rank === 9 ? 'rank9-card' : best.rank === 8 ? 'rank8-card' : best.rank === 7 ? 'rank7-card' : 'rank6-card';
-                    return (
-                      <div style={{ margin: '10px auto', maxWidth: 280, padding: '14px 16px', borderRadius: 14, textAlign: 'center',
-                        background: 'linear-gradient(160deg, rgba(50,40,70,0.9), rgba(30,22,45,0.95))',
-                        border: `2px solid ${best.rarity.color}60`,
-                        boxShadow: `0 0 20px ${best.rarity.color}20` }}>
-                        <div style={{ fontSize: 9, opacity: 0.5, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 6 }}>TODAY'S BEST</div>
-                        <div style={{ fontSize: 48, marginBottom: 4, filter: `drop-shadow(0 0 8px ${best.rarity.color})` }}>{best.icon}</div>
-                        <div className={rkCls} style={{ fontSize: 16, fontWeight: 900 }}>{best.name}</div>
-                        <div className={rkCls} style={{ fontSize: 12, marginTop: 2 }}>{renderStars(best.rank)}</div>
-                        <div style={{ fontSize: 10, color: best.typeColor, marginTop: 4 }}>{best.typeEmoji} {best.typeName}</div>
+                  const rares = gachaResults.filter(r => r.rank >= 6).sort((a, b) => b.rank - a.rank);
+                  if (rares.length === 0) return null;
+                  return (
+                    <div style={{ margin: '10px auto', maxWidth: 320, padding: '10px 12px', borderRadius: 14,
+                      background: 'linear-gradient(160deg, rgba(50,40,70,0.9), rgba(30,22,45,0.95))',
+                      border: '1px solid rgba(139,92,246,0.3)',
+                      boxShadow: '0 0 16px rgba(139,92,246,0.15)' }}>
+                      <div style={{ fontSize: 9, opacity: 0.5, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 8, textAlign: 'center' }}>
+                        RARE ITEMS
                       </div>
-                    );
-                  }
-                  return null;
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                        {rares.map((item, idx) => {
+                          const rkCls = item.rank >= 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : 'rank-ultra';
+                          return (
+                            <div key={idx} onClick={() => setModal(item)} style={{ textAlign: 'center', cursor: 'pointer',
+                              padding: '6px 8px', borderRadius: 10,
+                              background: `${item.rarity.color}10`, border: `1px solid ${item.rarity.color}30`,
+                              boxShadow: `0 0 8px ${item.rarity.color}15`, minWidth: 60 }}>
+                              <div style={{ fontSize: 32, filter: `drop-shadow(0 0 6px ${item.rarity.color})` }}>{item.icon}</div>
+                              <div className={rkCls} style={{ fontSize: 9, fontWeight: 900 }}>{item.name}</div>
+                              <div style={{ fontSize: 8, color: item.rarity.color }}>{renderStars(item.rank)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
                 })()}
                 {allOpened && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -3004,9 +3003,6 @@ function MonsterGacha() {
                     </button>
                     <button className="btn bp" style={{ fontSize: 12, padding: '8px 12px', background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={coins < GACHA_COST_20} onClick={() => pull(20)}>
                       20連（🪙{GACHA_COST_20}）
-                    </button>
-                    <button className="btn bp" style={{ fontSize: 12, padding: '8px 12px', background: 'linear-gradient(135deg, #f59e0b, #ef4444)' }} disabled={coins < GACHA_COST_30} onClick={() => pull(30)}>
-                      30連（🪙{GACHA_COST_30}）
                     </button>
                   </div>
                 )}
@@ -6036,24 +6032,24 @@ function CollectionView({ collection, onSelect }) {
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
       </div>
-      {/* Hall of Fame - ★8+ items */}
+      {/* Legendary Collection - ★9+ items */}
       {(() => {
-        const rareItems = all.filter(m => m.owned && m.rank >= 8);
+        const rareItems = all.filter(m => m.owned && m.rank >= 9);
         if (rareItems.length === 0) return null;
         return (
           <div style={{ marginBottom: 14, padding: '10px 12px', borderRadius: 12,
             background: 'linear-gradient(160deg, rgba(50,40,70,0.6), rgba(30,22,45,0.7))',
             border: '1px solid rgba(139,92,246,0.2)' }}>
             <div style={{ fontSize: 10, textAlign: 'center', opacity: 0.5, marginBottom: 8,
-              fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>HALL OF FAME</div>
+              fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>LEGENDARY COLLECTION</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
               {rareItems.sort((a,b) => b.rank - a.rank).map(m => {
                 const rkCls = m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : 'rank-silver';
                 return (
                   <div key={m.key} onClick={() => onSelect(m)} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 8px',
                     borderRadius: 10, background: `${m.rarity.color}10`, border: `1px solid ${m.rarity.color}30`,
-                    boxShadow: `0 0 8px ${m.rarity.color}15`, minWidth: 60 }}>
-                    <div style={{ fontSize: 28, filter: `drop-shadow(0 0 4px ${m.rarity.color})` }}>{m.icon}</div>
+                    boxShadow: `0 0 8px ${m.rarity.color}15`, minWidth: 70 }}>
+                    <div style={{ fontSize: 38, filter: `drop-shadow(0 0 4px ${m.rarity.color})` }}>{m.icon}</div>
                     <div className={rkCls} style={{ fontSize: 8, fontWeight: 900 }}>{m.name}</div>
                     {m.count > 1 && <div style={{ fontSize: 7, opacity: 0.5 }}>×{m.count}</div>}
                   </div>
