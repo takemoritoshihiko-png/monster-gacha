@@ -148,9 +148,9 @@ class BGMPlayer {
 const bgm = new BGMPlayer();
 
 // Global volume levels (0.0 - 1.0)
-let volMainBgm = 0.5;
-let volGameBgm = 0.5;
-let volSfx = 0.5;
+let volMainBgm = 0.4;
+let volGameBgm = 1.0;
+let volSfx = 1.0;
 // Load saved volumes
 try {
   const sv = JSON.parse(localStorage.getItem('gacha_volumes') || '{}');
