@@ -4154,8 +4154,8 @@ function TapGame({ onDone }) {
             }}>{g.icon}</div>
           ))}
           {/* Full-width tap area */}
-          <div onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}
-            style={{ position: 'relative', marginTop: 12, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 1 }}>
+          <div onPointerDown={e => { e.preventDefault(); handleTap(); }}
+            style={{ position: 'relative', marginTop: 12, cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 1, touchAction: 'none' }}>
             {/* Rock/ore */}
             <div key={shakeKey} style={{
               width: 200, height: 200, margin: '0 auto', borderRadius: '50%',
@@ -4872,8 +4872,7 @@ function TimingGame({ onDone }) {
             cursor: tapCount < TOTAL_TAPS ? 'pointer' : 'default',
             userSelect: 'none',
           }}
-            onClick={handleTap}
-            onTouchStart={e => { e.preventDefault(); handleTap(); }}>
+            onPointerDown={e => { e.preventDefault(); handleTap(); }}>
             <div style={{ fontSize: 36, marginBottom: 4 }}>👆</div>
             <div style={{ fontSize: 13, fontWeight: 900, color: '#a78bfa' }}>
               {tapCount < TOTAL_TAPS ? `TAP (${tapCount}/${TOTAL_TAPS})` : '完了！'}
@@ -5366,7 +5365,7 @@ function ShootingGame({ onDone }) {
           <div style={{ position: 'relative', marginTop: 8, display: 'inline-block' }}>
             <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
               style={{ borderRadius: 14, border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', cursor: 'crosshair' }}
-              onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(e); }} />
+              onPointerDown={e => { e.preventDefault(); handleTap(e); }} />
             {floats.map(f => (
               <div key={f.id} className="ft" style={{ color: f.color, left: `${f.x}%`, top: '50%', fontSize: 12, fontWeight: 900 }}>{f.label}</div>
             ))}
@@ -5699,7 +5698,7 @@ function CoinTowerGame({ onDone }) {
           <div className="tb"><div className="tf" style={{ width: `${(timeLeft / DURATION) * 100}%` }} /></div>
           <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
             style={{ borderRadius: 14, border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%', marginTop: 8, cursor: 'pointer' }}
-            onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }} />
+            onPointerDown={e => { e.preventDefault(); handleTap(); }} />
         </div>
       )}
       {phase === "done" && (
@@ -6232,7 +6231,7 @@ function QuickDrawGame({ onDone }) {
         </>
       )}
       {["waiting","draw","result"].includes(phase) && (
-        <div onClick={handleTap} onTouchStart={e => { e.preventDefault(); handleTap(); }}
+        <div onPointerDown={e => { e.preventDefault(); handleTap(); }}
           style={{ minHeight: 350, display: 'flex', flexDirection: 'column', alignItems: 'center',
             cursor: 'pointer', userSelect: 'none', touchAction: 'none', position: 'relative' }}>
           <div className="sr" style={{ width: '100%' }}>
