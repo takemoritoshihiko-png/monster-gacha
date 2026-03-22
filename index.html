@@ -6934,6 +6934,21 @@ function CollectionView({ collection, onSelect }) {
         ))}
       </div>
       <div className="cg">
+        {/* Congratulations items at the top */}
+        {filter === "all" && CONGRATS_TIERS.map(ct => {
+          const owned = !!collection[ct.key];
+          const rkCls = owned ? (ct.tier >= 3 ? 'rank-ultimate' : ct.tier === 2 ? 'rank-congrats' : 'rank-diamond') : '';
+          return (
+            <div key={ct.key} className={`ci ${!owned ? 'un' : ''} god`}
+              style={{ borderColor: owned ? ct.tierColor + '60' : 'transparent' }}>
+              <div>{owned ? ct.icon : '❓'}</div>
+              <div className={`cn ${rkCls}`} style={{ color: rkCls ? undefined : '#444' }}>
+                {owned ? ct.name : '???'}
+              </div>
+              {owned && <div style={{ fontSize: 6, color: '#a78bfa', opacity: 0.7 }}>💰{formatYen(POWER_VALUES[11])}</div>}
+            </div>
+          );
+        })}
         {shown.map(m => {
           const rkCls = m.owned ? (m.rank >= 12 ? 'rank-congrats' : m.rank >= 11 ? 'rank-diamond' : m.rank === 10 ? 'rank-rainbow' : m.rank === 9 ? 'rank-gold' : m.rank === 8 ? 'rank-silver' : m.rank === 7 ? 'rank-epic' : m.rank === 6 ? 'rank-ultra' : '') : '';
           return (
