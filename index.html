@@ -1962,7 +1962,8 @@ function MonsterGacha() {
   };
 
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
-    playSynthSound(targetRank);
+    bgm.stop(); mainBgmRef.current = false;
+    setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
     if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
@@ -2020,7 +2021,8 @@ function MonsterGacha() {
         setTimeout(() => setRareEffect(null), 3500);
       }
     }
-    setTimeout(() => setSynthResult(null), targetRank >= 10 ? 4000 : 2000);
+    const synthDuration = targetRank >= 10 ? 4000 : 2000;
+    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; bgm.playLoop(BGM_MAIN, 120); mainBgmRef.current = true; } }, synthDuration);
   }, [collection]);
 
   const doSynthMaxRetry = useCallback(() => {
@@ -2051,7 +2053,8 @@ function MonsterGacha() {
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
     const maxTarget = Math.max(...candidates.map(c => c.targetRank));
-    playSynthSound(maxTarget);
+    bgm.stop(); mainBgmRef.current = false;
+    setTimeout(() => playSynthSound(maxTarget), 200);
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
     setCollection(prev => {
       const n = { ...prev };
@@ -2090,7 +2093,7 @@ function MonsterGacha() {
       return n;
     });
     setSynthResult({ batch: true, count: totalSynths });
-    setTimeout(() => setSynthResult(null), 2500);
+    setTimeout(() => { setSynthResult(null); if (bgmEnabled) { mainBgmRef.current = false; bgm.playLoop(BGM_MAIN, 120); mainBgmRef.current = true; } }, 2500);
   }, [findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); };
