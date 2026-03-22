@@ -1656,47 +1656,56 @@ function MonsterGacha() {
   const [volGame, setVolGame] = useState(volGameBgm);
   const [volSfxState, setVolSfxState] = useState(volSfx);
   const [showVolPanel, setShowVolPanel] = useState(false);
+  const receivingRef = useRef(false);
   const receiveGifts = useCallback(() => {
-    if (pendingGifts.length === 0) return;
+    if (pendingGifts.length === 0 || receivingRef.current) return;
+    receivingRef.current = true;
     const accepted = [];
-    pendingGifts.forEach(gift => {
-      // ★11/★12 gifts are blocked - skip and remove
-      if (gift.rank >= 11) {
-        window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
-        return;
-      }
-      // Normal gift acceptance
-      const key = `${gift.typeId}_${gift.rank}`;
-      setCollection(prev => {
-        const n = { ...prev };
+    setCollection(prev => {
+      const n = { ...prev };
+      pendingGifts.forEach(gift => {
+        // ★11/★12 gifts are blocked
+        if (gift.rank >= 11) {
+          window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove().catch(() => {});
+          return;
+        }
+        // Validate gift data
+        const type = TYPES.find(t => t.id === gift.typeId);
+        if (!type || !MONSTERS[gift.typeId] || !MONSTERS[gift.typeId][gift.rank - 1] || !RARITIES[gift.rank - 1]) {
+          window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove().catch(() => {});
+          return;
+        }
+        const key = `${gift.typeId}_${gift.rank}`;
         if (n[key]) {
           n[key] = { ...n[key], count: n[key].count + (gift.count || 1) };
         } else {
-          const type = TYPES.find(t => t.id === gift.typeId);
           const m = MONSTERS[gift.typeId][gift.rank - 1];
           const rarity = RARITIES[gift.rank - 1];
           n[key] = { ...m, typeId: gift.typeId, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: gift.rank, rarity, count: gift.count || 1 };
         }
-        return n;
+        accepted.push(gift);
+        window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove().catch(() => {});
       });
-      accepted.push(gift);
-      window.fbDb.ref('gifts/' + nickname + '/' + gift.fbKey).remove();
+      return n;
     });
     if (accepted.length > 0) {
       setShowGiftReceived(accepted);
       setTimeout(() => setShowGiftReceived(null), 4000);
     }
     setPendingGifts([]);
-  }, [pendingGifts, nickname, collection]);
+    receivingRef.current = false;
+  }, [pendingGifts, nickname]);
 
   const sendGift = useCallback((itemKey, recipientName) => {
-    if (!nickname || !recipientName || !window.fbDb) return;
-    if (recipientName === nickname) return;
+    const trimmedName = (recipientName || '').trim();
+    if (!nickname || !trimmedName || !window.fbDb) return;
+    if (trimmedName === nickname) return;
+    if (trimmedName.length > 20) return;
     const today = new Date().toISOString().slice(0, 10);
     const todayCount = lastGiftDate === today ? giftsSentToday : 0;
     if (todayCount >= 3) return;
     const item = collection[itemKey];
-    if (!item || item.count <= 1) return;
+    if (!item || item.count <= 1 || item.rank >= 11) return;
     const giftValue = POWER_VALUES[item.rank - 1] || 0;
     setCollection(prev => {
       const n = { ...prev };
@@ -1704,18 +1713,18 @@ function MonsterGacha() {
       if (n[itemKey].count <= 0) delete n[itemKey];
       return n;
     });
-    window.fbDb.ref('gifts/' + recipientName).push({
+    window.fbDb.ref('gifts/' + trimmedName).push({
       typeId: item.typeId, rank: item.rank, name: item.name, icon: item.icon,
       count: 1, from: nickname, value: giftValue, timestamp: Date.now()
-    });
+    }).catch(() => { setSaveMsg('⚠️ 送信に失敗しました'); setTimeout(() => setSaveMsg(''), 3000); });
     setGiftsSentToday(todayCount + 1);
     setLastGiftDate(today);
     setTotalGiftValue(prev => prev + giftValue);
-    window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue);
+    window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue).catch(() => {});
     contributeMission('gift', giftValue);
     sfx('sell');
     setShowGiftModal(null);
-    setSaveMsg('🎁 ' + recipientName + 'に' + item.name + 'を送りました！');
+    setSaveMsg('🎁 ' + trimmedName + 'に' + item.name + 'を送りました！');
     setTimeout(() => setSaveMsg(''), 3000);
   }, [nickname, collection, giftsSentToday, lastGiftDate]);
 
