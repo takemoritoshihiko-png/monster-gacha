@@ -3047,18 +3047,22 @@ function MonsterGacha() {
               {/* Rare pull notifications */}
               {rareNotifs.length > 0 && (
                 <div style={{ margin: '12px 0', position: 'relative', zIndex: 1 }}>
-                  {rareNotifs.slice(0, 3).map((n, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-                      fontSize: 10, opacity: 0.7, justifyContent: 'center' }}>
-                      <span>{n.icon}</span>
-                      <span style={{ color: '#c084fc' }}>{n.name}</span>
-                      <span>が</span>
-                      <span style={{ fontWeight: 700, color: n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
-                        ★{n.rank} {n.item}
-                      </span>
-                      <span>を入手！</span>
-                    </div>
-                  ))}
+                  {rareNotifs.slice(0, 4).map((n, i) => {
+                    const d = new Date(n.timestamp);
+                    const ts = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                        fontSize: 10, opacity: 0.7, justifyContent: 'center' }}>
+                        <span style={{ opacity: 0.4, fontSize: 8 }}>{ts}</span>
+                        <span>{n.icon}</span>
+                        <span style={{ color: '#c084fc' }}>{n.name}</span>
+                        <span>が</span>
+                        <span style={{ fontWeight: 700, color: n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
+                          ★{n.rank} {n.item}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -3285,54 +3289,6 @@ function MonsterGacha() {
               🪙 2秒ごとに1コイン自動回復 ／ 離脱時最大5,000コイン
             </div>
 
-            {/* Storage diagnostics */}
-            <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: storageOk ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.08)', border: `1px solid ${storageOk ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.2)'}` }}>
-              <div style={{ fontSize: 10, marginBottom: 4 }}>
-                💾 {storageOk ? '✅ ストレージ接続OK' : '❌ ストレージ未接続'} ／ スロット: {slotId ?? '-'}
-              </div>
-              {!storageOk && (
-                <button onClick={async () => {
-                  addLog("手動テスト...");
-                  try {
-                    if (!window.storage) { addLog("window.storage = " + typeof window.storage); return; }
-                    const tv = "manual_" + Date.now();
-                    const wr = await window.storage.set('tgacha-manual', tv);
-                    addLog("手動SET: " + JSON.stringify(wr).slice(0, 50));
-                    const rd = await window.storage.get('tgacha-manual');
-                    addLog("手動GET: " + (rd?.value || "null") + " expect=" + tv);
-                    addLog(rd?.value === tv ? "手動テスト✅成功" : "手動テスト❌失敗");
-                  } catch(e) { addLog("手動テスト例外: " + e.message); }
-                }} style={{ fontSize: 10, padding: '6px 12px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', marginBottom: 6, display: 'block' }}>
-                  🔧 ストレージテスト実行
-                </button>
-              )}
-              {/* ★9+ Rare Gacha History (replaces storage log on home) */}
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: '#fbbf24', marginBottom: 6 }}>🏆 レアガチャ履歴</div>
-                {rareHistory.length > 0 ? (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '6px 10px', border: '1px solid rgba(255,215,0,0.1)' }}>
-                    {rareHistory.map((h, i) => {
-                      const d = new Date(h.timestamp);
-                      const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-                      return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0',
-                          borderBottom: i < rareHistory.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', fontSize: 10 }}>
-                          <span style={{ opacity: 0.4, minWidth: 52, fontSize: 9 }}>{dateStr}</span>
-                          <span style={{ fontSize: 16 }}>{h.icon}</span>
-                          <span style={{ color: '#c084fc', fontWeight: 700 }}>{h.name}</span>
-                          <span style={{ opacity: 0.5 }}>が</span>
-                          <span style={{ fontWeight: 900, color: h.rank >= 10 ? '#ff6b81' : h.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
-                            ★{h.rank} {h.item}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 10, opacity: 0.3, textAlign: 'center', padding: 10 }}>まだ★8以上の履歴がありません</div>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
