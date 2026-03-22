@@ -975,6 +975,15 @@ const CSS = `
   filter: drop-shadow(0 0 12px rgba(255,215,0,1)) drop-shadow(0 0 24px rgba(255,105,180,0.7)) drop-shadow(0 0 36px rgba(123,104,238,0.5));
 }
 @keyframes congratsShift { 0%,100%{background-position:0% 50%} 33%{background-position:100% 0%} 66%{background-position:50% 100%} }
+/* ★12 Tier3 Ultimate - distinct from rank-congrats */
+.rank-ultimate {
+  background: linear-gradient(135deg, #00ffcc, #fff, #7b68ee, #00ffcc, #ffd700, #ff69b4, #00ffcc, #fff);
+  background-size: 800% 800%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: ultimateShift 2s ease infinite;
+  filter: drop-shadow(0 0 14px rgba(0,255,204,1)) drop-shadow(0 0 28px rgba(123,104,238,0.8)) drop-shadow(0 0 42px rgba(255,215,0,0.5));
+}
+@keyframes ultimateShift { 0%,100%{background-position:0% 0%} 25%{background-position:100% 50%} 50%{background-position:50% 100%} 75%{background-position:0% 50%} }
 @keyframes congratsGlow {
   0%,100% { box-shadow: 0 0 20px rgba(255,215,0,0.4), 0 0 40px rgba(255,105,180,0.3), 0 0 60px rgba(123,104,238,0.2); }
   50% { box-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,105,180,0.5), 0 0 120px rgba(123,104,238,0.3); }
@@ -7532,12 +7541,13 @@ function RankingScreen() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className={r.congratsTier >= 3 ? 'rank-congrats' : r.congratsTier === 2 ? 'rank-congrats' : r.congratsTier === 1 ? 'rank-diamond' : ''}
+                  <span className={r.congratsTier >= 3 ? 'rank-ultimate' : r.congratsTier === 2 ? 'rank-congrats' : r.congratsTier === 1 ? 'rank-diamond' : ''}
                     style={{ fontSize: 14, fontWeight: 900, color: r.congratsTier ? undefined : '#e0e0e0' }}>{r.name}</span>
                   {r.congratsTier >= 3 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
-                    background: 'linear-gradient(135deg, rgba(0,255,204,0.2), rgba(123,104,238,0.15))',
-                    border: '1px solid rgba(0,255,204,0.4)', fontWeight: 900, letterSpacing: 1 }}>
-                    <span className="rank-congrats" style={{ fontSize: 9 }}>💠ULT</span></span>}
+                    background: 'linear-gradient(135deg, rgba(0,255,204,0.25), rgba(123,104,238,0.2))',
+                    border: '1px solid rgba(0,255,204,0.5)', fontWeight: 900, letterSpacing: 1,
+                    boxShadow: '0 0 8px rgba(0,255,204,0.3)' }}>
+                    <span className="rank-ultimate" style={{ fontSize: 9 }}>💠ULT</span></span>}
                   {r.congratsTier === 2 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
                     background: 'linear-gradient(135deg, rgba(255,105,180,0.15), rgba(255,215,0,0.1))',
                     border: '1px solid rgba(255,105,180,0.3)', fontWeight: 900, letterSpacing: 1 }}>
