@@ -1988,8 +1988,8 @@ function MonsterGacha() {
             rarity: r.rarity.label, timestamp: Date.now()
           });
         }
-        // ★9+ gacha history log (max 6, newest first)
-        if (r.rank >= 9 && nickname && window.fbDb) {
+        // ★8+ gacha history log (max 8, newest first)
+        if (r.rank >= 8 && nickname && window.fbDb) {
           const histRef = window.fbDb.ref('rareHistory');
           histRef.push({
             name: nickname, rank: r.rank, item: r.name, icon: r.icon,
@@ -3305,7 +3305,7 @@ function MonsterGacha() {
                           <span style={{ fontSize: 16 }}>{h.icon}</span>
                           <span style={{ color: '#c084fc', fontWeight: 700 }}>{h.name}</span>
                           <span style={{ opacity: 0.5 }}>が</span>
-                          <span style={{ fontWeight: 900, color: h.rank >= 10 ? '#ff6b81' : '#ffd700' }}>
+                          <span style={{ fontWeight: 900, color: h.rank >= 10 ? '#ff6b81' : h.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
                             ★{h.rank} {h.item}
                           </span>
                         </div>
@@ -3313,7 +3313,7 @@ function MonsterGacha() {
                     })}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 10, opacity: 0.3, textAlign: 'center', padding: 10 }}>まだ★9以上の履歴がありません</div>
+                  <div style={{ fontSize: 10, opacity: 0.3, textAlign: 'center', padding: 10 }}>まだ★8以上の履歴がありません</div>
                 )}
               </div>
             </div>
