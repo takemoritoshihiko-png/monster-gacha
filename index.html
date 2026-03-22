@@ -3753,9 +3753,14 @@ function MonsterGacha() {
             if (!trimName || !window.fbDb || item.rank >= 11) return;
             const reqRef = window.fbDb.ref('notifications/itemRequests');
             reqRef.orderByChild('name').equalTo(trimName).once('value').then(snap => {
-              const removes = [];
-              snap.forEach(child => removes.push(child.ref.remove()));
-              return Promise.all(removes);
+              const existing = [];
+              snap.forEach(child => existing.push({ key: child.key, ts: child.val().timestamp || 0 }));
+              if (existing.length >= 2) {
+                // Remove oldest to make room (keep 1, add 1 = max 2)
+                existing.sort((a, b) => a.ts - b.ts);
+                const removes = existing.slice(0, existing.length - 1).map(e => reqRef.child(e.key).remove());
+                return Promise.all(removes);
+              }
             }).then(() => {
               return reqRef.push({
                 name: trimName, typeId: item.typeId, rank: item.rank, icon: item.icon || item.typeEmoji,
