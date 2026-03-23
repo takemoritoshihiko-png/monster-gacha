@@ -2112,7 +2112,7 @@ function MonsterGacha() {
         });
       }, revealDelay);
     }, Number(time)));
-  }, [addToCollection, nickname]);
+  }, [addToCollection, nickname, uraUnlocked, uraPool]);
 
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
