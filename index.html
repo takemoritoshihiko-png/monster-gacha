@@ -2469,31 +2469,20 @@ function MonsterGacha() {
       return;
     }
     const isMinigamePlaying = screen === 'minigame' && miniGame;
-    const isGachaOpening = screen === 'gacha' && gachaPhase === 'chests';
+    const isGachaOpening = screen === 'gacha' && (gachaPhase === 'chests' || gachaPhase === 'uraReveal');
     const shouldPlay = !isMinigamePlaying && !isGachaOpening;
 
     if (shouldPlay && !mainBgmRef.current) {
       const tryPlay = () => {
         if (mainBgmRef.current) return;
-        if (audioCtx && audioCtx.state === 'suspended') {
-          // AudioContext still suspended — wait for user interaction
-          const resumeOnTouch = () => {
-            document.removeEventListener('touchstart', resumeOnTouch);
-            document.removeEventListener('click', resumeOnTouch);
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            setTimeout(() => {
-              if (!mainBgmRef.current && volMain > 0) {
-                mainBgmControl.play();
-                mainBgmRef.current = true;
-              }
-            }, 200);
-          };
-          document.addEventListener('touchstart', resumeOnTouch, { once: true });
-          document.addEventListener('click', resumeOnTouch, { once: true });
-        } else {
-          mainBgmControl.play();
-          mainBgmRef.current = true;
-        }
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        // Retry after resume
+        setTimeout(() => {
+          if (!mainBgmRef.current && volMain > 0) {
+            mainBgmControl.play();
+            mainBgmRef.current = true;
+          }
+        }, 300);
       };
       const t = setTimeout(tryPlay, 500);
       return () => clearTimeout(t);
@@ -2833,7 +2822,7 @@ function MonsterGacha() {
                   borderRadius: 16, padding: 16,
                   display: 'flex', alignItems: 'center', gap: 14,
                   cursor: 'pointer', transition: 'all 0.2s',
-                }} onClick={() => loadSlot(id)}
+                }} onClick={() => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); loadSlot(id); }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = data ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
                 >
@@ -2883,7 +2872,7 @@ function MonsterGacha() {
           {/* Back to home button when coming from slot change */}
           {prevSlotId !== null && (
             <button className="btn bs" style={{ marginTop: 20, fontSize: 13, padding: '10px 24px' }}
-              onClick={() => loadSlot(prevSlotId)}>
+              onClick={() => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); loadSlot(prevSlotId); }}>
               🏠 ホームに戻る（スロット{prevSlotId}）
             </button>
           )}
