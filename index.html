@@ -2317,6 +2317,9 @@ function MonsterGacha() {
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
+        if (nickname && window.fbDb) {
+          window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+        }
         // Check if player owns 5+ unique ★MAX patterns → offer retry
         const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
         if (maxPatternsOwned >= 4) {
@@ -2366,6 +2369,9 @@ function MonsterGacha() {
       if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
       else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
       setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
+      if (nickname && window.fbDb) {
+        window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+      }
       playSynthSound(11);
       synthQueueRef.current = [setTimeout(() => setSynthResult(null), 4000)];
       return n;
@@ -2404,6 +2410,9 @@ function MonsterGacha() {
           if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
           else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
           rareItems.push({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, count: 1, img: nm.img });
+          if (nickname && window.fbDb) {
+            window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+          }
         }
       } else {
         const avail = n[c.key]?.count || 0;
@@ -3175,8 +3184,8 @@ function MonsterGacha() {
                         <span>{n.icon}</span>
                         <span style={{ color: '#c084fc' }}>{n.name}</span>
                         <span>が</span>
-                        <span style={{ fontWeight: 700, color: n.isUra ? '#c0a0ff' : n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
-                          ★{n.rank} {n.item}
+                        <span style={{ fontWeight: 700, color: n.isUra ? '#c0a0ff' : n.isSynth ? '#4ade80' : n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
+                          {n.isSynth ? '⚗️' : '★'}{n.rank} {n.item}
                         </span>
                       </div>
                     );
