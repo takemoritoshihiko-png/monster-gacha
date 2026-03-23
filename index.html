@@ -2503,7 +2503,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', pinball: 'ピンボール', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', pinball: 'ピンボール', chainBurst: 'チェインバースト', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -2658,7 +2658,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, quickdraw: 880, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000, coinRunner: 3200, pinball: 3200 };
+  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, quickdraw: 880, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000, coinRunner: 3200, pinball: 3200, chainBurst: 3000 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -3802,6 +3802,7 @@ function MonsterGacha() {
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
                   { id: "pinball", icon: "🎱", name: "ピンボール" },
+                  { id: "chainBurst", icon: "💥", name: "チェインバースト" },
                 ]},
               { label: '📐 計算', color: 'rgba(251,191,36,0.2)', bg: 'linear-gradient(180deg, rgba(65,60,55,0.85), rgba(38,35,32,0.95))', border: 'rgba(160,140,100,0.2)',
                 games: [
@@ -3847,6 +3848,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
         {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onDone={(c) => handleMiniGameDone('coinRunner', c)} />}
         {screen === "minigame" && miniGame === "pinball" && <PinballGame onDone={(c) => handleMiniGameDone('pinball', c)} />}
+        {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onDone={(c) => handleMiniGameDone('chainBurst', c)} />}
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
@@ -6994,6 +6996,247 @@ function CoinRunnerGame({ onDone }) {
 // ============================================================
 // PINBALL GAME (80 seconds pinball with flippers)
 // ============================================================
+// ============================================================
+// CHAIN BURST GAME (70 seconds bubble chain explosion)
+// ============================================================
+function ChainBurstGame({ onDone }) {
+  const canvasRef = useRef(null);
+  const gameRef = useRef(null);
+  const rafRef = useRef(null);
+  const [phase, setPhase] = useState("ready");
+  const [score, setScore] = useState(0);
+  const partsRef = useRef([]);
+
+  const W = 320, H = 420, TOTAL = 70;
+  const BTYPES = [
+    {col:'#ff4466',glow:'#ff0033',r:22,val:6,chainR:64,freq:1.0},
+    {col:'#44aaff',glow:'#0066ff',r:20,val:5,chainR:58,freq:1.0},
+    {col:'#ffcc00',glow:'#ff8800',r:19,val:7,chainR:55,freq:0.7},
+    {col:'#44ff88',glow:'#00cc44',r:17,val:5,chainR:50,freq:0.8},
+    {col:'#ff88ff',glow:'#cc00cc',r:26,val:12,chainR:74,freq:0.3},
+    {col:'#ffffff',glow:'#88ccff',r:15,val:4,chainR:46,freq:0.9},
+  ];
+  const pickBType = () => { const tot=BTYPES.reduce((s,t)=>s+t.freq,0); let r=Math.random()*tot; for(const t of BTYPES){r-=t.freq;if(r<=0)return t;} return BTYPES[0]; };
+  const chainMult = (n) => n>=20?2.0:n>=15?1.8:n>=10?1.5:n>=5?1.2:1.0;
+
+  const initGame = () => ({
+    running:true, over:false, t:TOTAL, coins:0,
+    bubbles:[], spawnT:0,
+    chainActive:false, chainCount:0, chainTimer:0, CHAIN_WINDOW:0.55,
+    maxChain:0, totalPops:0, floats:[], floatId:0,
+  });
+
+  const startGame = () => {
+    gameRef.current = initGame();
+    partsRef.current = [];
+    setPhase("play"); setScore(0);
+    bgm.playLoop(BGM_CALC, 120);
+  };
+
+  const spawnBubble = (G) => {
+    const t = pickBType();
+    const slow = Math.random() < 0.30;
+    const speedMult = slow ? 0.2+Math.random()*0.4 : 1.8+Math.random()*2.7;
+    const angle = Math.random()*Math.PI*2;
+    G.bubbles.push({ ...t, x:t.r+10+Math.random()*(W-t.r*2-20), y:t.r+10+Math.random()*(H*0.7), vx:Math.cos(angle)*60*speedMult, vy:Math.sin(angle)*60*speedMult, age:0, alive:true, scale:0, pulse:Math.random()*Math.PI*2 });
+  };
+
+  const burstAt = (x,y,cols,n) => { for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=3+Math.random()*5; partsRef.current.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,col:cols[i%cols.length],r:2+Math.random()*4});} };
+
+  const explodeRef = useRef(null);
+  explodeRef.current = (b, G, depth=0) => {
+    if(!b.alive) return;
+    b.alive = false;
+    G.chainCount++; G.totalPops++;
+    if(G.chainCount > G.maxChain) G.maxChain = G.chainCount;
+    const mult = chainMult(G.chainCount);
+    const earn = Math.round(b.val * mult);
+    G.coins += earn;
+    const noteFreq = 262 * Math.pow(2, ((G.chainCount-1)%8)/12);
+    playNote(noteFreq, 0.15, 'sine', 0.12);
+    if(G.chainCount > 1 && G.chainCount%8===1) playNote(noteFreq*2, 0.1, 'triangle', 0.06, 0.03);
+    burstAt(b.x, b.y, [b.col,'#fff',b.glow], 10);
+    G.floats.push({id:++G.floatId, x:b.x, y:b.y, text:'+'+earn, life:0.9, color: mult>=1.8?'#ffd700':mult>=1.2?'#ffaa44':'#fff'});
+    G.chainTimer = G.CHAIN_WINDOW;
+    G.chainActive = true;
+    // Chain to nearby
+    const nearby = G.bubbles.filter(nb => nb.alive && nb!==b && Math.sqrt((b.x-nb.x)**2+(b.y-nb.y)**2) < b.chainR+nb.r);
+    nearby.forEach((nb,i) => { setTimeout(() => { if(G.running && nb.alive) explodeRef.current(nb, G, depth+1); }, i*60); });
+  };
+
+  useEffect(() => {
+    if (phase !== "play") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let last = performance.now();
+
+    const loop = (now) => {
+      const dt = Math.min((now-last)/1000, 0.04); last = now;
+      const G = gameRef.current;
+      if(!G||G.over) return;
+
+      G.t -= dt;
+      if(G.t <= 0) { G.t=0; G.over=true; G.running=false; bgm.stop(); sfx('gameFinish'); setScore(Math.floor(G.coins)); setPhase("done"); return; }
+
+      // Chain timer
+      if(G.chainActive) { G.chainTimer-=dt; if(G.chainTimer<=0) { G.chainActive=false; G.chainCount=0; } }
+
+      // Move bubbles
+      G.bubbles.forEach(b => {
+        if(!b.alive) return;
+        b.age+=dt; if(b.age>=5.0) { b.alive=false; return; }
+        b.scale=Math.min(1,b.scale+dt*5); b.pulse+=dt*6;
+        b.x+=b.vx*dt; b.y+=b.vy*dt;
+        if(b.x-b.r<0){b.x=b.r;b.vx=Math.abs(b.vx);}
+        if(b.x+b.r>W){b.x=W-b.r;b.vx=-Math.abs(b.vx);}
+        if(b.y-b.r<0){b.y=b.r;b.vy=Math.abs(b.vy);}
+        if(b.y+b.r>H*0.85){b.y=H*0.85-b.r;b.vy=-Math.abs(b.vy);}
+      });
+      G.bubbles = G.bubbles.filter(b => b.alive);
+
+      // Spawn
+      G.spawnT-=dt;
+      if(G.spawnT<=0) {
+        const elapsed=TOTAL-G.t;
+        const max = elapsed<20?14:elapsed<40?18:elapsed<55?22:26;
+        const alive = G.bubbles.filter(b=>b.alive).length;
+        if(alive<max) spawnBubble(G);
+        G.spawnT = (max-alive)>5?0.12:0.35;
+      }
+
+      // Floats + particles
+      G.floats.forEach(f=>{f.y-=50*dt;f.life-=dt;});
+      G.floats = G.floats.filter(f=>f.life>0);
+      partsRef.current.forEach(p=>{p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;p.vy+=0.2;p.life-=dt*2;p.r*=0.94;});
+      partsRef.current = partsRef.current.filter(p=>p.life>0);
+
+      setScore(Math.floor(G.coins));
+
+      // Draw
+      ctx.fillStyle='#050818'; ctx.fillRect(0,0,W,H);
+
+      // Chain glow
+      if(G.chainActive && G.chainCount>0) {
+        const intensity = Math.min(G.chainCount/15,1);
+        ctx.save(); ctx.globalAlpha=intensity*0.15; ctx.fillStyle='#ff8800';
+        ctx.fillRect(0,0,W,H); ctx.restore();
+      }
+
+      // Bubbles
+      G.bubbles.forEach(b => {
+        if(!b.alive) return;
+        const r = b.r*b.scale*(1+Math.sin(b.pulse)*0.04);
+        if(r<=0) return;
+        ctx.save();
+        const timeLeft=5.0-b.age;
+        const flicker=timeLeft<1.0?(Math.sin(b.age*30)>0?0.5:1.0):1.0;
+        ctx.globalAlpha=0.9*flicker;
+        ctx.shadowColor=b.glow; ctx.shadowBlur=16;
+        const grad=ctx.createRadialGradient(b.x-r*0.3,b.y-r*0.3,r*0.1,b.x,b.y,r);
+        grad.addColorStop(0,'rgba(255,255,255,0.8)'); grad.addColorStop(0.3,b.col); grad.addColorStop(1,b.glow);
+        ctx.fillStyle=grad;
+        ctx.beginPath();ctx.arc(b.x,b.y,r,0,Math.PI*2);ctx.fill();
+        ctx.shadowBlur=0; ctx.globalAlpha=0.4; ctx.fillStyle='#fff';
+        ctx.beginPath();ctx.arc(b.x-r*0.3,b.y-r*0.3,r*0.25,0,Math.PI*2);ctx.fill();
+        if(G.chainActive && b.scale>0.9) {
+          ctx.globalAlpha=0.06; ctx.strokeStyle=b.col; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+          ctx.beginPath();ctx.arc(b.x,b.y,b.chainR,0,Math.PI*2);ctx.stroke(); ctx.setLineDash([]);
+        }
+        ctx.restore();
+      });
+
+      // Particles
+      partsRef.current.forEach(p=>{
+        ctx.save();ctx.globalAlpha=Math.max(0,p.life*0.8);ctx.fillStyle=p.col;ctx.shadowColor=p.col;ctx.shadowBlur=6;
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+      });
+
+      // Floats
+      G.floats.forEach(f=>{
+        ctx.save();ctx.globalAlpha=Math.min(1,f.life*2);ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.strokeStyle='rgba(0,0,0,0.8)';ctx.lineWidth=2;ctx.strokeText(f.text,f.x,f.y);
+        ctx.fillStyle=f.color;ctx.fillText(f.text,f.x,f.y);ctx.restore();
+      });
+
+      // HUD
+      ctx.save();ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W,20);
+      ctx.fillStyle='#66ffff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';
+      ctx.fillText('🪙'+Math.floor(G.coins),6,14);
+      const s=Math.ceil(G.t);ctx.textAlign='right';ctx.fillStyle=G.t<15?'#ff4444':'#fff';
+      ctx.fillText(Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60,W-6,14);
+      ctx.textAlign='center';
+      if(G.chainActive) ctx.fillText('🔥'+G.chainCount+' ×'+chainMult(G.chainCount),W/2,14);
+      ctx.restore();
+      // Chain bar
+      if(G.chainActive && G.chainCount>0) {
+        const pct=Math.min(G.chainCount/20,1);
+        ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(10,H-12,W-20,6);
+        const cg=ctx.createLinearGradient(10,0,W-10,0);cg.addColorStop(0,'#0af');cg.addColorStop(0.5,'#ffaa00');cg.addColorStop(1,'#ff2200');
+        ctx.fillStyle=cg;ctx.fillRect(10,H-12,(W-20)*pct,6);
+      }
+      ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(0,H-3,W,3);
+      ctx.fillStyle=G.t<15?'#f33':'#0af';ctx.fillRect(0,H-3,W*(G.t/TOTAL),3);
+
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { if(rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
+
+  const handleTap = (e) => {
+    const G = gameRef.current;
+    if(!G||G.over) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.clientX-rect.left)/rect.width*W;
+    const cy = (e.clientY-rect.top)/rect.height*H;
+    const sorted = [...G.bubbles].filter(b=>b.alive&&b.scale>0.5).sort((a,b)=>b.r-a.r);
+    for(const b of sorted) {
+      if(Math.sqrt((cx-b.x)**2+(cy-b.y)**2) < b.r+6) {
+        if(!G.chainActive) { G.chainCount=0; }
+        explodeRef.current(b, G, 0);
+        return;
+      }
+    }
+  };
+
+  useEffect(() => () => { bgm.stop(); if(rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => { if(phase==="done"){const t=setTimeout(()=>onDone(score),3000);return()=>clearTimeout(t);} }, [phase,score]);
+
+  return (
+    <div style={{textAlign:'center'}}>
+      <div className="st" style={{justifyContent:'center'}}>💥 チェインバースト</div>
+      {phase==="ready" && (
+        <>
+          <p style={{fontSize:11,opacity:0.5,margin:'12px 0',lineHeight:1.8}}>
+            バブルをタップして爆発！連鎖で倍率UP！<br/>
+            大連鎖を狙って一気に稼げ！<br/>制限時間: 1分10秒
+          </p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase==="play" && (
+        <div style={{marginTop:4,touchAction:'none',userSelect:'none',WebkitUserSelect:'none'}}>
+          <canvas ref={canvasRef} width={W} height={H}
+            onPointerDown={e=>{e.preventDefault();handleTap(e);}}
+            style={{borderRadius:12,border:'2px solid rgba(100,200,255,0.2)',touchAction:'none',width:'100%',maxHeight:'calc(100vh - 180px)',
+              boxShadow:'0 0 20px rgba(0,150,255,0.15)'}} />
+        </div>
+      )}
+      {phase==="done" && (
+        <div style={{textAlign:'center',marginTop:16}}>
+          <div style={{fontSize:18,fontWeight:900,color:'#66ffff',marginBottom:8}}>🏁 RESULT</div>
+          <div style={{fontSize:28,fontWeight:900}}>🪙 {score.toLocaleString()}</div>
+          <p style={{fontSize:12,opacity:0.5}}>
+            {score>=3000?'🏆 CHAIN MASTER！':score>=2200?'🥇 エキスパート！':score>=1500?'🥈 グッドプレイ！':score>=800?'🥉 もう少し！':'💪 大連鎖を狙え！'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PinballGame({ onDone }) {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
@@ -8608,13 +8851,15 @@ function GameHistoryScreen() {
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷',
     quickdraw: '🔫 早撃ちガンマン',
     coinRunner: '🏃 コインランナー',
-    pinball: '🎱 ピンボール'
+    pinball: '🎱 ピンボール',
+    chainBurst: '💥 チェインバースト'
   };
 
   const GAME_TABS = [
     { id: "tap", icon: "👊", name: "連打" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
+    { id: "chainBurst", icon: "💥", name: "チェイン" },
     { id: "gem", icon: "💎", name: "キャッチ" },
     { id: "timing", icon: "⏱️", name: "タイマー" },
     { id: "tower", icon: "🪙", name: "タワー" },
@@ -8815,6 +9060,7 @@ function RankingScreen() {
     { id: "mathHardMult", icon: "✖️", name: "上級×÷" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
+    { id: "chainBurst", icon: "💥", name: "チェイン" },
   ];
 
   const sorted = useMemo(() => {
