@@ -1856,6 +1856,7 @@ function MonsterGacha() {
   // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
   const maxCounts = useMemo(() => TYPES.map(t => (collection[`${t.id}_11`]?.count) || 0), [collection]);
   const hasAnyMax = maxCounts.some(c => c > 0);
+  const maxTypesOwned = maxCounts.filter(c => c > 0).length;
   const minMaxCount = Math.min(...maxCounts);
   const uraComplete = uraObtained.length >= URA_ITEMS.length;
   const congratsTier = uraComplete ? 3 : minMaxCount >= 2 ? 2 : minMaxCount >= 1 ? 1 : 0;
@@ -1863,8 +1864,8 @@ function MonsterGacha() {
 
   // Unlock ura museum when any ★11 is obtained
   useEffect(() => {
-    if (hasAnyMax && !uraUnlocked) setUraUnlocked(true);
-  }, [hasAnyMax, uraUnlocked]);
+    if (maxTypesOwned >= 2 && !uraUnlocked) setUraUnlocked(true);
+  }, [maxTypesOwned, uraUnlocked]);
 
   const totalSpent = useMemo(() => spending.reduce((s, e) => s + e.amount, 0), [spending]);
 
