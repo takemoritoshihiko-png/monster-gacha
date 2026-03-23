@@ -7364,7 +7364,7 @@ function PinballGame({ onDone }) {
     return {
       running: true, over: false, t: START_TIME, coins: 0,
       balls: [{ x: W-WALL-14, y: CEIL+50, vx: -(70+Math.random()*50), vy: 100+Math.random()*60, r: 7, col: '#ffffff', glow: '#aaddff', trail: [] }],
-      nextSpawn: 2.0, ballsAdded: 1,
+      nextSpawn: 1.4, ballsAdded: 1,
       lAngle: F_DN, rAngle: F_DN, lPrev: F_DN, rPrev: F_DN,
       bumpers: bmpState, floats: [], floatId: 0, wallHits: 0, bumperHits: 0, dropped: 0,
     };
@@ -7414,7 +7414,7 @@ function PinballGame({ onDone }) {
           G.balls.push({ x: W-WALL-14, y: CEIL+50, vx: -(70+Math.random()*50), vy: 100+Math.random()*60, r: 7, col: bc.col, glow: bc.glow, trail: [] });
           G.ballsAdded++;
         }
-        G.nextSpawn = 1.8 + Math.random() * 0.9;
+        G.nextSpawn = 1.25 + Math.random() * 0.65;
       }
 
       // Update balls
