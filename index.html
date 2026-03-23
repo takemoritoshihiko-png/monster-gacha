@@ -1860,7 +1860,7 @@ function MonsterGacha() {
   const maxTypesOwned = maxCounts.filter(c => c > 0).length;
   const minMaxCount = Math.min(...maxCounts);
   const uraComplete = uraObtained.length >= URA_ITEMS.length;
-  const congratsTier = uraComplete ? 3 : minMaxCount >= 2 ? 2 : minMaxCount >= 1 ? 1 : 0;
+  const congratsTier = uraComplete ? 3 : minMaxCount >= 3 ? 2 : minMaxCount >= 1 ? 1 : 0;
   const isComplete = congratsTier >= 1;
 
   // Unlock ura museum when any ★11 is obtained
