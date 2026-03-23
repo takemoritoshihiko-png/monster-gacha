@@ -1679,7 +1679,7 @@ function MonsterGacha() {
           const mn = Math.min(...mc);
           return mn >= 3 ? 3 : mn >= 2 ? 2 : mn >= 1 ? 1 : 0;
         })();
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, updated: Date.now() };
+        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, uraCount: (s.uraObtained || []).length, updated: Date.now() };
         if (window.fbDb) {
           window.fbDb.ref('rankings/' + s.nickname).set(rankData);
           // Track daily and weekly asset snapshots
@@ -8033,6 +8033,7 @@ function RankingScreen() {
     { icon: "🎰", label: "ガチャ回数" },
     { icon: "🎁", label: "ギフト" },
     { icon: "🎮", label: "ミニゲーム" },
+    { icon: "🚪", label: "裏" },
   ];
 
   const GAME_TABS = [
@@ -8073,6 +8074,7 @@ function RankingScreen() {
     else if (tab === 1) list.sort((a, b) => (b.colCount || 0) - (a.colCount || 0));
     else if (tab === 2) list.sort((a, b) => (b.totalPulls || 0) - (a.totalPulls || 0));
     else if (tab === 3) list.sort((a, b) => (b.totalGiftValue || 0) - (a.totalGiftValue || 0));
+    else if (tab === 5) { list.sort((a, b) => (b.uraCount || 0) - (a.uraCount || 0)); return list; }
     else {
       list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
       return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
@@ -8218,6 +8220,11 @@ function RankingScreen() {
                 {tab === 4 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>
                     🪙{r.bestScores?.[gameTab] || 0}
+                  </div>
+                )}
+                {tab === 5 && (
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 13, fontWeight: 900, color: 'rgba(200,180,255,0.7)' }}>
+                    🚪{r.uraCount || 0}<span style={{ fontSize: 9, opacity: 0.4 }}>/66</span>
                   </div>
                 )}
               </div>
