@@ -2564,7 +2564,7 @@ function MonsterGacha() {
       setCrownsAll(countCrowns(entries, nickname, true));
     }).catch(() => {});
   }, [nickname, bestScores, weeklyScores, missionDate]);
-  const crownBonus = 1 + (crowns.gold * 0.08) + (crowns.silver * 0.04) + (crowns.bronze * 0.02);
+  const crownBonus = 1 + (crowns.gold * 0.06) + (crowns.silver * 0.03) + (crowns.bronze * 0.02);
 
   // Listen for rare pull notifications
   useEffect(() => {
