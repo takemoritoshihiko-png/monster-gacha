@@ -2718,6 +2718,7 @@ function MonsterGacha() {
     if (gameId === 'quickdraw') contributeMission('quickdraw', capped);
     if (gameId === 'memory') contributeMission('memory', capped);
     mainBgmRef.current = false; // Allow main BGM to restart
+    bgm.stop(); // Ensure minigame BGM is stopped
     setMiniGame(null);
   }, [nickname]);
 
@@ -6684,7 +6685,7 @@ function CoinRunnerGame({ onDone }) {
   const [score, setScore] = useState(0);
   const heldRef = useRef(false);
 
-  const W = 300, H = 200, GY = H - 38, TOTAL = 80;
+  const W = 340, H = 240, GY = H - 44, TOTAL = 80;
 
   const ITEMS_DEF = [
     {e:'🪙',v:28,r:12,freq:1.0},{e:'💰',v:77,r:14,freq:0.35},{e:'💎',v:110,r:13,freq:0.10},
@@ -6739,10 +6740,11 @@ function CoinRunnerGame({ onDone }) {
       G.speed = G.slowTimer > 0 ? baseSpeed * 0.38 : baseSpeed;
       if (G.slowTimer > 0) G.slowTimer -= dt;
 
-      // Physics
+      // Physics - cap height at top of screen
       const grav = (heldRef.current && G.pvy < 0) ? 250 : 950;
       G.pvy += grav * dt;
       G.py += G.pvy * dt;
+      if (G.py < 15) { G.py = 15; G.pvy = 0; } // ceiling cap
       if (G.py >= GY - PLAYER_H) { G.py = GY - PLAYER_H; G.pvy = 0; G.ground = true; G.jumps = 0; }
       else G.ground = false;
 
@@ -6921,19 +6923,27 @@ function CoinRunnerGame({ onDone }) {
         ctx.restore();
       });
 
-      // HUD on canvas
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('🪙' + Math.floor(G.coins), 8, 14);
+      // HUD on canvas - larger, more visible
+      ctx.save();
+      // HUD background
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(0, 0, W, 22);
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('🪙 ' + Math.floor(G.coins), 8, 15);
       const s = Math.ceil(G.t);
+      ctx.fillStyle = G.t < 20 ? '#ff4444' : '#fff';
       ctx.textAlign = 'right';
-      ctx.fillText(Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60, W-8, 14);
-      ctx.textAlign = 'center';
-      if (G.combo > 0) ctx.fillText('×' + G.mult + ' COMBO ' + G.combo, W/2, 14);
+      ctx.fillText(Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60, W-8, 15);
+      if (G.combo > 0) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = G.mult >= 1.4 ? '#ffd700' : G.mult >= 1.2 ? '#ff9f43' : '#4ade80';
+        ctx.fillText('×' + G.mult + ' COMBO ' + G.combo, W/2, 15);
+      }
+      ctx.restore();
 
       // Time bar
-      ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(0, H-3, W, 3);
-      ctx.fillStyle = G.t < 20 ? '#f33' : G.t < 45 ? '#f93' : '#4ea';
-      ctx.fillRect(0, H-3, W * (G.t/TOTAL), 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0, H-4, W, 4);
+      ctx.fillStyle = G.t < 20 ? '#f33' : G.t < 40 ? '#f93' : '#4ea';
+      ctx.fillRect(0, H-4, W * (G.t/TOTAL), 4);
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -6969,11 +6979,12 @@ function CoinRunnerGame({ onDone }) {
         </>
       )}
       {phase === "play" && (
-        <div style={{ position: 'relative', marginTop: 8 }}
+        <div style={{ position: 'relative', marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
           onPointerDown={e => { e.preventDefault(); onDown(); }}
           onPointerUp={onUp} onPointerCancel={onUp}>
           <canvas ref={canvasRef} width={W} height={H}
-            style={{ borderRadius: 12, border: '1px solid rgba(167,139,250,0.2)', touchAction: 'none', maxWidth: '100%' }} />
+            style={{ borderRadius: 14, border: '2px solid rgba(255,200,50,0.2)', touchAction: 'none', width: '100%', height: 'auto',
+              boxShadow: '0 0 20px rgba(255,200,50,0.1)' }} />
         </div>
       )}
       {phase === "done" && (
