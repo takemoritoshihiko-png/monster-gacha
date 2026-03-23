@@ -2023,17 +2023,11 @@ function MonsterGacha() {
               const idx2 = localPool.findIndex(u => u.id === uraResult.id);
               if (idx2 >= 0) localPool.splice(idx2, 1);
               setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
-              // Log ★7+ ura items to rare gacha history
+              // Log ★7+ ura items to notifications (same path as rareNotifs display)
               if (uraResult.rank >= 7 && nickname && window.fbDb) {
-                const histRef = window.fbDb.ref('notifications/rareHistory');
-                histRef.push({
+                window.fbDb.ref('notifications').push({
                   name: nickname, rank: uraResult.rank, item: uraResult.name, icon: uraResult.icon,
                   rarity: '裏', timestamp: Date.now(), isUra: true
-                }).catch(() => {});
-                histRef.orderByChild('timestamp').once('value').then(snap => {
-                  const keys = [];
-                  snap.forEach(child => keys.push(child.key));
-                  if (keys.length > 6) keys.slice(0, keys.length - 6).forEach(k => histRef.child(k).remove());
                 }).catch(() => {});
               }
             }
@@ -2109,19 +2103,6 @@ function MonsterGacha() {
             window.fbDb.ref('notifications').push({
               name: nickname, rank: gi.rank, item: gi.name, icon: gi.icon,
               rarity: gi.rarity.label, timestamp: Date.now()
-            }).catch(() => {});
-            // ★8+ gacha history log (max 8, newest first)
-            const histRef = window.fbDb.ref('notifications/rareHistory');
-            histRef.push({
-              name: nickname, rank: gi.rank, item: gi.name, icon: gi.icon,
-              rarity: gi.rarity.label, timestamp: Date.now()
-            }).catch(() => {});
-            histRef.orderByChild('timestamp').once('value').then(snap => {
-              const keys = [];
-              snap.forEach(child => keys.push(child.key));
-              if (keys.length > 6) {
-                keys.slice(0, keys.length - 6).forEach(k => histRef.child(k).remove());
-              }
             }).catch(() => {});
           }
         });
@@ -2601,18 +2582,6 @@ function MonsterGacha() {
     return () => ref.off('value', handler);
   }, []);
   // ★9+ gacha history (max 6, realtime)
-  const [rareHistory, setRareHistory] = useState([]);
-  useEffect(() => {
-    if (!window.fbDb) return;
-    const ref = window.fbDb.ref('notifications/rareHistory').orderByChild('timestamp').limitToLast(6);
-    const handler = ref.on('value', snapshot => {
-      const hist = [];
-      snapshot.forEach(child => { const d = child.val(); if (d && d.name) hist.push(d); });
-      hist.reverse();
-      setRareHistory(hist);
-    });
-    return () => ref.off('value', handler);
-  }, []);
   // Item requests (wishlist) - realtime
   useEffect(() => {
     if (!window.fbDb) return;
