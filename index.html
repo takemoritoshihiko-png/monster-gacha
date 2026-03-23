@@ -683,12 +683,14 @@ const URA_ITEMS = (() => {
 })();
 const URA_PROBABILITY = 16384; // 1/16384 per item in pool
 
-// Roll for ura item: probability increases when pool gets small
-// 7+ remaining: 1/16384 per item
-// 6 or fewer remaining: 1/8192 per item (2x boost)
+// Roll for ura item: probability changes based on how many obtained
+// 0-9 obtained (pool 66-57): 1/32768 per item
+// 10-59 obtained (pool 56-7): 1/16000 per item
+// 60-65 obtained (pool 6-1): 1/8192 per item
 function rollUraItem(uraPool) {
   if (!uraPool || uraPool.length === 0) return null;
-  const prob = uraPool.length <= 6 ? 8192 : URA_PROBABILITY;
+  const obtained = URA_ITEMS.length - uraPool.length;
+  const prob = obtained < 10 ? 32768 : uraPool.length <= 6 ? 8192 : 16000;
   const roll = Math.floor(Math.random() * prob);
   if (roll >= uraPool.length) return null;
   return uraPool[roll];
