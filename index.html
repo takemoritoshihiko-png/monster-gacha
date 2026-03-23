@@ -7264,18 +7264,18 @@ function PinballGame({ onDone }) {
       {phase === "play" && (
         <div style={{ marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}>
           <canvas ref={canvasRef} width={W} height={H}
-            style={{ borderRadius: 10, border: '2px solid rgba(200,0,200,0.2)', touchAction: 'none', width: '100%', height: 'auto',
+            style={{ borderRadius: 10, border: '2px solid rgba(200,0,200,0.2)', touchAction: 'none', width: '100%', maxHeight: 'calc(100vh - 220px)',
               boxShadow: '0 0 20px rgba(200,0,200,0.15)' }} />
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, position: 'sticky', bottom: 70 }}>
             <button onPointerDown={e => { e.preventDefault(); leftRef.current = true; }}
               onPointerUp={() => { leftRef.current = false; }} onPointerCancel={() => { leftRef.current = false; }}
-              style={{ flex: 1, height: 56, borderRadius: 14, border: 'none', fontSize: 20, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
+              style={{ flex: 1, height: 60, borderRadius: 14, border: 'none', fontSize: 22, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
                 background: 'linear-gradient(135deg, #6600aa, #440088)', boxShadow: '0 4px 16px rgba(150,0,200,0.3)' }}>
               ◀ 左
             </button>
             <button onPointerDown={e => { e.preventDefault(); rightRef.current = true; }}
               onPointerUp={() => { rightRef.current = false; }} onPointerCancel={() => { rightRef.current = false; }}
-              style={{ flex: 1, height: 56, borderRadius: 14, border: 'none', fontSize: 20, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
+              style={{ flex: 1, height: 60, borderRadius: 14, border: 'none', fontSize: 22, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
                 background: 'linear-gradient(135deg, #6600aa, #440088)', boxShadow: '0 4px 16px rgba(150,0,200,0.3)' }}>
               右 ▶
             </button>
