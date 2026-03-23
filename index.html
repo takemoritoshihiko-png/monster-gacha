@@ -6345,7 +6345,7 @@ function MemoryGame({ onDone }) {
             bgm.stop(); sfx('gameFinish');
             setPhase("done");
           }
-        }, 300);
+        }, 100);
       } else {
         setMisses(m => m + 1);
         sfx('wrong');
@@ -6353,13 +6353,13 @@ function MemoryGame({ onDone }) {
           setCards(prev => prev.map((card, i) => (i === first || i === second) ? { ...card, state: 'hidden' } : card));
           setRevealed([]);
           lockRef.current = false;
-        }, 800);
+        }, 600);
       }
     }
   };
 
   const pairReward = matched.length * 40;
-  const timeBonus = clearTime !== null ? (clearTime <= 10 ? 400 : clearTime <= 15 ? 300 : clearTime <= 20 ? 150 : clearTime <= 25 ? 100 : 0) : 0;
+  const timeBonus = clearTime !== null ? (clearTime <= 12 ? 400 : clearTime <= 15 ? 300 : clearTime <= 20 ? 150 : clearTime <= 25 ? 100 : 0) : 0;
   const totalReward = pairReward + timeBonus;
 
   useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalReward), 2000); return () => clearTimeout(t); } }, [phase]);
@@ -6374,7 +6374,7 @@ function MemoryGame({ onDone }) {
             1ペア = 🪙40
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            タイムボーナス: 10秒以内+400 ／ 15秒以内+300 ／ 20秒以内+150 ／ 25秒以内+100
+            タイムボーナス: 12秒以内+400 ／ 15秒以内+300 ／ 20秒以内+150 ／ 25秒以内+100
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
