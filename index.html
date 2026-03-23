@@ -2783,7 +2783,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2330, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2300, batting: 2100, pinball: 2300, chainBurst: 1940 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -6854,11 +6854,11 @@ function BattingGame({ onDone }) {
   const HW_P = 13, HW_G = 28, HW_OK = 50;
 
   const BALLS = [
-    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 32 },
-    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 50 },
-    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 69 },
-    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 94 },
-    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 82 },
+    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 29 },
+    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 45 },
+    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 62 },
+    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 85 },
+    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 74 },
   ];
   const pickBall = () => { const tot = BALLS.reduce((s, b) => s + b.w, 0); let r = Math.random() * tot; for (const b of BALLS) { r -= b.w; if (r <= 0) return b; } return BALLS[1]; };
   const comboMult = (c) => c >= 5 ? 1.5 : c >= 4 ? 1.4 : c >= 3 ? 1.2 : c >= 2 ? 1.1 : 1.0;
@@ -7251,9 +7251,9 @@ function CoinRunnerGame({ onDone }) {
   const W = 340, H = 240, GY = H - 44, TOTAL = 80, START_TIME = 70;
 
   const ITEMS_DEF = [
-    {e:'🪙',v:22,r:12,freq:1.0},{e:'💰',v:62,r:14,freq:0.35},{e:'💎',v:88,r:13,freq:0.10},
-    {e:'⭐',v:39,r:12,freq:0.5},{e:'🍓',v:34,r:12,freq:0.7},{e:'🌟',v:88,r:15,freq:0.18},
-    {e:'🎁',v:88,r:14,freq:0.12},{e:'🍬',v:17,r:10,freq:0.9},
+    {e:'🪙',v:20,r:12,freq:1.0},{e:'💰',v:56,r:14,freq:0.35},{e:'💎',v:79,r:13,freq:0.10},
+    {e:'⭐',v:35,r:12,freq:0.5},{e:'🍓',v:31,r:12,freq:0.7},{e:'🌟',v:79,r:15,freq:0.18},
+    {e:'🎁',v:79,r:14,freq:0.12},{e:'🍬',v:15,r:10,freq:0.9},
     {e:'🕸️',v:0,r:13,freq:0.25,slow:true},{e:'🐌',v:0,r:12,freq:0.20,slow:true},
   ];
   const OBS_DEF = [
@@ -7583,10 +7583,10 @@ function ChainBurstGame({ onDone }) {
   const W = 320, H = 420, TOTAL = 70;
   const BTYPES = [
     {col:'#ff4466',glow:'#ff0033',r:22,val:4,chainR:64,freq:1.0},
-    {col:'#44aaff',glow:'#0066ff',r:20,val:4,chainR:58,freq:1.0},
+    {col:'#44aaff',glow:'#0066ff',r:20,val:3,chainR:58,freq:1.0},
     {col:'#ffcc00',glow:'#ff8800',r:19,val:5,chainR:55,freq:0.7},
-    {col:'#44ff88',glow:'#00cc44',r:17,val:4,chainR:50,freq:0.8},
-    {col:'#ff88ff',glow:'#cc00cc',r:26,val:9,chainR:74,freq:0.3},
+    {col:'#44ff88',glow:'#00cc44',r:17,val:3,chainR:50,freq:0.8},
+    {col:'#ff88ff',glow:'#cc00cc',r:26,val:8,chainR:74,freq:0.3},
     {col:'#ffffff',glow:'#88ccff',r:15,val:3,chainR:46,freq:0.9},
   ];
   const pickBType = () => { const tot=BTYPES.reduce((s,t)=>s+t.freq,0); let r=Math.random()*tot; for(const t of BTYPES){r-=t.freq;if(r<=0)return t;} return BTYPES[0]; };
@@ -8023,7 +8023,7 @@ function PinballGame({ onDone }) {
             const spd = Math.sqrt(b.vx*b.vx+b.vy*b.vy); if (spd > 600) { b.vx = b.vx/spd*600; b.vy = b.vy/spd*600; }
             const rng = Math.random();
             const mult = rng < 0.005 ? 3.0 : rng < 0.02 ? 2.0 : rng < 0.17 ? 1.5 : 1.0;
-            const earn = Math.round(bmp.pts * mult * 0.9);
+            const earn = Math.round(bmp.pts * mult * 0.81);
             G.coins += earn; G.bumperHits++; bmp.flash = 1;
             if (mult >= 3.0) {
               playNote(1200, 0.25, 'sine', 0.2); playNote(1500, 0.2, 'sine', 0.15, 0.05); playNote(1800, 0.15, 'sine', 0.12, 0.1);
