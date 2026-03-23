@@ -7463,6 +7463,14 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
             </div>
             <div style={{ position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(80,60,40,0.3), transparent)' }} />
           </div>
+          <div style={{ textAlign: 'right', marginBottom: 10 }}>
+            <button onClick={() => setShowUraMuseum(false)}
+              style={{ background: 'rgba(30,25,15,0.5)', border: '1px solid rgba(60,45,30,0.2)',
+                borderRadius: 6, padding: '4px 12px', fontSize: 9, color: 'rgba(100,80,50,0.5)',
+                cursor: 'pointer' }}>
+              ← 展示室に戻る
+            </button>
+          </div>
           {/* Items by rank */}
           <div style={{ borderRadius: 14, overflow: 'hidden', background: 'rgba(8,6,4,0.95)', border: '1px solid rgba(60,45,30,0.15)' }}>
             <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(80,60,40,0.2), transparent)' }} />
