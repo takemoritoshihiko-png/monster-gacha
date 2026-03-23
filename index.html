@@ -1427,6 +1427,7 @@ function MonsterGacha() {
   const [showLoginBonus, setShowLoginBonus] = useState(false);
   const [loginBonusInfo, setLoginBonusInfo] = useState(null);
   const [rareNotifs, setRareNotifs] = useState([]);
+  const [congratsHistory, setCongratsHistory] = useState([]);
   const [weeklyScores, setWeeklyScores] = useState({});
   const [dailyMissions, setDailyMissions] = useState([]);
   // Shared date state - updates at midnight, used by login bonus, missions, crowns
@@ -1949,6 +1950,15 @@ function MonsterGacha() {
       bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
       sfx('congrats' + congratsTier);
       setTimeout(() => setClearReady(true), 5000);
+      // Record Congratulations to persistent history
+      if (nickname && window.fbDb) {
+        for (let t = prevTier.current + 1; t <= congratsTier; t++) {
+          const ci = CONGRATS_TIERS[t - 1];
+          window.fbDb.ref('notifications/congrats').push({
+            name: nickname, tier: t, tierLabel: ci.tierLabel, icon: ci.icon, item: ci.name, timestamp: Date.now()
+          }).catch(() => {});
+        }
+      }
     }
     prevTier.current = congratsTier;
   }, [congratsTier]);
@@ -2626,7 +2636,18 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
-  // ★9+ gacha history (max 6, realtime)
+  // Congratulations history (permanent, all entries)
+  useEffect(() => {
+    if (!window.fbDb) return;
+    const ref = window.fbDb.ref('notifications/congrats').orderByChild('timestamp');
+    const handler = ref.on('value', snapshot => {
+      const items = [];
+      snapshot.forEach(child => { const d = child.val(); if (d && d.name) items.push(d); });
+      items.sort((a, b) => a.timestamp - b.timestamp);
+      setCongratsHistory(items);
+    });
+    return () => ref.off('value', handler);
+  }, []);
   // Item requests (wishlist) - realtime
   useEffect(() => {
     if (!window.fbDb) return;
@@ -3296,14 +3317,14 @@ function MonsterGacha() {
                 </div>
               </div>
 
-              {/* Rare pull notifications */}
-              {rareNotifs.length > 0 && (
+              {/* Rare pull notifications + Congratulations history */}
+              {(rareNotifs.length > 0 || congratsHistory.length > 0) && (
                 <div style={{ margin: '12px 0', position: 'relative', zIndex: 1 }}>
                   {rareNotifs.slice(0, 6).map((n, i) => {
                     const d = new Date(n.timestamp);
                     const ts = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                      <div key={'r'+i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
                         fontSize: 10, opacity: 0.7, justifyContent: 'center' }}>
                         <span style={{ opacity: 0.4, fontSize: 8 }}>{ts}</span>
                         <span>{n.icon}</span>
@@ -3315,6 +3336,27 @@ function MonsterGacha() {
                       </div>
                     );
                   })}
+                  {congratsHistory.length > 0 && (
+                    <div style={{ marginTop: 6, borderTop: '1px solid rgba(255,215,0,0.15)', paddingTop: 6 }}>
+                      {congratsHistory.map((c, i) => {
+                        const d = new Date(c.timestamp);
+                        const ts = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+                        const tierColor = c.tier >= 3 ? '#00ffcc' : c.tier === 2 ? '#ff69b4' : '#ffd700';
+                        return (
+                          <div key={'c'+i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                            fontSize: 10, justifyContent: 'center' }}>
+                            <span style={{ opacity: 0.5, fontSize: 8 }}>{ts}</span>
+                            <span>{c.icon}</span>
+                            <span style={{ color: '#c084fc', fontWeight: 700 }}>{c.name}</span>
+                            <span>が</span>
+                            <span style={{ fontWeight: 900, color: tierColor, letterSpacing: 1 }}>
+                              🎊 {c.tierLabel} {c.item}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
