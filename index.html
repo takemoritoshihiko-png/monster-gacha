@@ -6542,12 +6542,12 @@ function QuickDrawGame({ onDone }) {
   const startGame = () => {
     setRound(0); roundRef.current = 0;
     setResults([]); resultsRef.current = [];
-    setTimeLeft(30);
+    setTimeLeft(25);
     startRef.current = Date.now();
     bgm.playLoop(QUICKDRAW_BGM, 70);
 
     timerRef.current = setInterval(() => {
-      const rem = Math.max(0, 30 - (Date.now() - startRef.current) / 1000);
+      const rem = Math.max(0, 25 - (Date.now() - startRef.current) / 1000);
       setTimeLeft(rem);
       if (rem <= 0) {
         clearInterval(timerRef.current);
@@ -6605,11 +6605,11 @@ function QuickDrawGame({ onDone }) {
       {phase === "ready" && (
         <>
           <p style={{ fontSize: 12, opacity: 0.5, margin: '16px 0' }}>
-            ピッと鳴ったら最速でタップ！<br/>全6ラウンド反射神経勝負！
+            ピッと鳴ったら最速でタップ！<br/>25秒以内に全6ラウンド！
           </p>
           <div style={{ fontSize: 10, opacity: 0.4, margin: '8px 0', lineHeight: 1.8 }}>
-            神速(&lt;0.2s)=🪙130 ／ 超速い(&lt;0.25s)=🪙105<br/>
-            速い(&lt;0.3s)=🪙80 ／ まあまあ(&lt;0.35s)=🪙55
+            神速(&lt;0.2s)=🪙104 ／ 超速い(&lt;0.25s)=🪙84<br/>
+            速い(&lt;0.3s)=🪙64 ／ まあまあ(&lt;0.35s)=🪙44
           </div>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
