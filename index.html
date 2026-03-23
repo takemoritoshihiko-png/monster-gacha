@@ -4231,8 +4231,8 @@ function MonsterGacha() {
               <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>{showClearTier.tierLabel}</div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
                 {TYPES.map((type, i) => (
-                  <div key={type.id} style={{ fontSize: 28, filter: `drop-shadow(0 0 8px ${type.color})`,
-                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{MONSTERS[type.id][10].icon}</div>
+                  <div key={type.id} style={{ filter: `drop-shadow(0 0 8px ${type.color})`,
+                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{renderItemIcon(MONSTERS[type.id][10], 40)}</div>
                 ))}
               </div>
               <div style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
@@ -4298,8 +4298,8 @@ function MonsterGacha() {
               <div className="rank-congrats" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 16 }}>{showClearTier.name}</div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
                 {TYPES.map((type, i) => (
-                  <div key={type.id} style={{ fontSize: 32, filter: `drop-shadow(0 0 8px ${type.color})`,
-                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{MONSTERS[type.id][10].icon}</div>
+                  <div key={type.id} style={{ filter: `drop-shadow(0 0 8px ${type.color})`,
+                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{renderItemIcon(MONSTERS[type.id][10], 44)}</div>
                 ))}
               </div>
               <div style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
