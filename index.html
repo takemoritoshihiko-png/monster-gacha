@@ -6667,7 +6667,7 @@ function CoinRunnerGame({ onDone }) {
   const [score, setScore] = useState(0);
   const heldRef = useRef(false);
 
-  const W = 340, H = 240, GY = H - 44, TOTAL = 80;
+  const W = 340, H = 240, GY = H - 44, TOTAL = 80, START_TIME = 70;
 
   const ITEMS_DEF = [
     {e:'🪙',v:28,r:12,freq:1.0},{e:'💰',v:77,r:14,freq:0.35},{e:'💎',v:110,r:13,freq:0.10},
@@ -6684,7 +6684,7 @@ function CoinRunnerGame({ onDone }) {
 
   const PLAYER_H = 20; // player height from ground
   const initGame = () => ({
-    running:true, over:false, t:TOTAL, coins:0,
+    running:true, over:false, t:START_TIME, coins:0,
     px:50, py:GY-PLAYER_H, pvy:0, ground:true, jumps:0,
     invTimer:0, drainTimer:0, DRAIN_RATE:9, DRAIN_DUR:2.2,
     slowTimer:0, SLOW_DUR:2.5, speed:180,
@@ -6925,7 +6925,7 @@ function CoinRunnerGame({ onDone }) {
       // Time bar
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0, H-4, W, 4);
       ctx.fillStyle = G.t < 20 ? '#f33' : G.t < 40 ? '#f93' : '#4ea';
-      ctx.fillRect(0, H-4, W * (G.t/TOTAL), 4);
+      ctx.fillRect(0, H-4, W * (G.t/START_TIME), 4);
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -6955,7 +6955,7 @@ function CoinRunnerGame({ onDone }) {
           <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8 }}>
             コインに当たってゲット！障害物を避けろ！<br/>
             画面タップ: ジャンプ　長押し: 高くジャンプ<br/>
-            制限時間: 1分20秒
+            制限時間: 1分10秒
           </p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
@@ -6994,7 +6994,7 @@ function PinballGame({ onDone }) {
   const leftRef = useRef(false);
   const rightRef = useRef(false);
 
-  const W = 300, H = 430, TOTAL = 80;
+  const W = 300, H = 430, TOTAL = 80, START_TIME = 70;
   const WALL = 12, CEIL = 46, FLOOR = H - 8;
   const FY = H - 58, FL_PX = 75, FR_PX = W - 75, FLEN = 56, FTHICK = 9;
   const F_UP = -0.38, F_DN = 0.42, F_SPD = 22;
@@ -7017,7 +7017,7 @@ function PinballGame({ onDone }) {
   const initGame = () => {
     const bmpState = BUMPERS.map(b => ({ ...b, flash: 0 }));
     return {
-      running: true, over: false, t: TOTAL, coins: 0,
+      running: true, over: false, t: START_TIME, coins: 0,
       balls: [{ x: W-WALL-14, y: CEIL+50, vx: -(70+Math.random()*50), vy: 100+Math.random()*60, r: 7, col: '#ffffff', glow: '#aaddff', trail: [] }],
       nextSpawn: 2.0, ballsAdded: 1,
       lAngle: F_DN, rAngle: F_DN, lPrev: F_DN, rPrev: F_DN,
@@ -7237,7 +7237,7 @@ function PinballGame({ onDone }) {
       ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('🎱×'+G.balls.length, W/2, 14);
       ctx.restore();
       ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(0, H-3, W, 3);
-      ctx.fillStyle = G.t < 20 ? '#f33' : '#cc44ff'; ctx.fillRect(0, H-3, W*(G.t/TOTAL), 3);
+      ctx.fillStyle = G.t < 20 ? '#f33' : '#cc44ff'; ctx.fillRect(0, H-3, W*(G.t/START_TIME), 3);
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -7256,7 +7256,7 @@ function PinballGame({ onDone }) {
           <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8 }}>
             バンパーに当ててコイン獲得！<br/>
             左右ボタンでフリッパー操作<br/>
-            球を落とさないように！制限時間: 1分20秒
+            球を落とさないように！制限時間: 1分10秒
           </p>
           <button className="btn bp" onClick={startGame}>スタート！</button>
         </>
