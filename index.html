@@ -7092,8 +7092,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
   }, [collection]);
   const shown = filter === "all" ? all : all.filter(m => m.typeId === filter);
   const ownCount = all.filter(m => m.owned).length + ownedTiers.length;
-  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0)
-    + URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((s, u) => s + u.value, 0);
+  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
 
   return (
     <div>
