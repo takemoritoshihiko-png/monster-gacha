@@ -2783,7 +2783,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2300, batting: 2100, pinball: 2300, chainBurst: 1940 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 896, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2990, batting: 2730, pinball: 2990, chainBurst: 2520 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -6164,13 +6164,13 @@ function CoinTowerGame({ onDone }) {
       s.perfects++;
       s.perfectStreak++;
       if (s.perfectStreak > s.maxStreak) s.maxStreak = s.perfectStreak;
-      coins = 16;
+      coins = 22;
       let bonus = 0;
-      if (s.perfectStreak >= 10) bonus = 40;
-      else if (s.perfectStreak >= 5) bonus = 16;
-      else if (s.perfectStreak >= 3) bonus = 8;
+      if (s.perfectStreak >= 10) bonus = 56;
+      else if (s.perfectStreak >= 5) bonus = 22;
+      else if (s.perfectStreak >= 3) bonus = 11;
       coins += bonus;
-      label = bonus > 0 ? `PERFECT! +${coins}` : `PERFECT! +16`;
+      label = bonus > 0 ? `PERFECT! +${coins}` : `PERFECT! +22`;
       color = '#fbbf24';
       sfx('correctStreak');
     } else if (overlapW > 0) {
@@ -6178,8 +6178,8 @@ function CoinTowerGame({ onDone }) {
       const newX = (overlapLeft + overlapRight) / 2;
       s.stack.push({ x: newX, w: overlapW, perfect: false });
       s.perfectStreak = 0;
-      coins = 8;
-      label = `+8`;
+      coins = 11;
+      label = `+11`;
       color = '#a78bfa';
       sfx('correct');
     } else {
