@@ -2455,7 +2455,7 @@ function MonsterGacha() {
     }
   }, [collection, findSynthCandidates]);
 
-  const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); };
+  const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); setShowUraMuseum(false); };
 
   // Main BGM: play on idle screens only when volMain > 0
   const mainBgmRef = useRef(false);
