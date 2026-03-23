@@ -591,9 +591,9 @@ const MONSTERS = {
 
 // ★12 Congratulations items (3 tiers, collection-wide)
 const CONGRATS_TIERS = [
-  { key: 'cg1_12', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Gold", tierColor: "#ffd700" },
-  { key: 'cg2_12', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×2を極めし者の証", tier: 2, tierLabel: "Rainbow", tierColor: "#ff69b4" },
-  { key: 'cg3_12', name: "永劫の至宝・極", icon: "💠", desc: "裏アイテム全66種を制覇せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
+  { key: 'cg1_12', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Tier 1", tierColor: "#ffd700" },
+  { key: 'cg2_12', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×3を極めし者の証", tier: 2, tierLabel: "Tier 2", tierColor: "#ff69b4" },
+  { key: 'cg3_12', name: "永劫の至宝・極", icon: "💠", desc: "裏アイテム全66種を制覇せし者の証", tier: 3, tierLabel: "Tier 3", tierColor: "#00ffcc" },
 ];
 
 const SELL_VALUES = [1, 2, 4, 8, 15, 30, 60, 150, 400, 1000, 5000, 50000];
@@ -9844,15 +9844,15 @@ function RankingScreen() {
                     background: 'linear-gradient(135deg, rgba(0,255,204,0.25), rgba(123,104,238,0.2))',
                     border: '1px solid rgba(0,255,204,0.5)', fontWeight: 900, letterSpacing: 1,
                     boxShadow: '0 0 8px rgba(0,255,204,0.3)' }}>
-                    <span className="rank-ultimate" style={{ fontSize: 9 }}>💠ULT</span></span>}
+                    <span className="rank-ultimate" style={{ fontSize: 9 }}>💠T3</span></span>}
                   {r.congratsTier === 2 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
                     background: 'linear-gradient(135deg, rgba(255,105,180,0.15), rgba(255,215,0,0.1))',
                     border: '1px solid rgba(255,105,180,0.3)', fontWeight: 900, letterSpacing: 1 }}>
-                    <span className="rank-congrats" style={{ fontSize: 9 }}>🌈RBW</span></span>}
+                    <span className="rank-congrats" style={{ fontSize: 9 }}>🌈T2</span></span>}
                   {r.congratsTier === 1 && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8,
                     background: 'rgba(255,215,0,0.1)',
                     border: '1px solid rgba(255,215,0,0.3)', fontWeight: 900 }}>
-                    <span style={{ fontSize: 9, color: '#ffd700' }}>👑</span></span>}
+                    <span style={{ fontSize: 9, color: '#ffd700' }}>👑T1</span></span>}
                 </div>
                 <div style={{ fontSize: 11, opacity: 0.5, display: 'flex', gap: 8 }}>
                   <span>💰{formatYen(r.totalAssets || 0)}</span>
