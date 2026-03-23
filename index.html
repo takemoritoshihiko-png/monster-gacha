@@ -2450,7 +2450,7 @@ function MonsterGacha() {
       timers.push(setTimeout(() => {
         setSynthResult(null);
         if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
-      }, elapsed + 1700));
+      }, elapsed + 1500));
       synthQueueRef.current = timers;
     } else {
       sfx('synth');
