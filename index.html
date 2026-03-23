@@ -7071,6 +7071,7 @@ function SpendForm({ available, spending, onSpend }) {
 // ============================================================
 function CollectionView({ collection, onSelect, requestMode, onRequest, onCancelRequest, uraUnlocked, uraObtained, showUraMuseum, setShowUraMuseum }) {
   const [filter, setFilter] = useState("all");
+  const [uraDetail, setUraDetail] = useState(null);
   const ownedTiers = CONGRATS_TIERS.filter(t => !!collection[t.key]);
   const all = useMemo(() => {
     const list = [];
@@ -7488,7 +7489,9 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                       const uraItem = URA_ITEMS.find(u => u.id === uraId);
                       if (!uraItem) return null;
                       return (
-                        <div key={uraId} style={{ borderRadius: 8, padding: '5px 3px', textAlign: 'center',
+                        <div key={uraId} onClick={() => owned && setUraDetail(uraItem)}
+                          style={{ borderRadius: 8, padding: '5px 3px', textAlign: 'center',
+                          cursor: owned ? 'pointer' : 'default',
                           background: owned ? 'rgba(15,12,8,0.9)' : 'rgba(8,6,4,0.6)',
                           border: owned ? '1px solid rgba(80,60,40,0.2)' : '1px solid rgba(30,25,15,0.15)',
                         }}>
@@ -7517,6 +7520,48 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
               展示室に戻る
             </button>
           </div>
+          {/* Ura item detail modal */}
+          {uraDetail && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.85)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => setUraDetail(null)}>
+              <div style={{ background: 'rgba(10,8,5,0.98)', border: '1px solid rgba(80,60,40,0.3)',
+                borderRadius: 16, padding: '28px 24px', maxWidth: 300, width: '90%', textAlign: 'center',
+                position: 'relative' }}
+                onClick={e => e.stopPropagation()}>
+                {/* Value badge top-right */}
+                <div style={{ position: 'absolute', top: 12, right: 14, fontSize: 10, fontWeight: 700,
+                  color: 'rgba(140,110,70,0.7)', fontFamily: "'Orbitron',sans-serif" }}>
+                  {(uraDetail.value / 100000000).toLocaleString()}億円
+                </div>
+                {/* Icon */}
+                <div style={{ fontSize: 64, marginBottom: 12,
+                  filter: 'brightness(0.7) sepia(0.3) drop-shadow(0 0 8px rgba(80,60,40,0.4))' }}>
+                  {uraDetail.icon}
+                </div>
+                {/* Name */}
+                <div style={{ fontSize: 18, fontWeight: 900, color: 'rgba(140,110,70,0.7)', marginBottom: 4,
+                  fontFamily: "'Orbitron',sans-serif" }}>
+                  {uraDetail.name}
+                </div>
+                {/* Stars */}
+                <div style={{ fontSize: 12, color: 'rgba(80,60,40,0.4)', letterSpacing: 2, marginBottom: 8 }}>
+                  {'★'.repeat(uraDetail.rank)}
+                </div>
+                {/* Type */}
+                <div style={{ fontSize: 11, color: 'rgba(100,80,50,0.4)' }}>
+                  {uraDetail.typeEmoji} {uraDetail.typeName}
+                </div>
+                {/* Close */}
+                <button onClick={() => setUraDetail(null)}
+                  style={{ marginTop: 16, background: 'rgba(30,25,15,0.5)', border: '1px solid rgba(60,45,30,0.2)',
+                    borderRadius: 8, padding: '6px 20px', fontSize: 10, color: 'rgba(100,80,50,0.5)',
+                    cursor: 'pointer' }}>
+                  閉じる
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
