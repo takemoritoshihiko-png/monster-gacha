@@ -1804,7 +1804,6 @@ function MonsterGacha() {
     setTotalGiftValue(prev => prev + giftValue);
     window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue).catch(() => {});
     window.fbDb.ref('dailyGiftTotal/' + today + '/' + nickname).transaction(current => (current || 0) + giftValue).catch(() => {});
-    contributeMission('gift', giftValue);
     sfx('sell');
     setShowGiftModal(null);
     setSaveMsg('🎁 ' + trimmedName + 'に' + item.name + 'を送りました！');
@@ -2653,14 +2652,52 @@ function MonsterGacha() {
     let giftHandler = null;
     const giftRef = hasGiftMission ? window.fbDb.ref('dailyGiftTotal/' + today) : null;
 
+    // Calculate today's start/end timestamps for gift fallback
+    const todayStart = new Date(today + 'T00:00:00').getTime();
+    const todayEnd = todayStart + 86400000;
+
+    const getGiftTotal = (callback) => {
+      if (!giftRef) { callback(0); return; }
+      giftRef.once('value').then(gSnap => {
+        const vals = gSnap.val() || {};
+        const total = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
+        if (total > 0) { callback(total); return; }
+        // Fallback: scan all gifts for today's timestamps
+        window.fbDb.ref('gifts').once('value').then(allGifts => {
+          let fallbackTotal = 0;
+          allGifts.forEach(recipient => {
+            recipient.forEach(gift => {
+              const g = gift.val();
+              if (g && g.timestamp >= todayStart && g.timestamp < todayEnd && g.value) {
+                fallbackTotal += g.value;
+              }
+            });
+          });
+          // Write fallback results back to dailyGiftTotal for future reads
+          if (fallbackTotal > 0 && nickname) {
+            // Group by sender for accurate per-person tracking
+            const bySender = {};
+            allGifts.forEach(recipient => {
+              recipient.forEach(gift => {
+                const g = gift.val();
+                if (g && g.timestamp >= todayStart && g.timestamp < todayEnd && g.value && g.from) {
+                  bySender[g.from] = (bySender[g.from] || 0) + g.value;
+                }
+              });
+            });
+            Object.entries(bySender).forEach(([sender, val]) => {
+              window.fbDb.ref('dailyGiftTotal/' + today + '/' + sender).set(val);
+            });
+          }
+          callback(fallbackTotal);
+        }).catch(() => callback(0));
+      });
+    };
+
     const handler = ref.on('value', snapshot => {
       const data = snapshot.val() || {};
-      if (hasGiftMission && giftRef) {
-        giftRef.once('value').then(gSnap => {
-          const vals = gSnap.val() || {};
-          const giftTotal = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
-          updateProgress(data, giftTotal);
-        });
+      if (hasGiftMission) {
+        getGiftTotal(giftTotal => updateProgress(data, giftTotal));
       } else {
         updateProgress(data);
       }
@@ -2690,12 +2727,10 @@ function MonsterGacha() {
     const mission = missions.find(m => m.type === missionType);
     if (!mission) return;
 
-    const maxPerPerson = Math.ceil(mission.target / 3);
     const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
     ref.transaction(current => {
       const val = current || 0;
-      if (val >= maxPerPerson) return current;
-      return Math.min(val + amount, maxPerPerson);
+      return val + amount;
     });
   }, [nickname]);
 
@@ -3266,7 +3301,7 @@ function MonsterGacha() {
               <div style={{ margin: '10px 0', position: 'relative', zIndex: 1 }}>
                 <div style={{ fontSize: 9, textAlign: 'center', opacity: 0.4, marginBottom: 2,
                   fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>DAILY MISSION</div>
-                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>全達成で 🪙2,000 ／ 1人上限: 目標の1/3</div>
+                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>全達成で 🪙2,000</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {dailyMissions.map(m => {
                     const prog = dailyProgress[m.id] || { total: 0, contributions: {}, target: m.target };
