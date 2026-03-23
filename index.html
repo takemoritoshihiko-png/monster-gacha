@@ -1677,7 +1677,7 @@ function MonsterGacha() {
         const colPower = Object.entries(compressed).reduce((sum, [k, cnt]) => {
           const rank = parseInt(k.split('_')[1]) || 0;
           return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
-        }, 0);
+        }, 0) + URA_ITEMS.filter(u => (s.uraObtained || []).includes(u.id)).reduce((sum, u) => sum + u.value, 0);
         const cTier = (() => {
           const mc = TYPES.map(t => { const c = compressed[`${t.id}_11`]; return typeof c === 'number' ? c : 0; });
           const mn = Math.min(...mc);
@@ -1867,8 +1867,10 @@ function MonsterGacha() {
   const totalSpent = useMemo(() => spending.reduce((s, e) => s + e.amount, 0), [spending]);
 
   const totalPower = useMemo(() => {
-    return Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
-  }, [collection]);
+    const colAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+    const uraAssets = URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((sum, u) => sum + u.value, 0);
+    return colAssets + uraAssets;
+  }, [collection, uraObtained]);
 
   // Game clear detection - grant ★12 Congratulations items (3 tiers)
   const [showClear, setShowClear] = useState(false);
@@ -3903,7 +3905,8 @@ function MonsterGacha() {
 
         {/* SPEND */}
         {screen === "spend" && (() => {
-          const grossAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+          const grossAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0)
+            + URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((s, u) => s + u.value, 0);
           const available = grossAssets - totalSpent;
           return (
             <div>
@@ -7089,7 +7092,8 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
   }, [collection]);
   const shown = filter === "all" ? all : all.filter(m => m.typeId === filter);
   const ownCount = all.filter(m => m.owned).length + ownedTiers.length;
-  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0)
+    + URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((s, u) => s + u.value, 0);
 
   return (
     <div>
