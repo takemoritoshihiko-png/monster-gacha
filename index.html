@@ -2507,7 +2507,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -9426,28 +9426,24 @@ function GameHistoryScreen() {
   const [gameTab, setGameTab] = useState("tap");
 
   const HISTORY_GAMES = {
-    tap: '👊 連打バトル', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー', tower: '🪙 コインタワー',
-    shooting: '🎯 シューティング', memory: '🃏 神経衰弱', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
-    mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷',
-    quickdraw: '🔫 早撃ちガンマン',
-    coinRunner: '🏃 コインランナー',
-    batting: '⚾ バッティングヒーロー',
-    pinball: '🎱 ピンボール',
-    chainBurst: '💥 チェインバースト'
+    tap: '👊 連打バトル', shooting: '🎯 シューティング', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー',
+    tower: '🪙 コインタワー', memory: '🃏 神経衰弱', quickdraw: '🔫 早撃ちガンマン',
+    coinRunner: '🏃 コインランナー', batting: '⚾ バッティングヒーロー', pinball: '🎱 ピンボール', chainBurst: '💥 チェインバースト',
+    mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級', mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
   const GAME_TABS = [
     { id: "tap", icon: "👊", name: "連打" },
+    { id: "shooting", icon: "🎯", name: "射的" },
+    { id: "gem", icon: "💎", name: "キャッチ" },
+    { id: "timing", icon: "⏱️", name: "タイマー" },
+    { id: "tower", icon: "🪙", name: "タワー" },
+    { id: "memory", icon: "🃏", name: "神経衰弱" },
+    { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
     { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
-    { id: "gem", icon: "💎", name: "キャッチ" },
-    { id: "timing", icon: "⏱️", name: "タイマー" },
-    { id: "tower", icon: "🪙", name: "タワー" },
-    { id: "shooting", icon: "🎯", name: "射的" },
-    { id: "memory", icon: "🃏", name: "神経衰弱" },
-    { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
@@ -9629,21 +9625,21 @@ function RankingScreen() {
 
   const GAME_TABS = [
     { id: "tap", icon: "👊", name: "連打" },
+    { id: "shooting", icon: "🎯", name: "射的" },
     { id: "gem", icon: "💎", name: "キャッチ" },
     { id: "timing", icon: "⏱️", name: "タイマー" },
     { id: "tower", icon: "🪙", name: "タワー" },
-    { id: "shooting", icon: "🎯", name: "射的" },
     { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "quickdraw", icon: "🔫", name: "早撃ち" },
+    { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "batting", icon: "⚾", name: "バッティング" },
+    { id: "pinball", icon: "🎱", name: "ピンボール" },
+    { id: "chainBurst", icon: "💥", name: "チェイン" },
     { id: "mathEasy", icon: "➕", name: "初級+" },
     { id: "kuku", icon: "🔢", name: "九九" },
     { id: "mathMid", icon: "📐", name: "中級+" },
     { id: "mathHardAdd", icon: "🧮", name: "上級±" },
     { id: "mathHardMult", icon: "✖️", name: "上級×÷" },
-    { id: "coinRunner", icon: "🏃", name: "ランナー" },
-    { id: "batting", icon: "⚾", name: "バッティング" },
-    { id: "pinball", icon: "🎱", name: "ピンボール" },
-    { id: "chainBurst", icon: "💥", name: "チェイン" },
   ];
 
   const sorted = useMemo(() => {
