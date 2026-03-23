@@ -650,7 +650,7 @@ function rollRarity(crownBonus) {
 
 function getCrownLevel(bonus) {
   const pct = (bonus - 1) * 100;
-  if (pct >= 50) return 'super';
+  if (pct >= 40) return 'super';
   if (pct >= 20) return 'major';
   if (pct > 0) return 'up';
   return null;
