@@ -2023,6 +2023,19 @@ function MonsterGacha() {
               const idx2 = localPool.findIndex(u => u.id === uraResult.id);
               if (idx2 >= 0) localPool.splice(idx2, 1);
               setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
+              // Log ★7+ ura items to rare gacha history
+              if (uraResult.rank >= 7 && nickname && window.fbDb) {
+                const histRef = window.fbDb.ref('notifications/rareHistory');
+                histRef.push({
+                  name: nickname, rank: uraResult.rank, item: uraResult.name, icon: uraResult.icon,
+                  rarity: '裏', timestamp: Date.now(), isUra: true
+                }).catch(() => {});
+                histRef.orderByChild('timestamp').once('value').then(snap => {
+                  const keys = [];
+                  snap.forEach(child => keys.push(child.key));
+                  if (keys.length > 6) keys.slice(0, keys.length - 6).forEach(k => histRef.child(k).remove());
+                }).catch(() => {});
+              }
             }
           }
           // Show only the last ura win, AFTER normal effects finish (6 seconds delay)
@@ -3194,8 +3207,8 @@ function MonsterGacha() {
                         <span>{n.icon}</span>
                         <span style={{ color: '#c084fc' }}>{n.name}</span>
                         <span>が</span>
-                        <span style={{ fontWeight: 700, color: n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
-                          ★{n.rank} {n.item}
+                        <span style={{ fontWeight: 700, color: n.isUra ? '#c0a0ff' : n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
+                          {n.isUra ? '🚪' : '★'}{n.rank} {n.item}
                         </span>
                       </div>
                     );
