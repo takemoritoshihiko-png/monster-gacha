@@ -1598,7 +1598,7 @@ function MonsterGacha() {
     setSlotPreviews(prev => { const n = [...prev]; n[id - 1] = null; return n; });
     setConfirmDeleteId(null);
     if (id === slotId) {
-      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({}); setTotalGiftValue(0); setGiftsSentToday(0); setLastGiftDate(null); setScreen("home");
+      setSlotId(null); setCoins(50); setCollection({}); setTotalPulls(0); setLoginDay(1); setSpending([]); setNickname(""); setBestScores({}); setPlayCounts({}); setLastLoginDate(null); setLoginStreak(0); setWeeklyScores({}); setTotalGiftValue(0); setGiftsSentToday(0); setLastGiftDate(null); setUraObtained([]); setUraUnlocked(false); setScreen("home");
     }
     setSaveMsg("🗑 スロット" + id + "を削除しました");
     setTimeout(() => setSaveMsg(""), 2000);
