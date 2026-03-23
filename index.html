@@ -7407,7 +7407,7 @@ function PinballGame({ onDone }) {
       // Spawn balls
       G.nextSpawn -= dt;
       if (G.nextSpawn <= 0) {
-        const max = Math.min(2 + Math.floor(prog * 4), 5);
+        const max = Math.min(2 + Math.floor(prog * 4), 6);
         if (G.balls.length < max) {
           const cols = [{ col: '#ffcc44', glow: '#ff8800' }, { col: '#ff66ff', glow: '#cc00cc' }, { col: '#44ffcc', glow: '#00aaaa' }];
           const bc = cols[G.ballsAdded % cols.length];
@@ -7494,9 +7494,9 @@ function PinballGame({ onDone }) {
 
         // Fall
         if (b.y > FLOOR) {
-          G.coins = Math.max(0, G.coins - 40); G.dropped++;
+          G.coins = Math.max(0, G.coins - 30); G.dropped++;
           playNote(150, 0.2, 'sawtooth', 0.1); playNoise(0.1, 0.06);
-          G.floats.push({ id: ++G.floatId, x: b.x, y: FLOOR-25, text: '-40💔', life: 1.0, color: '#ff3355' });
+          G.floats.push({ id: ++G.floatId, x: b.x, y: FLOOR-25, text: '-30💔', life: 1.0, color: '#ff3355' });
           G.balls.push({ x: W-WALL-14, y: CEIL+40, vx: -(70+Math.random()*60), vy: 80+Math.random()*50, r: b.r, col: b.col, glow: b.glow, trail: [] });
           return false;
         }
