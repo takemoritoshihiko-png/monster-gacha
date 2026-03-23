@@ -575,7 +575,7 @@ const MONSTERS = {
 const CONGRATS_TIERS = [
   { key: 'cg1_12', name: "永劫の至宝", icon: "👑", desc: "★MAX全6種を集めた究極の証", tier: 1, tierLabel: "Gold", tierColor: "#ffd700" },
   { key: 'cg2_12', name: "永劫の至宝・虹", icon: "🌈", desc: "★MAX全6種×2を極めし者の証", tier: 2, tierLabel: "Rainbow", tierColor: "#ff69b4" },
-  { key: 'cg3_12', name: "永劫の至宝・極", icon: "💠", desc: "★MAX全6種×3を超越せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
+  { key: 'cg3_12', name: "永劫の至宝・極", icon: "💠", desc: "裏アイテム全66種を制覇せし者の証", tier: 3, tierLabel: "Ultimate", tierColor: "#00ffcc" },
 ];
 
 const SELL_VALUES = [1, 2, 4, 8, 15, 30, 60, 150, 400, 1000, 5000, 50000];
@@ -1848,11 +1848,13 @@ function MonsterGacha() {
 
   const colCount = useMemo(() => Object.keys(collection).length, [collection]);
 
-  // ★MAX ownership tracking - 3 tiers (all×1, all×2, all×3)
+  // ★MAX ownership tracking - 3 tiers
+  // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
   const maxCounts = useMemo(() => TYPES.map(t => (collection[`${t.id}_11`]?.count) || 0), [collection]);
   const hasAnyMax = maxCounts.some(c => c > 0);
   const minMaxCount = Math.min(...maxCounts);
-  const congratsTier = minMaxCount >= 3 ? 3 : minMaxCount >= 2 ? 2 : minMaxCount >= 1 ? 1 : 0;
+  const uraComplete = uraObtained.length >= URA_ITEMS.length;
+  const congratsTier = uraComplete ? 3 : minMaxCount >= 2 ? 2 : minMaxCount >= 1 ? 1 : 0;
   const isComplete = congratsTier >= 1;
 
   // Unlock ura museum when any ★11 is obtained
@@ -4084,7 +4086,7 @@ function MonsterGacha() {
             <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
               {showClearTier.tier === 1 ? 'おめでとうございます！\n全ての伝説のトレジャーを集めました。' :
                showClearTier.tier === 2 ? '素晴らしい！全★MAXを2個ずつ揃えました！' :
-               '圧巻！全★MAXを3個ずつ揃え、究極に到達しました！'}
+               '圧巻！裏アイテム全66種を制覇しました！'}
             </div>
             <button className="btn bp" disabled={!clearReady}
               style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
