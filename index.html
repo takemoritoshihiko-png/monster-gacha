@@ -7040,7 +7040,7 @@ function PinballGame({ onDone }) {
     gameRef.current = initGame();
     leftRef.current = false; rightRef.current = false;
     setPhase("play"); setScore(0);
-    bgm.playLoop(BGM_TAP, 140);
+    bgm.playLoop(SHOOTING_BGM, 150);
   };
 
   useEffect(() => {
@@ -7118,10 +7118,23 @@ function PinballGame({ onDone }) {
             const dot = b.vx*nx+b.vy*ny;
             b.vx = (b.vx-2*dot*nx)*BDAMPEN+nx*100; b.vy = (b.vy-2*dot*ny)*BDAMPEN+ny*100;
             const spd = Math.sqrt(b.vx*b.vx+b.vy*b.vy); if (spd > 600) { b.vx = b.vx/spd*600; b.vy = b.vy/spd*600; }
-            G.coins += bmp.pts; G.bumperHits++; bmp.flash = 1;
-            playNote(bmp.pts >= 6 ? 880 : bmp.pts >= 4 ? 660 : 520, 0.12, 'sine', 0.12);
-            playNote(bmp.pts >= 6 ? 1760 : 1040, 0.06, 'square', 0.06, 0.02);
-            G.floats.push({ id: ++G.floatId, x: bmp.x, y: bmp.y-bmp.r-6, text: '+'+bmp.pts, life: 0.8, color: bmp.col });
+            const rng = Math.random();
+            const mult = rng < 0.01 ? 2.0 : rng < 0.11 ? 1.3 : rng < 0.31 ? 1.2 : 1.0;
+            const earn = Math.round(bmp.pts * mult);
+            G.coins += earn; G.bumperHits++; bmp.flash = 1;
+            if (mult >= 2.0) {
+              playNote(1200, 0.2, 'sine', 0.15); playNote(1500, 0.15, 'sine', 0.12, 0.05); playNote(1800, 0.12, 'sine', 0.1, 0.1);
+              playSweep(800, 2000, 0.2, 'sine', 0.08);
+            } else if (mult >= 1.3) {
+              playNote(900, 0.15, 'sine', 0.13); playNote(1200, 0.1, 'sine', 0.08, 0.04);
+            } else if (mult >= 1.2) {
+              playNote(bmp.pts >= 6 ? 950 : 700, 0.12, 'sine', 0.12); playNote(1100, 0.08, 'triangle', 0.06, 0.03);
+            } else {
+              playNote(bmp.pts >= 6 ? 880 : bmp.pts >= 4 ? 660 : 520, 0.12, 'sine', 0.1);
+            }
+            const multLabel = mult >= 2.0 ? ' ×2!' : mult >= 1.3 ? ' ×1.3!' : mult >= 1.2 ? ' ×1.2' : '';
+            const multColor = mult >= 2.0 ? '#ffd700' : mult >= 1.3 ? '#ff9f43' : mult >= 1.2 ? '#4ade80' : bmp.col;
+            G.floats.push({ id: ++G.floatId, x: bmp.x, y: bmp.y-bmp.r-6, text: '+'+earn+multLabel, life: mult >= 1.3 ? 1.2 : 0.8, color: multColor });
           }
         }
 
