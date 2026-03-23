@@ -7075,7 +7075,15 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
         <div style={{ textAlign: 'center', marginBottom: 12, position: 'relative', padding: '8px 0' }}>
           <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }} />
           <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.35, fontFamily: "'Rajdhani',sans-serif", color: '#ffd700' }}>— HALL OF GLORY —</div>
-          <div className="rank-diamond" style={{ fontSize: 13, fontWeight: 900, letterSpacing: 4, fontFamily: "'Orbitron',sans-serif" }}>CONGRATULATIONS</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <div className="rank-diamond" style={{ fontSize: 13, fontWeight: 900, letterSpacing: 4, fontFamily: "'Orbitron',sans-serif" }}>CONGRATULATIONS</div>
+            {uraUnlocked && !showUraMuseum && (
+              <span onClick={() => setShowUraMuseum(true)}
+                style={{ fontSize: 8, color: 'rgba(100,80,150,0.25)', cursor: 'pointer', letterSpacing: 1, fontFamily: "'Rajdhani',sans-serif" }}>
+                隠し通路
+              </span>
+            )}
+          </div>
           <div style={{ position: 'absolute', bottom: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -7380,17 +7388,6 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
       </div>
 
       {/* Hidden Passage to Ura Museum */}
-      {uraUnlocked && !showUraMuseum && (
-        <div style={{ textAlign: 'center', marginTop: 24, marginBottom: 8 }}>
-          <button onClick={() => setShowUraMuseum(true)}
-            style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(100,0,200,0.2)',
-              borderRadius: 8, padding: '8px 20px', fontSize: 10, color: 'rgba(150,100,200,0.5)',
-              cursor: 'pointer', letterSpacing: 2, fontFamily: "'Rajdhani',sans-serif" }}>
-            🚪 隠し通路
-          </button>
-        </div>
-      )}
-
       {/* Ura Museum */}
       {showUraMuseum && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9000, background: '#000', overflowY: 'auto', padding: '16px' }}>
