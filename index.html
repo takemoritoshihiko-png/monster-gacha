@@ -2737,7 +2737,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 3200, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2880, pinball: 2560, chainBurst: 2160 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -6767,11 +6767,11 @@ function BattingGame({ onDone }) {
   const HW_P = 13, HW_G = 28, HW_OK = 50;
 
   const BALLS = [
-    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 44 },
-    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 68 },
-    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 96 },
-    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 128 },
-    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 112 },
+    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 40 },
+    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 61 },
+    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 86 },
+    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 115 },
+    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 101 },
   ];
   const pickBall = () => { const tot = BALLS.reduce((s, b) => s + b.w, 0); let r = Math.random() * tot; for (const b of BALLS) { r -= b.w; if (r <= 0) return b; } return BALLS[1]; };
   const comboMult = (c) => c >= 5 ? 1.5 : c >= 4 ? 1.4 : c >= 3 ? 1.2 : c >= 2 ? 1.1 : 1.0;
@@ -6808,7 +6808,7 @@ function BattingGame({ onDone }) {
 
     if (G.phase !== 2 || !G.bAlive) {
       playNote(140, 0.2, 'sawtooth', 0.1);
-      G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 20, v: '早すぎ!', life: 0.9, vy: -40, col: '#ff8844' });
+      G.floats.push({ id: ++G.floatId, x: 60, y: HIT_Y - 50, v: '早すぎ!', life: 0.9, vy: -30, col: '#ff8844' });
       return;
     }
 
@@ -6823,7 +6823,7 @@ function BattingGame({ onDone }) {
       G.combo = 0; G.misses++;
       playNote(140, 0.2, 'sawtooth', 0.1);
       G.bAlive = false; G.phase = 3; G.timer = 0.8;
-      G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 30, v: '💨 空振り！', life: 1.1, vy: -50, col: judge.col });
+      G.floats.push({ id: ++G.floatId, x: 60, y: HIT_Y - 50, v: '💨 空振り！', life: 1.1, vy: -30, col: judge.col });
       return;
     }
 
@@ -6865,7 +6865,7 @@ function BattingGame({ onDone }) {
 
     const cs = G.combo >= 2 ? ' ×' + comboMult(G.combo).toFixed(1) : '';
     const label = judge.nm === 'PERFECT' ? '★ PERFECT!! ★' : judge.nm === 'GREAT' ? '◆ GREAT! ◆' : '● GOOD';
-    G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 40, v: label + ' +' + earned + cs, life: 1.6, vy: -80, col: judge.col, big: judge.nm !== 'GOOD' });
+    G.floats.push({ id: ++G.floatId, x: 60, y: HIT_Y - 60, v: label + ' +' + earned + cs, life: 1.6, vy: -30, col: judge.col });
   };
 
   const startGame = () => {
@@ -6910,7 +6910,7 @@ function BattingGame({ onDone }) {
           if (G.by > HIT_Y + HW_OK + 28) {
             G.combo = 0; G.misses++; playNote(140, 0.2, 'sawtooth', 0.1);
             G.bAlive = false; G.phase = 3; G.timer = 0.9; G.trail = [];
-            G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 20, v: '⚾ 見逃し', life: 1.0, vy: -40, col: '#ffaa44' });
+            G.floats.push({ id: ++G.floatId, x: 60, y: HIT_Y - 50, v: '⚾ 見逃し', life: 1.0, vy: -30, col: '#ffaa44' });
           }
         } else { G.phase = 3; G.timer = 0.5; }
       } else if (G.phase === 3) {
@@ -7088,20 +7088,20 @@ function BattingGame({ onDone }) {
       // Floats
       G.floats.forEach(f => {
         ctx.save(); ctx.globalAlpha = Math.min(1, f.life * 1.6);
-        ctx.font = `900 ${f.big ? 24 : 16}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = f.col; ctx.strokeStyle = 'rgba(0,0,0,0.95)'; ctx.lineWidth = f.big ? 4 : 3;
+        ctx.font = '900 12px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = f.col; ctx.strokeStyle = 'rgba(0,0,0,0.95)'; ctx.lineWidth = 2;
         ctx.strokeText(f.v, f.x, f.y); ctx.fillText(f.v, f.x, f.y);
         ctx.restore();
       });
 
       // Combo
       if (G.combo >= 2) {
-        ctx.save(); ctx.textAlign = 'right'; ctx.font = '900 17px sans-serif';
+        ctx.save(); ctx.textAlign = 'right'; ctx.font = '900 13px sans-serif';
         ctx.fillStyle = G.combo >= 8 ? '#ffd700' : G.combo >= 5 ? '#ff9900' : '#ffcc44';
-        ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 12;
+        ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 8;
         const ct = G.combo + ' COMBO ×' + comboMult(G.combo).toFixed(1);
-        ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
-        ctx.strokeText(ct, W - 12, H - 120); ctx.fillText(ct, W - 12, H - 120);
+        ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 3;
+        ctx.strokeText(ct, W - 8, 52); ctx.fillText(ct, W - 8, 52);
         ctx.restore();
       }
 
