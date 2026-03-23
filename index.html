@@ -683,13 +683,15 @@ const URA_ITEMS = (() => {
 })();
 const URA_PROBABILITY = 16384; // 1/16384 per item in pool
 
-// Roll for ura item: returns ura item or null
+// Roll for ura item: each item in pool has 1/16384 chance independently
+// Total probability = poolSize / 16384 (decreases as items are obtained)
 function rollUraItem(uraPool) {
   if (!uraPool || uraPool.length === 0) return null;
+  // Each remaining ura item has 1/16384 chance
+  // Equivalent: roll 0 to 16383, if roll < poolSize → win, pick that index
   const roll = Math.floor(Math.random() * URA_PROBABILITY);
-  if (roll !== 0) return null;
-  // Won! Pick random from pool
-  return uraPool[Math.floor(Math.random() * uraPool.length)];
+  if (roll >= uraPool.length) return null;
+  return uraPool[roll];
 }
 
 function rollMonster(crownBonus) {
@@ -2007,20 +2009,30 @@ function MonsterGacha() {
       setTimeout(() => {
         // Add all cards in this group to collection
         indices.forEach(idx => addToCollection(res[idx]));
-        // Ura item lottery (if unlocked)
+        // Ura item lottery (if unlocked) - one roll per group, after all effects
         if (uraUnlocked && uraPool.length > 0) {
-          indices.forEach(() => {
-            const uraResult = rollUraItem(uraPool);
+          // Build local pool copy to avoid duplicates within same pull
+          const localPool = [...uraPool];
+          let uraWin = null;
+          for (let ui = 0; ui < indices.length; ui++) {
+            if (localPool.length === 0) break;
+            const uraResult = rollUraItem(localPool);
             if (uraResult) {
+              uraWin = uraResult;
+              // Remove from local pool to prevent same item twice
+              const idx2 = localPool.findIndex(u => u.id === uraResult.id);
+              if (idx2 >= 0) localPool.splice(idx2, 1);
               setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
-              // Show ura item with rainbow effect
-              setTimeout(() => {
-                setRareEffect({ type: 'uraItem', uraItem: uraResult });
-                sfx('reveal10');
-                setTimeout(() => setRareEffect(null), 3500);
-              }, 2000);
             }
-          });
+          }
+          // Show only the last ura win, AFTER normal effects finish (6 seconds delay)
+          if (uraWin) {
+            setTimeout(() => {
+              setRareEffect({ type: 'uraItem', uraItem: uraWin });
+              sfx('reveal10');
+              setTimeout(() => setRareEffect(null), 3500);
+            }, 6000);
+          }
         }
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
