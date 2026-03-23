@@ -8160,7 +8160,7 @@ function RankingScreen() {
     { icon: "🏛️", label: "展示室" },
     { icon: "🎰", label: "ガチャ回数" },
     { icon: "🎁", label: "ギフト" },
-    { icon: "🎮", label: "ミニゲーム" },
+    { icon: "🎮", label: "ゲーム" },
     { icon: "★", label: "裏" },
   ];
 
@@ -8217,7 +8217,7 @@ function RankingScreen() {
       <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
         background: 'linear-gradient(160deg, rgba(255,215,0,0.1) 0%, rgba(139,92,246,0.08) 100%)',
         borderBottom: '1px solid rgba(255,215,0,0.15)', marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🏆 ファミリーランキング</div>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🏆 ランキング</div>
         <div style={{ fontSize: 11, opacity: 0.4 }}>セーブ時にランキングが更新されます</div>
       </div>
 
@@ -8226,9 +8226,10 @@ function RankingScreen() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         {tabs.map((t, i) => (
           <button key={i} className={`tfb ${tab === i ? 'act' : ''}`}
-            style={{ flex: 1, textAlign: 'center', padding: '6px 2px', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden' }}
+            style={{ flex: i === 5 ? 0.3 : 1, textAlign: 'center', padding: i === 5 ? '6px 1px' : '6px 2px', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden',
+              ...(i === 5 ? { opacity: tab === 5 ? 0.4 : 0.1, minWidth: 0 } : {}) }}
             onClick={() => setTab(i)}>
-            <span style={{ fontSize: 14 }}>{t.icon}</span><br/><span style={{ fontSize: 8 }}>{t.label}</span>
+            <span style={{ fontSize: i === 5 ? 8 : 14 }}>{t.icon}</span><br/><span style={{ fontSize: i === 5 ? 5 : 8 }}>{t.label}</span>
           </button>
         ))}
       </div>
