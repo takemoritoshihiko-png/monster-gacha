@@ -2616,15 +2616,21 @@ function MonsterGacha() {
     setDailyProgress({});
 
     const ref = window.fbDb.ref('dailyMissions/' + today);
-    const handler = ref.on('value', snapshot => {
-      const data = snapshot.val() || {};
+    const hasGiftMission = missions.some(m => m.type === 'gift');
+
+    const updateProgress = (data, giftTotal) => {
       const progress = {};
       const completed = {};
       missions.forEach(m => {
-        const mData = data[m.id] || {};
-        const total = Object.values(mData.contributions || {}).reduce((s, v) => s + v, 0);
-        progress[m.id] = { total, contributions: mData.contributions || {}, target: m.target };
-        completed[m.id] = total >= m.target;
+        if (m.type === 'gift' && giftTotal !== undefined) {
+          progress[m.id] = { total: giftTotal, contributions: {}, target: m.target };
+          completed[m.id] = giftTotal >= m.target;
+        } else {
+          const mData = data[m.id] || {};
+          const total = Object.values(mData.contributions || {}).reduce((s, v) => s + v, 0);
+          progress[m.id] = { total, contributions: mData.contributions || {}, target: m.target };
+          completed[m.id] = total >= m.target;
+        }
       });
       setDailyProgress(progress);
       setDailyCompleted(completed);
@@ -2641,8 +2647,39 @@ function MonsterGacha() {
           }
         });
       }
+    };
+
+    let giftHandler = null;
+    const giftRef = hasGiftMission ? window.fbDb.ref('rankings') : null;
+
+    const handler = ref.on('value', snapshot => {
+      const data = snapshot.val() || {};
+      if (hasGiftMission && giftRef) {
+        giftRef.once('value').then(gSnap => {
+          let giftTotal = 0;
+          gSnap.forEach(child => { const d = child.val(); if (d && d.totalGiftValue) giftTotal += d.totalGiftValue; });
+          updateProgress(data, giftTotal);
+        });
+      } else {
+        updateProgress(data);
+      }
     });
-    return () => ref.off('value', handler);
+
+    // Also listen to rankings changes for gift mission updates
+    if (hasGiftMission && giftRef) {
+      giftHandler = giftRef.on('value', gSnap => {
+        let giftTotal = 0;
+        gSnap.forEach(child => { const d = child.val(); if (d && d.totalGiftValue) giftTotal += d.totalGiftValue; });
+        ref.once('value').then(snapshot => {
+          updateProgress(snapshot.val() || {}, giftTotal);
+        });
+      });
+    }
+
+    return () => {
+      ref.off('value', handler);
+      if (giftHandler && giftRef) giftRef.off('value', giftHandler);
+    };
   }, [loaded, slotId, missionDate]);
 
   const contributeMission = useCallback((missionType, amount) => {
