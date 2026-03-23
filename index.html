@@ -690,7 +690,7 @@ const URA_PROBABILITY = 16384; // 1/16384 per item in pool
 function rollUraItem(uraPool) {
   if (!uraPool || uraPool.length === 0) return null;
   const obtained = URA_ITEMS.length - uraPool.length;
-  const prob = obtained < 10 ? 32768 : uraPool.length <= 6 ? 8192 : 16000;
+  const prob = obtained < 10 ? 32768 : uraPool.length <= 6 ? 8192 : 16384;
   const roll = Math.floor(Math.random() * prob);
   if (roll >= uraPool.length) return null;
   return uraPool[roll];
