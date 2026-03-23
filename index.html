@@ -1803,6 +1803,7 @@ function MonsterGacha() {
     setLastGiftDate(today);
     setTotalGiftValue(prev => prev + giftValue);
     window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue).catch(() => {});
+    window.fbDb.ref('dailyGiftTotal/' + today + '/' + nickname).transaction(current => (current || 0) + giftValue).catch(() => {});
     contributeMission('gift', giftValue);
     sfx('sell');
     setShowGiftModal(null);
@@ -2650,14 +2651,14 @@ function MonsterGacha() {
     };
 
     let giftHandler = null;
-    const giftRef = hasGiftMission ? window.fbDb.ref('rankings') : null;
+    const giftRef = hasGiftMission ? window.fbDb.ref('dailyGiftTotal/' + today) : null;
 
     const handler = ref.on('value', snapshot => {
       const data = snapshot.val() || {};
       if (hasGiftMission && giftRef) {
         giftRef.once('value').then(gSnap => {
-          let giftTotal = 0;
-          gSnap.forEach(child => { const d = child.val(); if (d && d.totalGiftValue) giftTotal += d.totalGiftValue; });
+          const vals = gSnap.val() || {};
+          const giftTotal = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
           updateProgress(data, giftTotal);
         });
       } else {
@@ -2665,11 +2666,11 @@ function MonsterGacha() {
       }
     });
 
-    // Also listen to rankings changes for gift mission updates
+    // Also listen to dailyGiftTotal changes for gift mission updates
     if (hasGiftMission && giftRef) {
       giftHandler = giftRef.on('value', gSnap => {
-        let giftTotal = 0;
-        gSnap.forEach(child => { const d = child.val(); if (d && d.totalGiftValue) giftTotal += d.totalGiftValue; });
+        const vals = gSnap.val() || {};
+        const giftTotal = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
         ref.once('value').then(snapshot => {
           updateProgress(snapshot.val() || {}, giftTotal);
         });
