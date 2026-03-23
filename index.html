@@ -15,6 +15,24 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
+    // ONE-TIME RESET: clear adventure scores for 俊彦
+    (function(){
+      const db = window.fbDb, name = '俊彦', games = ['coinRunner','batting','pinball','chainBurst'];
+      const done = localStorage.getItem('_resetAdv_done');
+      if (done) return;
+      games.forEach(g => {
+        db.ref('rankings/' + name + '/bestScores/' + g).set(0);
+        db.ref('rankings/' + name + '/playCounts/' + g).set(0);
+      });
+      // Weekly rankings
+      const d = new Date(); d.setHours(0,0,0,0);
+      const day = d.getDay(), diff = day === 0 ? 6 : day - 1;
+      d.setDate(d.getDate() - diff);
+      const wk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      games.forEach(g => { db.ref('weeklyRankings/' + wk + '/' + name + '/' + g).remove(); });
+      localStorage.setItem('_resetAdv_done', '1');
+      console.log('Adventure scores reset for 俊彦');
+    })();
   </script>
 </head>
 <body>
@@ -1568,11 +1586,22 @@ function MonsterGacha() {
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
       setNickname(d.nickname || "");
-      setBestScores(d.bestScores || {});
-      setPlayCounts(d.playCounts || {});
+      const advGames = ['coinRunner','batting','pinball','chainBurst'];
+      const bs = d.bestScores || {}; const pc = d.playCounts || {};
+      if (d.nickname === '俊彦' && !localStorage.getItem('_resetAdvLocal_done')) {
+        advGames.forEach(g => { bs[g] = 0; pc[g] = 0; });
+        localStorage.setItem('_resetAdvLocal_done', '1');
+      }
+      setBestScores(bs);
+      setPlayCounts(pc);
       setLastLoginDate(d.lastLoginDate || null);
       setLoginStreak(d.loginStreak || 0);
-      setWeeklyScores(d.weeklyScores || {});
+      const ws = d.weeklyScores || {};
+      if (d.nickname === '俊彦' && !localStorage.getItem('_resetAdvWeekly_done')) {
+        ['coinRunner','batting','pinball','chainBurst'].forEach(g => { delete ws[g]; });
+        localStorage.setItem('_resetAdvWeekly_done', '1');
+      }
+      setWeeklyScores(ws);
       setTotalGiftValue(d.totalGiftValue || 0);
       setGiftsSentToday(d.giftsSentToday || 0);
       setLastGiftDate(d.lastGiftDate || null);
