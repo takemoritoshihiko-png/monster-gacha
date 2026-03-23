@@ -1423,6 +1423,8 @@ function MonsterGacha() {
   const [itemRequests, setItemRequests] = useState([]);
   const [showRequestConfirm, setShowRequestConfirm] = useState(null);
   const [requestMode, setRequestMode] = useState(false);
+  const [giftHistory, setGiftHistory] = useState([]);
+  const [showGiftHistory, setShowGiftHistory] = useState(false);
   // Ura (hidden) museum state
   const [uraObtained, setUraObtained] = useState([]);
   const [uraUnlocked, setUraUnlocked] = useState(false);
@@ -2596,6 +2598,18 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
+  // Gift history (who sent what to whom) - realtime
+  useEffect(() => {
+    if (!window.fbDb) return;
+    const ref = window.fbDb.ref('notifications/giftHistory').orderByChild('timestamp').limitToLast(20);
+    const handler = ref.on('value', snapshot => {
+      const hist = [];
+      snapshot.forEach(child => { const d = child.val(); if (d && d.sender && d.receiver) hist.push(d); });
+      hist.reverse();
+      setGiftHistory(hist);
+    });
+    return () => ref.off('value', handler);
+  }, []);
   // Daily Missions loading
 
   useEffect(() => {
@@ -3442,6 +3456,35 @@ function MonsterGacha() {
                   💌 アイテムをリクエストする
                 </button>
               )}
+              {/* Gift History toggle */}
+              <div style={{ textAlign: 'center', marginTop: 8 }}>
+                <span onClick={() => setShowGiftHistory(v => !v)}
+                  style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', cursor: 'pointer' }}>
+                  {showGiftHistory ? '▼' : '▶'} プレゼント履歴
+                </span>
+              </div>
+              {showGiftHistory && (
+                <div style={{ marginTop: 6, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '6px 8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  {giftHistory.length > 0 ? giftHistory.map((h, i) => {
+                    const d = new Date(h.timestamp);
+                    const ts = `${d.getMonth()+1}/${d.getDate()}`;
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0',
+                        borderBottom: i < giftHistory.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                        fontSize: 9, opacity: 0.5 }}>
+                        <span style={{ opacity: 0.5, minWidth: 28 }}>{ts}</span>
+                        <span>{h.icon}</span>
+                        <span style={{ color: '#c084fc' }}>{h.receiver}</span>
+                        <span style={{ opacity: 0.4 }}>←</span>
+                        <span style={{ color: '#4ade80' }}>{h.sender}</span>
+                        <span style={{ opacity: 0.3, marginLeft: 'auto', whiteSpace: 'nowrap' }}>★{h.rank} {h.item}</span>
+                      </div>
+                    );
+                  }) : (
+                    <div style={{ fontSize: 8, opacity: 0.2, textAlign: 'center', padding: 6 }}>履歴はありません</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Request confirm modal */}
@@ -3468,10 +3511,22 @@ function MonsterGacha() {
                           setShowRequestConfirm(null);
                           return;
                         }
-                        // First remove request, then send gift
+                        // First remove request, then send gift, then log history
                         if (window.fbDb) {
                           window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().then(() => {
                             sendGift(itemKey, req.name);
+                            // Log gift history
+                            const histRef = window.fbDb.ref('notifications/giftHistory');
+                            histRef.push({
+                              sender: nickname, receiver: req.name, item: req.itemName, icon: req.icon,
+                              rank: req.rank, timestamp: Date.now()
+                            }).catch(() => {});
+                            // Trim to max 20
+                            histRef.orderByChild('timestamp').once('value').then(snap => {
+                              const keys = [];
+                              snap.forEach(child => keys.push(child.key));
+                              if (keys.length > 20) keys.slice(0, keys.length - 20).forEach(k => histRef.child(k).remove());
+                            }).catch(() => {});
                           }).catch(() => {
                             sendGift(itemKey, req.name);
                           });
