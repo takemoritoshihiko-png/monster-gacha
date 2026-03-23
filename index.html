@@ -7103,7 +7103,7 @@ function ChainBurstGame({ onDone }) {
 
       // Chain timer
       if(G.chainActive) { G.chainTimer-=dt; if(G.chainTimer<=0) { G.chainActive=false;
-        if(G.chainCount>=3) {
+        if(G.chainCount>=10) {
           G.chainFlash={count:G.chainCount,mult:chainMult(G.chainCount),life:G.chainCount>=15?2.5:1.5,final:true};
           if(G.chainCount>=20) {
             // 超派手ファンファーレ
@@ -7232,7 +7232,7 @@ function ChainBurstGame({ onDone }) {
           ctx.fillStyle = '#66ffff'; ctx.fillRect(0,0,W,H);
           ctx.globalAlpha = Math.min(1, fl.life * 1.2);
         }
-        const sz = fl.count>=20?52:fl.count>=15?38:fl.count>=10?28:fl.count>=5?20:16;
+        const sz = fl.count>=20?52:fl.count>=15?34:fl.count>=10?22:0;
         ctx.font = 'bold '+sz+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         const icon = fl.count>=20?'⚡':fl.count>=15?'🌟':fl.count>=10?'💥':fl.count>=5?'🔥':'✨';
         ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=4;
