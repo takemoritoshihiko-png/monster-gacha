@@ -2319,7 +2319,7 @@ function MonsterGacha() {
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
         // Check if player owns 5+ unique ★MAX patterns → offer retry
         const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
-        if (maxPatternsOwned >= 5) {
+        if (maxPatternsOwned >= 4) {
           setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon });
         }
         playNote(50, 0.8, 'sawtooth', 0.12);
@@ -6779,10 +6779,10 @@ function CoinRunnerGame({ onDone }) {
       G.items = G.items.filter(it => {
         const dx = G.px - it.x, dy = G.py - it.y;
         if (dx*dx + dy*dy < (PR+it.r)*(PR+it.r)) {
-          if (it.slow) { G.slowTimer = G.SLOW_DUR; playNote(200, 0.15, 'square', 0.06); G.floats.push({ id: ++G.floatId, x: it.x, y: it.y, text: '🐌スロー!', life: 1.2, color: '#aa44ff' }); }
+          if (it.slow) { G.slowTimer = G.SLOW_DUR; if (G.combo > 0) G.cTimer = G.C_RESET; playNote(200, 0.15, 'square', 0.06); G.floats.push({ id: ++G.floatId, x: it.x, y: it.y, text: '🐌スロー!', life: 1.2, color: '#aa44ff' }); }
           else {
             G.combo++; G.cTimer = G.C_RESET; G.mult = comboMult(G.combo); if(G.combo>G.maxCombo)G.maxCombo=G.combo;
-            const earn = Math.round(it.v * G.mult); G.coins += earn; G.got++;
+            const earn = Math.round(it.v * 1.1 * G.mult); G.coins += earn; G.got++;
             playNote(700 + G.combo * 40, 0.12, 'sine', 0.12); playNote(900 + G.combo * 40, 0.1, 'sine', 0.08, 0.03);
             if (G.combo >= 3) { playNote(1100 + G.combo * 30, 0.12, 'sine', 0.07, 0.05); playNote(1400, 0.08, 'triangle', 0.04, 0.08); }
             if (G.combo >= 6) playSweep(800, 1600, 0.15, 'sine', 0.05, 0.02);
