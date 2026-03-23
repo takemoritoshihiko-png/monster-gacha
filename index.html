@@ -7023,7 +7023,7 @@ function ChainBurstGame({ onDone }) {
     running:true, over:false, t:TOTAL, coins:0,
     bubbles:[], spawnT:0,
     chainActive:false, chainCount:0, chainTimer:0, CHAIN_WINDOW:0.55,
-    maxChain:0, totalPops:0, floats:[], floatId:0,
+    maxChain:0, totalPops:0, floats:[], floatId:0, chainFlash:null,
   });
 
   const startGame = () => {
@@ -7043,6 +7043,29 @@ function ChainBurstGame({ onDone }) {
 
   const burstAt = (x,y,cols,n) => { for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=3+Math.random()*5; partsRef.current.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,col:cols[i%cols.length],r:2+Math.random()*4});} };
 
+  // ドレミファソラシド音階（C4→C5）
+  const SCALE = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+  const playChainNote = (chainN) => {
+    const octave = Math.floor((chainN-1)/8);
+    const noteIdx = (chainN-1) % 8;
+    const freq = SCALE[noteIdx] * Math.pow(2, octave);
+    // メイン音（まろやかなサイン波）
+    playNote(freq, 0.25, 'sine', 0.15);
+    // ハーモニクス（5度上を薄く重ねる）
+    playNote(freq*1.5, 0.18, 'sine', 0.05, 0.01);
+    // オクターブ変わり目は輝き音追加
+    if(chainN > 1 && chainN%8 === 1) {
+      playNote(freq*2, 0.15, 'triangle', 0.08, 0.04);
+      playSweep(freq, freq*2, 0.2, 'sine', 0.04, 0.02);
+    }
+  };
+  // チェイン終了ファンファーレ
+  const playChainFanfare = (n) => {
+    if(n < 5) return;
+    const chord = n>=15 ? [523,659,784,1047] : [392,494,587,784];
+    chord.forEach((f,i) => playNote(f, 0.4, 'sine', 0.1, i*0.06));
+  };
+
   const explodeRef = useRef(null);
   explodeRef.current = (b, G, depth=0) => {
     if(!b.alive) return;
@@ -7052,11 +7075,14 @@ function ChainBurstGame({ onDone }) {
     const mult = chainMult(G.chainCount);
     const earn = Math.round(b.val * mult);
     G.coins += earn;
-    const noteFreq = 262 * Math.pow(2, ((G.chainCount-1)%8)/12);
-    playNote(noteFreq, 0.15, 'sine', 0.12);
-    if(G.chainCount > 1 && G.chainCount%8===1) playNote(noteFreq*2, 0.1, 'triangle', 0.06, 0.03);
-    burstAt(b.x, b.y, [b.col,'#fff',b.glow], 10);
+    // ドレミ音階で連鎖音
+    playChainNote(G.chainCount);
+    burstAt(b.x, b.y, [b.col,'#fff',b.glow], 12);
     G.floats.push({id:++G.floatId, x:b.x, y:b.y, text:'+'+earn, life:0.9, color: mult>=1.8?'#ffd700':mult>=1.2?'#ffaa44':'#fff'});
+    // チェイン数表示（5の倍数でフラッシュ）
+    if(G.chainCount >= 5 && G.chainCount%5 === 0) {
+      G.chainFlash = { count: G.chainCount, mult: mult, life: 1.2 };
+    }
     G.chainTimer = G.CHAIN_WINDOW;
     G.chainActive = true;
     // Chain to nearby
@@ -7080,7 +7106,9 @@ function ChainBurstGame({ onDone }) {
       if(G.t <= 0) { G.t=0; G.over=true; G.running=false; bgm.stop(); sfx('gameFinish'); setScore(Math.floor(G.coins)); setPhase("done"); return; }
 
       // Chain timer
-      if(G.chainActive) { G.chainTimer-=dt; if(G.chainTimer<=0) { G.chainActive=false; G.chainCount=0; } }
+      if(G.chainActive) { G.chainTimer-=dt; if(G.chainTimer<=0) { G.chainActive=false; playChainFanfare(G.chainCount); if(G.chainCount>=3) G.chainFlash={count:G.chainCount,mult:chainMult(G.chainCount),life:1.5,final:true}; G.chainCount=0; } }
+      // Chain flash decay
+      if(G.chainFlash) { G.chainFlash.life-=dt; if(G.chainFlash.life<=0) G.chainFlash=null; }
 
       // Move bubbles
       G.bubbles.forEach(b => {
@@ -7159,6 +7187,34 @@ function ChainBurstGame({ onDone }) {
         ctx.fillStyle=f.color;ctx.fillText(f.text,f.x,f.y);ctx.restore();
       });
 
+      // Chain count BIG display (center of screen)
+      if(G.chainActive && G.chainCount >= 2) {
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = G.chainCount>=15?'#ffd700':G.chainCount>=10?'#ff8844':G.chainCount>=5?'#ffaa00':'rgba(255,255,255,0.6)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 4;
+        ctx.strokeText(G.chainCount+'🔥', W/2, H*0.42);
+        ctx.fillText(G.chainCount+'🔥', W/2, H*0.42);
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillStyle = '#ffcc44';
+        ctx.fillText('×'+chainMult(G.chainCount), W/2, H*0.42+32);
+        ctx.restore();
+      }
+      // Chain flash (on 5-multiples and final)
+      if(G.chainFlash) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, G.chainFlash.life * 1.5);
+        ctx.font = 'bold '+(G.chainFlash.final?56:42)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        const icon = G.chainFlash.count>=15?'🌟':G.chainFlash.count>=10?'💥':G.chainFlash.count>=5?'🔥':'✨';
+        ctx.fillStyle = '#fff'; ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=3;
+        const txt = icon+' '+G.chainFlash.count+' CHAIN!';
+        ctx.strokeText(txt, W/2, H*0.3); ctx.fillText(txt, W/2, H*0.3);
+        ctx.font = 'bold 28px sans-serif'; ctx.fillStyle='#ffd700';
+        ctx.fillText('×'+G.chainFlash.mult+' BONUS!', W/2, H*0.3+38);
+        ctx.restore();
+      }
+
       // HUD
       ctx.save();ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W,20);
       ctx.fillStyle='#66ffff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';
@@ -7166,14 +7222,18 @@ function ChainBurstGame({ onDone }) {
       const s=Math.ceil(G.t);ctx.textAlign='right';ctx.fillStyle=G.t<15?'#ff4444':'#fff';
       ctx.fillText(Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60,W-6,14);
       ctx.textAlign='center';
-      if(G.chainActive) ctx.fillText('🔥'+G.chainCount+' ×'+chainMult(G.chainCount),W/2,14);
+      if(G.chainActive && G.chainCount>0) ctx.fillText('🔥'+G.chainCount+' ×'+chainMult(G.chainCount),W/2,14);
       ctx.restore();
       // Chain bar
       if(G.chainActive && G.chainCount>0) {
         const pct=Math.min(G.chainCount/20,1);
-        ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(10,H-12,W-20,6);
+        ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(10,H-14,W-20,7);
         const cg=ctx.createLinearGradient(10,0,W-10,0);cg.addColorStop(0,'#0af');cg.addColorStop(0.5,'#ffaa00');cg.addColorStop(1,'#ff2200');
-        ctx.fillStyle=cg;ctx.fillRect(10,H-12,(W-20)*pct,6);
+        ctx.fillStyle=cg;ctx.fillRect(10,H-14,(W-20)*pct,7);
+        // Chain countdown
+        const cPct=G.chainTimer/G.CHAIN_WINDOW;
+        ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(10,H-5,W-20,3);
+        ctx.fillStyle='rgba(255,255,255,0.5)';ctx.fillRect(10,H-5,(W-20)*cPct,3);
       }
       ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(0,H-3,W,3);
       ctx.fillStyle=G.t<15?'#f33':'#0af';ctx.fillRect(0,H-3,W*(G.t/TOTAL),3);
