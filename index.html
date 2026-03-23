@@ -7410,7 +7410,7 @@ function PinballGame({ onDone }) {
       // Spawn balls
       G.nextSpawn -= dt;
       if (G.nextSpawn <= 0) {
-        const max = Math.min(2 + Math.floor(prog * 4), 6);
+        const max = G.t <= 30 ? 6 : Math.min(2 + Math.floor(prog * 4), 5);
         if (G.balls.length < max) {
           const cols = [{ col: '#ffcc44', glow: '#ff8800' }, { col: '#ff66ff', glow: '#cc00cc' }, { col: '#44ffcc', glow: '#00aaaa' }];
           const bc = cols[G.ballsAdded % cols.length];
