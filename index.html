@@ -6976,13 +6976,16 @@ function CoinRunnerGame({ onDone }) {
         </>
       )}
       {phase === "play" && (
-        <div style={{ position: 'relative', marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
-          onPointerDown={e => { e.preventDefault(); onDown(); }}
-          onPointerUp={onUp} onPointerCancel={onUp}>
-          <canvas ref={canvasRef} width={W} height={H}
-            style={{ borderRadius: 14, border: '2px solid rgba(255,200,50,0.2)', touchAction: 'none', width: '100%', height: 'auto',
-              boxShadow: '0 0 20px rgba(255,200,50,0.1)' }} />
-        </div>
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none' }}
+            onPointerDown={e => { e.preventDefault(); onDown(); }}
+            onPointerUp={onUp} onPointerCancel={onUp} />
+          <div style={{ position: 'relative', marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 41, pointerEvents: 'none' }}>
+            <canvas ref={canvasRef} width={W} height={H}
+              style={{ borderRadius: 14, border: '2px solid rgba(255,200,50,0.2)', touchAction: 'none', width: '100%', height: 'auto',
+                boxShadow: '0 0 20px rgba(255,200,50,0.1)' }} />
+          </div>
+        </>
       )}
       {phase === "done" && (
         <div style={{ textAlign: 'center', marginTop: 16 }}>
@@ -7611,7 +7614,7 @@ function PinballGame({ onDone }) {
           <canvas ref={canvasRef} width={W} height={H}
             style={{ borderRadius: 10, border: '2px solid rgba(200,0,200,0.2)', touchAction: 'none', width: '100%', maxHeight: 'calc(100vh - 220px)',
               boxShadow: '0 0 20px rgba(200,0,200,0.15)' }} />
-          <div style={{ display: 'flex', gap: 6, marginTop: 6, position: 'sticky', bottom: 70 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, position: 'sticky', bottom: 90 }}>
             <button onPointerDown={e => { e.preventDefault(); leftRef.current = true; }}
               onPointerUp={() => { leftRef.current = false; }} onPointerCancel={() => { leftRef.current = false; }}
               style={{ flex: 1, height: 60, borderRadius: 14, border: 'none', fontSize: 22, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
