@@ -1912,6 +1912,39 @@ function MonsterGacha() {
     setGachaChests(res.map(r => getChestType(r.rank)));
     setOpened(new Set());
     setGachaPhase("chests");
+
+    // Ura item lottery FIRST (before chest animation)
+    let uraDelay = 0;
+    if (uraUnlocked && uraPool.length > 0) {
+      const localPool = [...uraPool];
+      let uraWin = null;
+      for (let ui = 0; ui < res.length; ui++) {
+        if (localPool.length === 0) break;
+        const uraResult = rollUraItem(localPool);
+        if (uraResult) {
+          uraWin = uraResult;
+          const idx2 = localPool.findIndex(u => u.id === uraResult.id);
+          if (idx2 >= 0) localPool.splice(idx2, 1);
+          setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
+          if (uraResult.rank >= 7 && nickname && window.fbDb) {
+            window.fbDb.ref('notifications').push({
+              name: nickname, rank: uraResult.rank, item: uraResult.name, icon: uraResult.icon,
+              rarity: '裏', timestamp: Date.now(), isUra: true
+            }).catch(() => {});
+          }
+        }
+      }
+      if (uraWin) {
+        // Show ura item FIRST with 3.5s total (1.5s animation + 2s viewing)
+        setRareEffect({ type: 'uraItem', uraItem: uraWin });
+        sfx('reveal10');
+        setTimeout(() => setRareEffect(null), 3500);
+        uraDelay = 3800; // chest animation starts after ura effect clears
+      }
+    }
+
+    // Start chest animation (delayed if ura item was shown)
+    setTimeout(() => {
     const openOrder = res.map((r, i) => ({ i, rank: r.rank }));
     openOrder.sort((a, b) => {
       // ★1 first, then ★2, then ★3+ by rank ascending, ★10 last
@@ -2015,38 +2048,6 @@ function MonsterGacha() {
       setTimeout(() => {
         // Add all cards in this group to collection
         indices.forEach(idx => addToCollection(res[idx]));
-        // Ura item lottery (if unlocked) - one roll per group, after all effects
-        if (uraUnlocked && uraPool.length > 0) {
-          // Build local pool copy to avoid duplicates within same pull
-          const localPool = [...uraPool];
-          let uraWin = null;
-          for (let ui = 0; ui < indices.length; ui++) {
-            if (localPool.length === 0) break;
-            const uraResult = rollUraItem(localPool);
-            if (uraResult) {
-              uraWin = uraResult;
-              // Remove from local pool to prevent same item twice
-              const idx2 = localPool.findIndex(u => u.id === uraResult.id);
-              if (idx2 >= 0) localPool.splice(idx2, 1);
-              setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
-              // Log ★7+ ura items to notifications (same path as rareNotifs display)
-              if (uraResult.rank >= 7 && nickname && window.fbDb) {
-                window.fbDb.ref('notifications').push({
-                  name: nickname, rank: uraResult.rank, item: uraResult.name, icon: uraResult.icon,
-                  rarity: '裏', timestamp: Date.now(), isUra: true
-                }).catch(() => {});
-              }
-            }
-          }
-          // Show only the last ura win, AFTER normal effects finish (8 seconds delay)
-          if (uraWin) {
-            setTimeout(() => {
-              setRareEffect({ type: 'uraItem', uraItem: uraWin });
-              sfx('reveal10');
-              setTimeout(() => setRareEffect(null), 5000);
-            }, 8000);
-          }
-        }
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
@@ -2114,7 +2115,8 @@ function MonsterGacha() {
         });
       }, revealDelay);
     }, Number(time)));
-  }, [addToCollection, nickname, uraUnlocked, uraPool]);
+    }, uraDelay); // Delay chest animation if ura item was shown
+  }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
 
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
