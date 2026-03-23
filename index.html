@@ -4133,105 +4133,145 @@ function MonsterGacha() {
 
       {/* GAME CLEAR */}
       {showClear && showClearTier && (
-        <div className="mo">
-          {/* Tier-scaled flash effects */}
-          <div className="rare-flash" style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}99, rgba(255,105,180,0.5), rgba(123,104,238,0.5))`, animationDuration: '0.8s' }} />
-          <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent 50%)', animationDuration: '1s', animationDelay: '0.3s' }} />
-          {showClearTier.tier >= 2 && <div className="rare-flash" style={{ background: `linear-gradient(45deg, rgba(255,105,180,0.5), rgba(0,255,204,0.4), rgba(123,104,238,0.5))`, animationDuration: '1.2s', animationDelay: '0.6s' }} />}
-          {showClearTier.tier >= 3 && <>
-            <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.5), transparent 40%)', animationDuration: '1.5s', animationDelay: '0.9s' }} />
-            <div className="rare-flash" style={{ background: 'conic-gradient(from 0deg, rgba(255,0,0,0.3), rgba(0,255,0,0.3), rgba(0,0,255,0.3), rgba(255,0,0,0.3))', animationDuration: '1.8s', animationDelay: '1.2s' }} />
-          </>}
-          <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
-          {showClearTier.tier >= 2 && <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9996, pointerEvents: 'none', animationDelay: '0.5s' }} />}
-          {showClearTier.tier >= 3 && <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9995, pointerEvents: 'none', animationDelay: '1.0s' }} />}
-          <div style={{
-            background: 'radial-gradient(circle, rgba(25,10,5,0.98), rgba(0,0,0,0.99))',
-            borderRadius: 24, padding: '32px 24px', maxWidth: 360, width: '100%',
-            textAlign: 'center', border: '2px solid transparent',
-            position: 'relative', overflow: 'hidden',
-            animation: 'congratsGlow 2s ease-in-out infinite',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ position: 'absolute', inset: -2, borderRadius: 26,
-              background: showClearTier.tier === 1
-                ? 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700) border-box'
-                : showClearTier.tier === 2
-                  ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
-                  : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box',
-              animation: showClearTier.tier >= 2 ? 'synthMaxRotate 4s linear infinite' : 'none',
-              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-              WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
-            }} />
-            <div style={{
-              fontSize: showClearTier.tier >= 3 ? 100 : showClearTier.tier >= 2 ? 90 : 80,
-              marginBottom: 12,
-              animation: 'synthMaxIcon 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1.2s infinite',
-              filter: showClearTier.tier >= 3
-                ? `drop-shadow(0 0 30px ${showClearTier.tierColor}) drop-shadow(0 0 60px rgba(255,215,0,0.7)) drop-shadow(0 0 90px rgba(255,105,180,0.5)) drop-shadow(0 0 120px rgba(123,104,238,0.3))`
-                : showClearTier.tier >= 2
-                  ? `drop-shadow(0 0 25px ${showClearTier.tierColor}) drop-shadow(0 0 50px ${showClearTier.tierColor}99) drop-shadow(0 0 80px rgba(255,215,0,0.4))`
-                  : `drop-shadow(0 0 20px ${showClearTier.tierColor}) drop-shadow(0 0 40px ${showClearTier.tierColor}99) drop-shadow(0 0 60px ${showClearTier.tierColor}66)` }}>
-              {showClearTier.icon}
-            </div>
-            {/* ★12 Tier3: rotating rainbow ring */}
-            {showClearTier.tier >= 3 && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
-              width: 200, height: 200, borderRadius: '50%', border: '2px solid transparent',
-              background: 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
-              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-              WebkitMaskComposite: 'xor', maskComposite: 'exclude',
-              animation: 'synthMaxRotate 2s linear infinite', opacity: 0.5, pointerEvents: 'none' }} />}
-            {/* ★12 Tier2+: pulsing glow */}
-            {showClearTier.tier >= 2 && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
-              width: 180, height: 180, borderRadius: '50%', animation: 'synthMaxPulse 1.5s ease-in-out infinite', pointerEvents: 'none' }} />}
-            <div className="rank-congrats" style={{
-              fontFamily: "'Orbitron',sans-serif",
-              fontSize: showClearTier.tier >= 3 ? 24 : showClearTier.tier >= 2 ? 22 : 20,
-              fontWeight: 900, letterSpacing: showClearTier.tier >= 3 ? 5 : 3, marginBottom: 4,
-            }}>
-              CONGRATULATIONS
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>
-              {showClearTier.tierLabel}
-            </div>
-            <div className="rank-congrats" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 16 }}>
-              {showClearTier.name}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
-              {TYPES.map((type, i) => (
-                <div key={type.id} style={{
-                  fontSize: 32,
-                  filter: `drop-shadow(0 0 8px ${type.color})`,
-                  animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite`,
-                }}>
-                  {MONSTERS[type.id][10].icon}
-                </div>
+        showClearTier.tier === 1 ? (
+          /* Tier 1: Full-screen video celebration */
+          <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.4), transparent 60%)', animationDuration: '1.2s', zIndex: 10005 }} />
+            <div className="rare-flash" style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,105,180,0.2), rgba(123,104,238,0.2))', animationDuration: '1.5s', animationDelay: '0.5s', zIndex: 10005 }} />
+            <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 10006, pointerEvents: 'none', overflow: 'hidden' }}>
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div key={i} style={{ position: 'absolute', left: `${5 + (i * 47 + 13) % 90}%`, top: `${(i * 31 + 7) % 100}%`,
+                  width: 4 + (i % 3) * 2, height: 4 + (i % 3) * 2, borderRadius: '50%',
+                  background: ['#ffd700', '#fff', '#ff69b4', '#7b68ee', '#00ffcc'][i % 5],
+                  boxShadow: `0 0 ${6 + (i % 4) * 3}px currentColor`,
+                  animation: `heroIconFloat ${1.5 + (i % 5) * 0.4}s ease-in-out ${(i % 7) * 0.3}s infinite`, opacity: 0.8 }} />
               ))}
             </div>
-            <div style={{
-              background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
-              border: `1px solid ${showClearTier.tierColor}50`,
-              borderRadius: 12, padding: '10px 16px', marginBottom: 16,
-            }}>
-              <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>展示室報酬</div>
-              <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900 }}>
-                {showClearTier.icon} {showClearTier.name} 獲得！
+            <video src="congrats-tier1.mp4" autoPlay playsInline
+              style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10003 }}
+              onLoadedData={() => {
+                try {
+                  const a = audioCtx; if (a && a.state === 'suspended') a.resume();
+                  const now = a.currentTime;
+                  const pf = (freq, start, dur, type, vol) => {
+                    const o = a.createOscillator(), g = a.createGain();
+                    o.connect(g); g.connect(a.destination); o.type = type;
+                    o.frequency.setValueAtTime(freq, now + start);
+                    g.gain.setValueAtTime(0, now + start);
+                    g.gain.linearRampToValueAtTime(vol, now + start + 0.05);
+                    g.gain.setValueAtTime(vol, now + start + dur * 0.7);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+                    o.start(now + start); o.stop(now + start + dur + 0.01);
+                  };
+                  pf(523,0,0.4,'sine',0.15); pf(659,0,0.4,'sine',0.12); pf(784,0,0.4,'sine',0.12);
+                  pf(587,0.4,0.3,'sine',0.12); pf(740,0.4,0.3,'sine',0.1);
+                  pf(659,0.7,0.3,'sine',0.12); pf(831,0.7,0.3,'sine',0.1);
+                  pf(784,1.0,0.8,'sine',0.15); pf(988,1.0,0.8,'sine',0.12);
+                  pf(1175,1.0,0.8,'sine',0.1); pf(1568,1.0,0.8,'triangle',0.06);
+                  pf(1047,1.8,1.2,'sine',0.08); pf(1319,1.8,1.2,'sine',0.06);
+                  pf(1568,2.0,1.5,'sine',0.05); pf(2093,2.2,1.8,'triangle',0.03);
+                  pf(784,3.0,2.5,'sine',0.1); pf(988,3.0,2.5,'sine',0.08);
+                  pf(1175,3.0,2.5,'sine',0.06); pf(1568,3.2,2.5,'triangle',0.04);
+                  pf(2093,5.0,2.0,'sine',0.04); pf(2637,5.5,1.5,'sine',0.03);
+                } catch(e) {}
+              }}
+            />
+            <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10004,
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.85) 40%)', padding: '60px 20px 30px', textAlign: 'center' }}>
+              <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900, letterSpacing: 3, marginBottom: 6 }}>CONGRATULATIONS</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>{showClearTier.tierLabel}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+                {TYPES.map((type, i) => (
+                  <div key={type.id} style={{ fontSize: 28, filter: `drop-shadow(0 0 8px ${type.color})`,
+                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{MONSTERS[type.id][10].icon}</div>
+                ))}
               </div>
-              <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 4, fontWeight: 700 }}>
-                資産価値: 1,000億円
+              <div style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
+                border: `1px solid ${showClearTier.tierColor}50`, borderRadius: 12, padding: '8px 16px', marginBottom: 12, display: 'inline-block' }}>
+                <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900 }}>{showClearTier.icon} {showClearTier.name} 獲得！</div>
+                <div style={{ fontSize: 10, color: '#fbbf24', marginTop: 2, fontWeight: 700 }}>資産価値: 1,000億円</div>
               </div>
+              <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>おめでとうございます！全ての伝説のトレジャーを集めました。</div>
+              <button className="btn bp" disabled={!clearReady}
+                style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
+                onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
+                {clearReady ? '受け取る' : '...'}
+              </button>
             </div>
-            <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
-              {showClearTier.tier === 1 ? 'おめでとうございます！\n全ての伝説のトレジャーを集めました。' :
-               showClearTier.tier === 2 ? '素晴らしい！全★MAXを2個ずつ揃えました！' :
-               '圧巻！裏アイテム全66種を制覇しました！'}
-            </div>
-            <button className="btn bp" disabled={!clearReady}
-              style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
-              onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
-              {clearReady ? '受け取る' : '...'}
-            </button>
           </div>
-        </div>
+        ) : (
+          /* Tier 2 & 3: Original card-based celebration */
+          <div className="mo">
+            <div className="rare-flash" style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}99, rgba(255,105,180,0.5), rgba(123,104,238,0.5))`, animationDuration: '0.8s' }} />
+            <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent 50%)', animationDuration: '1s', animationDelay: '0.3s' }} />
+            <div className="rare-flash" style={{ background: `linear-gradient(45deg, rgba(255,105,180,0.5), rgba(0,255,204,0.4), rgba(123,104,238,0.5))`, animationDuration: '1.2s', animationDelay: '0.6s' }} />
+            {showClearTier.tier >= 3 && <>
+              <div className="rare-flash" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.5), transparent 40%)', animationDuration: '1.5s', animationDelay: '0.9s' }} />
+              <div className="rare-flash" style={{ background: 'conic-gradient(from 0deg, rgba(255,0,0,0.3), rgba(0,255,0,0.3), rgba(0,0,255,0.3), rgba(255,0,0,0.3))', animationDuration: '1.8s', animationDelay: '1.2s' }} />
+            </>}
+            <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9997, pointerEvents: 'none' }} />
+            <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9996, pointerEvents: 'none', animationDelay: '0.5s' }} />
+            {showClearTier.tier >= 3 && <div className="rare-shake" style={{ position: 'fixed', inset: 0, zIndex: 9995, pointerEvents: 'none', animationDelay: '1.0s' }} />}
+            <div style={{
+              background: 'radial-gradient(circle, rgba(25,10,5,0.98), rgba(0,0,0,0.99))',
+              borderRadius: 24, padding: '32px 24px', maxWidth: 360, width: '100%',
+              textAlign: 'center', border: '2px solid transparent',
+              position: 'relative', overflow: 'hidden',
+              animation: 'congratsGlow 2s ease-in-out infinite',
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ position: 'absolute', inset: -2, borderRadius: 26,
+                background: showClearTier.tier === 2
+                  ? 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box'
+                  : 'conic-gradient(from 0deg, #00ffcc, #ffd700, #ff69b4, #7b68ee, #00ffcc) border-box',
+                animation: 'synthMaxRotate 4s linear infinite',
+                WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                WebkitMaskComposite: 'xor', maskComposite: 'exclude', pointerEvents: 'none',
+              }} />
+              <div style={{
+                fontSize: showClearTier.tier >= 3 ? 100 : 90, marginBottom: 12,
+                animation: 'synthMaxIcon 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1.2s infinite',
+                filter: showClearTier.tier >= 3
+                  ? `drop-shadow(0 0 30px ${showClearTier.tierColor}) drop-shadow(0 0 60px rgba(255,215,0,0.7)) drop-shadow(0 0 90px rgba(255,105,180,0.5)) drop-shadow(0 0 120px rgba(123,104,238,0.3))`
+                  : `drop-shadow(0 0 25px ${showClearTier.tierColor}) drop-shadow(0 0 50px ${showClearTier.tierColor}99) drop-shadow(0 0 80px rgba(255,215,0,0.4))` }}>
+                {showClearTier.icon}
+              </div>
+              {showClearTier.tier >= 3 && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
+                width: 200, height: 200, borderRadius: '50%', border: '2px solid transparent',
+                background: 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b) border-box',
+                WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+                animation: 'synthMaxRotate 2s linear infinite', opacity: 0.5, pointerEvents: 'none' }} />}
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)',
+                width: 180, height: 180, borderRadius: '50%', animation: 'synthMaxPulse 1.5s ease-in-out infinite', pointerEvents: 'none' }} />
+              <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif",
+                fontSize: showClearTier.tier >= 3 ? 24 : 22, fontWeight: 900, letterSpacing: showClearTier.tier >= 3 ? 5 : 3, marginBottom: 4 }}>CONGRATULATIONS</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>{showClearTier.tierLabel}</div>
+              <div className="rank-congrats" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 16 }}>{showClearTier.name}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+                {TYPES.map((type, i) => (
+                  <div key={type.id} style={{ fontSize: 32, filter: `drop-shadow(0 0 8px ${type.color})`,
+                    animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{MONSTERS[type.id][10].icon}</div>
+                ))}
+              </div>
+              <div style={{ background: `linear-gradient(135deg, ${showClearTier.tierColor}18, rgba(255,105,180,0.05))`,
+                border: `1px solid ${showClearTier.tierColor}50`, borderRadius: 12, padding: '10px 16px', marginBottom: 16 }}>
+                <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>展示室報酬</div>
+                <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900 }}>{showClearTier.icon} {showClearTier.name} 獲得！</div>
+                <div style={{ fontSize: 11, color: '#fbbf24', marginTop: 4, fontWeight: 700 }}>資産価値: 1,000億円</div>
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
+                {showClearTier.tier === 2 ? '素晴らしい！全★MAXを3個ずつ揃えました！' : '圧巻！裏アイテム全66種を制覇しました！'}
+              </div>
+              <button className="btn bp" disabled={!clearReady}
+                style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
+                onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
+                {clearReady ? '受け取る' : '...'}
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {/* Ura item reveal - same effect as ★10 GOD */}
