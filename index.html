@@ -7204,7 +7204,7 @@ function ChainBurstGame({ onDone }) {
       // Chain count display (center, size scales with chain)
       if(G.chainActive && G.chainCount >= 2) {
         ctx.save();
-        const csz = G.chainCount>=20?42:G.chainCount>=15?36:G.chainCount>=10?30:G.chainCount>=5?24:18;
+        const csz = G.chainCount>=20?42:G.chainCount>=15?30:G.chainCount>=10?22:G.chainCount>=5?16:13;
         ctx.globalAlpha = G.chainCount>=10?0.9:G.chainCount>=5?0.7:0.5;
         ctx.font = 'bold '+csz+'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = G.chainCount>=15?'#ffd700':G.chainCount>=10?'#ff8844':G.chainCount>=5?'#ffaa00':'rgba(255,255,255,0.5)';
@@ -7232,14 +7232,14 @@ function ChainBurstGame({ onDone }) {
           ctx.fillStyle = '#66ffff'; ctx.fillRect(0,0,W,H);
           ctx.globalAlpha = Math.min(1, fl.life * 1.2);
         }
-        const sz = fl.count>=20?52:fl.count>=15?44:fl.count>=10?36:fl.count>=5?28:22;
+        const sz = fl.count>=20?52:fl.count>=15?38:fl.count>=10?28:fl.count>=5?20:16;
         ctx.font = 'bold '+sz+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         const icon = fl.count>=20?'⚡':fl.count>=15?'🌟':fl.count>=10?'💥':fl.count>=5?'🔥':'✨';
         ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=4;
         ctx.fillStyle = fl.count>=20?'#ffd700':fl.count>=15?'#66ffff':'#fff';
         const txt = icon+' '+fl.count+' CHAIN! '+icon;
         ctx.strokeText(txt, W/2, H*0.3); ctx.fillText(txt, W/2, H*0.3);
-        ctx.font = 'bold '+(fl.count>=20?28:fl.count>=15?24:fl.count>=10?20:16)+'px sans-serif'; ctx.fillStyle='#ffd700';
+        ctx.font = 'bold '+(fl.count>=20?28:fl.count>=15?20:fl.count>=10?16:12)+'px sans-serif'; ctx.fillStyle='#ffd700';
         ctx.strokeText('×'+fl.mult+' BONUS!', W/2, H*0.3+42); ctx.fillText('×'+fl.mult+' BONUS!', W/2, H*0.3+42);
         ctx.restore();
       }
