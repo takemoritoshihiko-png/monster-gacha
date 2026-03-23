@@ -1916,13 +1916,14 @@ function MonsterGacha() {
     clearTimeout(debugTapRef.current.timer);
     if (debugTapRef.current.count >= 3) {
       debugTapRef.current.count = 0;
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
       setShowClearTier(CONGRATS_TIERS[0]);
       setClearReady(false);
       setShowClear(true);
       bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
       setTimeout(() => setClearReady(true), 5000);
     } else {
-      debugTapRef.current.timer = setTimeout(() => { debugTapRef.current.count = 0; }, 800);
+      debugTapRef.current.timer = setTimeout(() => { debugTapRef.current.count = 0; }, 1500);
     }
   };
   const prevTier = useRef(null);
@@ -3032,7 +3033,7 @@ function MonsterGacha() {
       <style>{CSS}</style>
       <div className="hdr">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="hdr-t" onClick={debugTestTier1}>TREASURE GACHA</div>
+          <div className="hdr-t" onPointerDown={e => { e.preventDefault(); debugTestTier1(); }} style={{ touchAction: 'manipulation' }}>TREASURE GACHA</div>
           <div style={{ fontSize: 9, color: 'rgba(167,139,250,0.6)', fontWeight: 700, background: 'rgba(139,92,246,0.15)', borderRadius: 6, padding: '2px 6px' }}>
             SLOT {slotId}
           </div>
@@ -4194,11 +4195,12 @@ function MonsterGacha() {
                   animation: `heroIconFloat ${1.5 + (i % 5) * 0.4}s ease-in-out ${(i % 7) * 0.3}s infinite`, opacity: 0.8 }} />
               ))}
             </div>
-            <video src="congrats-tier1.mp4" autoPlay playsInline
+            <video src="congrats-tier1.mp4" autoPlay playsInline muted
+              ref={el => { if (el) { el.play().catch(() => {}); } }}
               style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10003 }}
               onLoadedData={() => {
                 try {
-                  const a = audioCtx; if (a && a.state === 'suspended') a.resume();
+                  const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
                   const now = a.currentTime;
                   const pf = (freq, start, dur, type, vol) => {
                     const o = a.createOscillator(), g = a.createGain();
