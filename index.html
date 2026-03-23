@@ -2516,7 +2516,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', pinball: 'ピンボール', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -2671,7 +2671,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, quickdraw: 880, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000, coinRunner: 3200 };
+  const SCORE_CAPS = { tap: 900, gem: 900, timing: 900, tower: 800, shooting: 900, memory: 640, quickdraw: 880, mathEasy: 1000, kuku: 1000, mathMid: 1000, mathHardAdd: 1000, mathHardMult: 1000, coinRunner: 3200, pinball: 3200 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -3814,6 +3814,7 @@ function MonsterGacha() {
               { label: '🏃 アドベンチャー', color: 'rgba(74,222,128,0.2)', bg: 'linear-gradient(180deg, rgba(40,70,50,0.85), rgba(25,45,32,0.95))', border: 'rgba(74,222,128,0.2)',
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
+                  { id: "pinball", icon: "🎱", name: "ピンボール" },
                 ]},
               { label: '📐 計算', color: 'rgba(251,191,36,0.2)', bg: 'linear-gradient(180deg, rgba(65,60,55,0.85), rgba(38,35,32,0.95))', border: 'rgba(160,140,100,0.2)',
                 games: [
@@ -3858,6 +3859,7 @@ function MonsterGacha() {
         )}
         {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
         {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onDone={(c) => handleMiniGameDone('coinRunner', c)} />}
+        {screen === "minigame" && miniGame === "pinball" && <PinballGame onDone={(c) => handleMiniGameDone('pinball', c)} />}
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
         {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
         {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
@@ -7002,6 +7004,306 @@ function CoinRunnerGame({ onDone }) {
   );
 }
 
+// ============================================================
+// PINBALL GAME (80 seconds pinball with flippers)
+// ============================================================
+function PinballGame({ onDone }) {
+  const canvasRef = useRef(null);
+  const gameRef = useRef(null);
+  const rafRef = useRef(null);
+  const [phase, setPhase] = useState("ready");
+  const [score, setScore] = useState(0);
+  const leftRef = useRef(false);
+  const rightRef = useRef(false);
+
+  const W = 300, H = 430, TOTAL = 80;
+  const WALL = 12, CEIL = 46, FLOOR = H - 8;
+  const FY = H - 58, FL_PX = 75, FR_PX = W - 75, FLEN = 56, FTHICK = 9;
+  const F_UP = -0.38, F_DN = 0.42, F_SPD = 22;
+  const GRAV = 420, DAMPEN = 0.65, BDAMPEN = 0.75, FRICTION = 0.992;
+
+  const BUMPERS = [
+    {x:75,y:100,r:16,col:'#ff44ff',glow:'#cc00cc',pts:3},
+    {x:150,y:88,r:18,col:'#ffaa00',glow:'#ff6600',pts:4},
+    {x:225,y:100,r:16,col:'#ff44ff',glow:'#cc00cc',pts:3},
+    {x:50,y:168,r:14,col:'#44ffff',glow:'#0088cc',pts:2},
+    {x:115,y:162,r:20,col:'#ff2255',glow:'#cc0033',pts:6},
+    {x:185,y:162,r:20,col:'#ff2255',glow:'#cc0033',pts:6},
+    {x:250,y:168,r:14,col:'#44ffff',glow:'#0088cc',pts:2},
+    {x:83,y:240,r:16,col:'#ffee00',glow:'#cc9900',pts:4},
+    {x:217,y:240,r:16,col:'#ffee00',glow:'#cc9900',pts:4},
+    {x:67,y:308,r:13,col:'#44ffaa',glow:'#00bb66',pts:3},
+    {x:233,y:308,r:13,col:'#44ffaa',glow:'#00bb66',pts:3},
+  ];
+
+  const initGame = () => {
+    const bmpState = BUMPERS.map(b => ({ ...b, flash: 0 }));
+    return {
+      running: true, over: false, t: TOTAL, coins: 0,
+      balls: [{ x: W-WALL-14, y: CEIL+50, vx: -(70+Math.random()*50), vy: 100+Math.random()*60, r: 7, col: '#ffffff', glow: '#aaddff', trail: [] }],
+      nextSpawn: 2.0, ballsAdded: 1,
+      lAngle: F_DN, rAngle: F_DN, lPrev: F_DN, rPrev: F_DN,
+      bumpers: bmpState, floats: [], floatId: 0, wallHits: 0, bumperHits: 0, dropped: 0,
+    };
+  };
+
+  const startGame = () => {
+    gameRef.current = initGame();
+    leftRef.current = false; rightRef.current = false;
+    setPhase("play"); setScore(0);
+    bgm.playLoop(BGM_TAP, 140);
+  };
+
+  useEffect(() => {
+    if (phase !== "play") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let last = performance.now();
+
+    const loop = (now) => {
+      const dt = Math.min((now - last) / 1000, 0.033);
+      last = now;
+      const G = gameRef.current;
+      if (!G || G.over) return;
+
+      G.t -= dt;
+      if (G.t <= 0) { G.t = 0; G.over = true; G.running = false; bgm.stop(); sfx('gameFinish'); setScore(Math.floor(G.coins)); setPhase("done"); return; }
+
+      const prog = 1 - G.t / TOTAL;
+
+      // Flippers
+      const tL = leftRef.current ? F_UP : F_DN;
+      const tR = rightRef.current ? F_UP : F_DN;
+      G.lPrev = G.lAngle; G.rPrev = G.rAngle;
+      G.lAngle += (tL - G.lAngle) * Math.min(1, F_SPD * dt);
+      G.rAngle += (tR - G.rAngle) * Math.min(1, F_SPD * dt);
+
+      G.bumpers.forEach(b => { if (b.flash > 0) b.flash -= dt * 4; });
+
+      // Spawn balls
+      G.nextSpawn -= dt;
+      if (G.nextSpawn <= 0) {
+        const max = Math.min(2 + Math.floor(prog * 4), 5);
+        if (G.balls.length < max) {
+          const cols = [{ col: '#ffcc44', glow: '#ff8800' }, { col: '#ff66ff', glow: '#cc00cc' }, { col: '#44ffcc', glow: '#00aaaa' }];
+          const bc = cols[G.ballsAdded % cols.length];
+          G.balls.push({ x: W-WALL-14, y: CEIL+50, vx: -(70+Math.random()*50), vy: 100+Math.random()*60, r: 7, col: bc.col, glow: bc.glow, trail: [] });
+          G.ballsAdded++;
+        }
+        G.nextSpawn = 1.8 + Math.random() * 0.9;
+      }
+
+      // Update balls
+      G.balls = G.balls.filter(b => {
+        b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 6) b.trail.shift();
+        b.vy += GRAV * dt; b.vx *= FRICTION; b.x += b.vx * dt; b.y += b.vy * dt;
+
+        // Walls
+        if (b.x - b.r < WALL) { b.x = WALL + b.r; b.vx = Math.abs(b.vx) * DAMPEN; G.coins += 3; G.wallHits++; playNote(400, 0.06, 'triangle', 0.1); }
+        if (b.x + b.r > W - WALL) { b.x = W - WALL - b.r; b.vx = -Math.abs(b.vx) * DAMPEN; G.coins += 3; G.wallHits++; playNote(400, 0.06, 'triangle', 0.1); }
+        if (b.y - b.r < CEIL) { b.y = CEIL + b.r; b.vy = Math.abs(b.vy) * DAMPEN; G.coins += 2; playNote(350, 0.05, 'triangle', 0.08); }
+
+        // Gutters
+        const checkGutter = (x1, y1, x2, y2) => {
+          const dx2 = x2-x1, dy2 = y2-y1, len2 = dx2*dx2+dy2*dy2;
+          let t2 = ((b.x-x1)*dx2+(b.y-y1)*dy2)/len2; t2 = Math.max(0, Math.min(1, t2));
+          const cx = x1+t2*dx2, cy = y1+t2*dy2, ex = b.x-cx, ey = b.y-cy, dist = Math.sqrt(ex*ex+ey*ey);
+          if (dist < b.r+4) {
+            const nx = ex/dist, ny = ey/dist;
+            b.x = cx+nx*(b.r+5); b.y = cy+ny*(b.r+5);
+            const dot = b.vx*nx+b.vy*ny;
+            b.vx = (b.vx-2*dot*nx)*DAMPEN; b.vy = (b.vy-2*dot*ny)*DAMPEN;
+            G.coins += 2;
+          }
+        };
+        checkGutter(WALL, FY-74, FL_PX, FY+3);
+        checkGutter(W-WALL, FY-74, FR_PX, FY+3);
+
+        // Bumpers
+        for (const bmp of G.bumpers) {
+          const dx3 = b.x-bmp.x, dy3 = b.y-bmp.y, dist = Math.sqrt(dx3*dx3+dy3*dy3);
+          if (dist < b.r+bmp.r) {
+            const nx = dx3/dist, ny = dy3/dist;
+            b.x = bmp.x+nx*(b.r+bmp.r+1); b.y = bmp.y+ny*(b.r+bmp.r+1);
+            const dot = b.vx*nx+b.vy*ny;
+            b.vx = (b.vx-2*dot*nx)*BDAMPEN+nx*100; b.vy = (b.vy-2*dot*ny)*BDAMPEN+ny*100;
+            const spd = Math.sqrt(b.vx*b.vx+b.vy*b.vy); if (spd > 600) { b.vx = b.vx/spd*600; b.vy = b.vy/spd*600; }
+            G.coins += bmp.pts; G.bumperHits++; bmp.flash = 1;
+            playNote(bmp.pts >= 6 ? 880 : bmp.pts >= 4 ? 660 : 520, 0.12, 'sine', 0.12);
+            playNote(bmp.pts >= 6 ? 1760 : 1040, 0.06, 'square', 0.06, 0.02);
+            G.floats.push({ id: ++G.floatId, x: bmp.x, y: bmp.y-bmp.r-6, text: '+'+bmp.pts, life: 0.8, color: bmp.col });
+          }
+        }
+
+        // Flippers collision
+        const hitFlip = (px, py, angle, dir, prevAngle, active) => {
+          const tx = px+Math.cos(angle)*FLEN*dir, ty = py+Math.sin(angle)*FLEN;
+          const dx4 = tx-px, dy4 = ty-py, len2 = dx4*dx4+dy4*dy4;
+          let t3 = ((b.x-px)*dx4+(b.y-py)*dy4)/len2; t3 = Math.max(0, Math.min(1, t3));
+          const cx = px+t3*dx4, cy = py+t3*dy4, ex = b.x-cx, ey = b.y-cy, dist = Math.sqrt(ex*ex+ey*ey);
+          if (dist < b.r+FTHICK/2+1) {
+            const nx = ex/dist, ny = ey/dist;
+            b.x = cx+nx*(b.r+FTHICK/2+2); b.y = cy+ny*(b.r+FTHICK/2+2);
+            const dot = b.vx*nx+b.vy*ny;
+            b.vx = (b.vx-2*dot*nx)*DAMPEN; b.vy = (b.vy-2*dot*ny)*DAMPEN;
+            const angVel = Math.abs(angle-prevAngle)*60;
+            if (active) { b.vy -= angVel*22+350; b.vx += dir*angVel*10; } else { b.vy = -220; }
+            const spd = Math.sqrt(b.vx*b.vx+b.vy*b.vy); if (spd > 1500) { b.vx = b.vx/spd*1500; b.vy = b.vy/spd*1500; }
+            playNote(200, 0.15, 'sine', 0.15); playNote(60, 0.1, 'sawtooth', 0.08);
+          }
+        };
+        hitFlip(FL_PX, FY, G.lAngle, 1, G.lPrev, leftRef.current);
+        hitFlip(FR_PX, FY, G.rAngle, -1, G.rPrev, rightRef.current);
+
+        // Fall
+        if (b.y > FLOOR) {
+          G.coins = Math.max(0, G.coins - 50); G.dropped++;
+          playNote(150, 0.2, 'sawtooth', 0.1); playNoise(0.1, 0.06);
+          G.floats.push({ id: ++G.floatId, x: b.x, y: FLOOR-25, text: '-50💔', life: 1.0, color: '#ff3355' });
+          G.balls.push({ x: W-WALL-14, y: CEIL+40, vx: -(70+Math.random()*60), vy: 80+Math.random()*50, r: b.r, col: b.col, glow: b.glow, trail: [] });
+          return false;
+        }
+        return true;
+      });
+
+      G.floats.forEach(f => { f.y -= 35*dt; f.life -= dt; });
+      G.floats = G.floats.filter(f => f.life > 0);
+      setScore(Math.floor(G.coins));
+
+      // Draw
+      ctx.fillStyle = '#06040e'; ctx.fillRect(0, 0, W, H);
+      // Walls
+      ctx.fillStyle = '#1a0025'; ctx.fillRect(0, CEIL, WALL, H-CEIL); ctx.fillRect(W-WALL, CEIL, WALL, H-CEIL);
+      ctx.strokeStyle = '#aa00cc'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(WALL, CEIL); ctx.lineTo(WALL, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-WALL, CEIL); ctx.lineTo(W-WALL, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(WALL, CEIL); ctx.lineTo(W-WALL, CEIL); ctx.stroke();
+
+      // Gutters
+      ctx.save(); ctx.strokeStyle = '#880099'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(WALL, FY-74); ctx.lineTo(FL_PX, FY+3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-WALL, FY-74); ctx.lineTo(FR_PX, FY+3); ctx.stroke();
+      ctx.restore();
+
+      // Death zone
+      ctx.fillStyle = 'rgba(255,0,60,0.05)'; ctx.fillRect(WALL, FY+14, W-WALL*2, H-FY-14);
+
+      // Bumpers
+      G.bumpers.forEach(bmp => {
+        ctx.save();
+        const lit = bmp.flash > 0;
+        ctx.shadowColor = bmp.glow; ctx.shadowBlur = lit ? 24 : 8;
+        ctx.strokeStyle = lit ? '#fff' : bmp.col; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(bmp.x, bmp.y, bmp.r, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = lit ? bmp.col : 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.arc(bmp.x, bmp.y, bmp.r-2, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.fillStyle = lit ? '#fff' : bmp.col;
+        ctx.beginPath(); ctx.arc(bmp.x, bmp.y, bmp.r*0.3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = lit ? '#fff' : 'rgba(255,255,255,0.4)';
+        ctx.font = `bold ${bmp.r>16?10:8}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(bmp.pts, bmp.x, bmp.y); ctx.restore();
+      });
+
+      // Flippers
+      const drawFlip = (px, py, angle, dir, active) => {
+        const tx = px+Math.cos(angle)*FLEN*dir, ty = py+Math.sin(angle)*FLEN;
+        ctx.save(); ctx.shadowColor = active ? '#ff88ff' : '#880099'; ctx.shadowBlur = active ? 18 : 6;
+        ctx.strokeStyle = active ? '#ffaaff' : '#cc44cc'; ctx.lineWidth = FTHICK; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = active ? '#fff' : '#cc66cc'; ctx.shadowBlur = active ? 12 : 4;
+        ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      };
+      drawFlip(FL_PX, FY, G.lAngle, 1, leftRef.current);
+      drawFlip(FR_PX, FY, G.rAngle, -1, rightRef.current);
+
+      // Balls
+      G.balls.forEach(b => {
+        b.trail.forEach((p, ti) => {
+          ctx.save(); ctx.globalAlpha = (ti/b.trail.length)*0.25; ctx.fillStyle = b.col;
+          ctx.beginPath(); ctx.arc(p.x, p.y, b.r*(ti/b.trail.length)*0.6, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        });
+        ctx.save(); ctx.shadowColor = b.glow; ctx.shadowBlur = 14; ctx.fillStyle = b.col;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(b.x-b.r*0.3, b.y-b.r*0.3, b.r*0.3, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      });
+
+      // Float texts
+      G.floats.forEach(f => {
+        ctx.save(); ctx.globalAlpha = Math.min(1, f.life*2);
+        ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y); ctx.restore();
+      });
+
+      // HUD
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(0, 0, W, 20);
+      ctx.fillStyle = '#ff88ff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('🪙' + Math.floor(G.coins), 6, 14);
+      const s = Math.ceil(G.t); ctx.textAlign = 'right'; ctx.fillStyle = G.t < 20 ? '#ff4444' : '#fff';
+      ctx.fillText(Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60, W-6, 14);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('🎱×'+G.balls.length, W/2, 14);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(0, H-3, W, 3);
+      ctx.fillStyle = G.t < 20 ? '#f33' : '#cc44ff'; ctx.fillRect(0, H-3, W*(G.t/TOTAL), 3);
+
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
+
+  useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(score), 3000); return () => clearTimeout(t); } }, [phase, score]);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>🎱 ピンボール</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8 }}>
+            バンパーに当ててコイン獲得！<br/>
+            左右ボタンでフリッパー操作<br/>
+            球を落とさないように！制限時間: 1分20秒
+          </p>
+          <button className="btn bp" onClick={startGame}>スタート！</button>
+        </>
+      )}
+      {phase === "play" && (
+        <div style={{ marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}>
+          <canvas ref={canvasRef} width={W} height={H}
+            style={{ borderRadius: 10, border: '2px solid rgba(200,0,200,0.2)', touchAction: 'none', width: '100%', height: 'auto',
+              boxShadow: '0 0 20px rgba(200,0,200,0.15)' }} />
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button onPointerDown={e => { e.preventDefault(); leftRef.current = true; }}
+              onPointerUp={() => { leftRef.current = false; }} onPointerCancel={() => { leftRef.current = false; }}
+              style={{ flex: 1, height: 56, borderRadius: 14, border: 'none', fontSize: 20, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
+                background: 'linear-gradient(135deg, #6600aa, #440088)', boxShadow: '0 4px 16px rgba(150,0,200,0.3)' }}>
+              ◀ 左
+            </button>
+            <button onPointerDown={e => { e.preventDefault(); rightRef.current = true; }}
+              onPointerUp={() => { rightRef.current = false; }} onPointerCancel={() => { rightRef.current = false; }}
+              style={{ flex: 1, height: 56, borderRadius: 14, border: 'none', fontSize: 20, fontWeight: 900, color: '#fff', cursor: 'pointer', touchAction: 'none',
+                background: 'linear-gradient(135deg, #6600aa, #440088)', boxShadow: '0 4px 16px rgba(150,0,200,0.3)' }}>
+              右 ▶
+            </button>
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#ff88ff', marginBottom: 8 }}>🏁 RESULT</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>🪙 {score.toLocaleString()}</div>
+          <p style={{ fontSize: 12, opacity: 0.5 }}>
+            {score >= 3200 ? '🏆 MASTER！' : score >= 2500 ? '🥇 エキスパート！' : score >= 1800 ? '🥈 グッドプレイ！' : score >= 1100 ? '🥉 もう少し！' : '💪 練習あるのみ！'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GemCatchGame({ onDone }) {
   const [phase, setPhase] = useState("ready");
   const [earned, setEarned] = useState(0);
@@ -8305,12 +8607,14 @@ function GameHistoryScreen() {
     shooting: '🎯 シューティング', memory: '🃏 神経衰弱', mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級',
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷',
     quickdraw: '🔫 早撃ちガンマン',
-    coinRunner: '🏃 コインランナー'
+    coinRunner: '🏃 コインランナー',
+    pinball: '🎱 ピンボール'
   };
 
   const GAME_TABS = [
     { id: "tap", icon: "👊", name: "連打" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "gem", icon: "💎", name: "キャッチ" },
     { id: "timing", icon: "⏱️", name: "タイマー" },
     { id: "tower", icon: "🪙", name: "タワー" },
@@ -8510,6 +8814,7 @@ function RankingScreen() {
     { id: "mathHardAdd", icon: "🧮", name: "上級±" },
     { id: "mathHardMult", icon: "✖️", name: "上級×÷" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "pinball", icon: "🎱", name: "ピンボール" },
   ];
 
   const sorted = useMemo(() => {
