@@ -3796,6 +3796,7 @@ function MonsterGacha() {
               <span style={{ fontSize: 10, color: 'rgba(167,139,250,0.4)' }}>✦</span>
             </div>
             {/* Game Categories */}
+            <div>
             {[
               { label: '⚡ アクション', color: 'rgba(139,92,246,0.2)', bg: 'linear-gradient(180deg, rgba(75,70,90,0.85), rgba(45,40,58,0.95))', border: 'rgba(139,92,246,0.2)',
                 games: [
@@ -3830,14 +3831,8 @@ function MonsterGacha() {
                   border: `1px solid ${cat.border}`,
                   borderRadius: 10, cursor: 'pointer', transition: 'all 0.2s',
                   boxShadow: '0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = g.isAction
-                    ? '0 6px 16px rgba(0,0,0,0.4), 0 2px 12px rgba(80,130,255,0.15)'
-                    : '0 6px 16px rgba(0,0,0,0.4), 0 2px 8px rgba(160,140,100,0.1)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.boxShadow = g.isAction
-                    ? '0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 6px rgba(80,130,255,0.08)'
-                    : '0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)'; }}>
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)'; }}>
                 {/* Icon box */}
                 <div style={{ width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: 'linear-gradient(135deg, rgba(60,55,80,0.9), rgba(45,40,60,0.95))',
