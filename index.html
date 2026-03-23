@@ -2507,7 +2507,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', pinball: 'ピンボール', chainBurst: 'チェインバースト', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', coinRunner: 'コインランナー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', shooting: 'シューティング', memory: '神経衰弱', quickdraw: '早撃ちガンマン', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -2737,7 +2737,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 3200, pinball: 2560, chainBurst: 2160 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -3880,6 +3880,7 @@ function MonsterGacha() {
               { label: '🏃 アドベンチャー', color: 'rgba(74,222,128,0.2)', bg: 'linear-gradient(180deg, rgba(40,70,50,0.85), rgba(25,45,32,0.95))', border: 'rgba(74,222,128,0.2)',
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
+                  { id: "batting", icon: "⚾", name: "バッティングヒーロー" },
                   { id: "pinball", icon: "🎱", name: "ピンボール" },
                   { id: "chainBurst", icon: "💥", name: "チェインバースト" },
                 ]},
@@ -3926,6 +3927,7 @@ function MonsterGacha() {
         )}
         {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
         {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onDone={(c) => handleMiniGameDone('coinRunner', c)} />}
+        {screen === "minigame" && miniGame === "batting" && <BattingGame onDone={(c) => handleMiniGameDone('batting', c)} />}
         {screen === "minigame" && miniGame === "pinball" && <PinballGame onDone={(c) => handleMiniGameDone('pinball', c)} />}
         {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onDone={(c) => handleMiniGameDone('chainBurst', c)} />}
         {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
@@ -6747,6 +6749,408 @@ function QuickDrawGame({ onDone }) {
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
 // ============================================================
+// BATTING HERO GAME (70 seconds timing batting game)
+// ============================================================
+function BattingGame({ onDone }) {
+  const canvasRef = useRef(null);
+  const gameRef = useRef(null);
+  const partsRef = useRef([]);
+  const rafRef = useRef(null);
+  const [phase, setPhase] = useState("ready");
+  const [score, setScore] = useState(0);
+
+  const W = 340, H = 480, TOTAL = 70;
+  const PX = W / 2;
+  const BAT_X = W / 2 - 50;
+  const BAT_Y = H - 94;
+  const HIT_Y = BAT_Y - 22;
+  const HW_P = 13, HW_G = 28, HW_OK = 50;
+
+  const BALLS = [
+    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 44 },
+    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 68 },
+    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 96 },
+    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 128 },
+    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 112 },
+  ];
+  const pickBall = () => { const tot = BALLS.reduce((s, b) => s + b.w, 0); let r = Math.random() * tot; for (const b of BALLS) { r -= b.w; if (r <= 0) return b; } return BALLS[1]; };
+  const comboMult = (c) => c >= 5 ? 1.5 : c >= 4 ? 1.4 : c >= 3 ? 1.2 : c >= 2 ? 1.1 : 1.0;
+
+  const initGame = () => ({
+    t: TOTAL, coins: 0, over: false,
+    phase: 0, timer: 1.8,
+    bx: PX, by: -20, bvy: 0, bacc: 0, brot: 0, brotS: 0,
+    bCol: '#fff', bNm: '', bPts: 0, bAlive: false, trail: [],
+    swinging: false, swingT: 0, swingAng: 0,
+    hitFlash: 0, hitCol: '#fff',
+    combo: 0, maxCombo: 0,
+    pitches: 0, perfects: 0, greats: 0, goods: 0, misses: 0,
+    floats: [], floatId: 0,
+    flash: { col: '', a: 0 },
+  });
+
+  const launch = (G) => {
+    const b = pickBall();
+    G.bx = PX; G.by = 70;
+    G.bvy = b.spd + Math.random() * b.vr;
+    G.bacc = b.acc;
+    G.brot = 0; G.brotS = (Math.random() - 0.5) * 10;
+    G.bCol = b.col; G.bNm = b.nm; G.bPts = b.pts;
+    G.bAlive = true; G.trail = [];
+    G.phase = 2; G.pitches++;
+  };
+
+  const doSwing = () => {
+    const G = gameRef.current;
+    if (!G || G.over) return;
+    if (G.swinging) return;
+    G.swinging = true; G.swingT = 0;
+
+    if (G.phase !== 2 || !G.bAlive) {
+      playNote(140, 0.2, 'sawtooth', 0.1);
+      G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 20, v: '早すぎ!', life: 0.9, vy: -40, col: '#ff8844' });
+      return;
+    }
+
+    const dist = Math.abs(G.by - HIT_Y);
+    let judge;
+    if (dist <= HW_P) judge = { nm: 'PERFECT', col: '#ffd700', sm: 2.0 };
+    else if (dist <= HW_G) judge = { nm: 'GREAT', col: '#44ffaa', sm: 1.4 };
+    else if (dist <= HW_OK) judge = { nm: 'GOOD', col: '#66aaff', sm: 0.8 };
+    else judge = { nm: 'MISS', col: '#ff4444', sm: 0 };
+
+    if (judge.nm === 'MISS') {
+      G.combo = 0; G.misses++;
+      playNote(140, 0.2, 'sawtooth', 0.1);
+      G.bAlive = false; G.phase = 3; G.timer = 0.8;
+      G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 30, v: '💨 空振り！', life: 1.1, vy: -50, col: judge.col });
+      return;
+    }
+
+    if (judge.nm === 'PERFECT') G.perfects++;
+    else if (judge.nm === 'GREAT') G.greats++;
+    else { G.goods++; G.combo = 0; }
+
+    if (judge.nm === 'PERFECT' || judge.nm === 'GREAT') {
+      G.combo++; if (G.combo > G.maxCombo) G.maxCombo = G.combo;
+      if (G.combo >= 2) { const fs = [262, 294, 330, 349, 392, 440, 494, 523]; playNote(fs[Math.min(G.combo - 1, 7)] * 2, 0.12, 'sine', 0.15); }
+    }
+
+    const mult = comboMult(G.combo) * judge.sm;
+    const earned = Math.round(G.bPts * mult);
+    G.coins += earned;
+
+    // Hit sound
+    if (judge.nm === 'PERFECT') { playNote(523, 0.08, 'sine', 0.2); playNote(784, 0.12, 'sine', 0.15, 0.06); playNote(1047, 0.18, 'sine', 0.12, 0.14); playNoise(0.07, 0.4); }
+    else if (judge.nm === 'GREAT') { playNote(440, 0.1, 'sine', 0.18); playNoise(0.06, 0.3); }
+    else { playNote(330, 0.1, 'sine', 0.12); playNoise(0.05, 0.2); }
+
+    G.hitFlash = 1.0; G.hitCol = judge.col;
+    G.flash = { col: judge.col, a: judge.nm === 'PERFECT' ? 0.35 : 0.2 };
+    G.bvy = -(300 + Math.random() * 180); G.bacc = 0;
+    G.bx += 160 + Math.random() * 140;
+    G.phase = 3; G.timer = 1.0;
+
+    // Particles
+    const pn = judge.nm === 'PERFECT' ? 36 : judge.nm === 'GREAT' ? 22 : 12;
+    for (let i = 0; i < pn; i++) {
+      const a = Math.random() * Math.PI * 2, s = 5 + Math.random() * 9;
+      const pc = judge.nm === 'PERFECT' ? ['#ffd700', '#fff', '#ffaa00'][i % 3] : judge.col;
+      partsRef.current.push({ x: W / 2, y: HIT_Y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 4, life: 1, col: pc, r: 4 + Math.random() * 5, star: false });
+    }
+    if (judge.nm === 'PERFECT') {
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2;
+        partsRef.current.push({ x: W / 2, y: HIT_Y, vx: Math.cos(a) * 13, vy: Math.sin(a) * 13 - 2, life: 1.3, col: '#ffd700', r: 5, star: true }); }
+    }
+
+    const cs = G.combo >= 2 ? ' ×' + comboMult(G.combo).toFixed(1) : '';
+    const label = judge.nm === 'PERFECT' ? '★ PERFECT!! ★' : judge.nm === 'GREAT' ? '◆ GREAT! ◆' : '● GOOD';
+    G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 40, v: label + ' +' + earned + cs, life: 1.6, vy: -80, col: judge.col, big: judge.nm !== 'GOOD' });
+  };
+
+  const startGame = () => {
+    gameRef.current = initGame();
+    partsRef.current = [];
+    setPhase("play"); setScore(0);
+    bgm.playLoop(SHOOTING_BGM, 140);
+  };
+
+  useEffect(() => {
+    if (phase !== "play") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let last = performance.now();
+
+    const loop = (now) => {
+      const dt = Math.min((now - last) / 1000, 0.04);
+      last = now;
+      const G = gameRef.current;
+      if (!G || G.over) return;
+
+      G.t -= dt;
+      if (G.t <= 0) { G.t = 0; G.over = true; bgm.stop(); sfx('gameFinish'); setScore(Math.floor(G.coins)); setPhase("done"); return; }
+
+      // Swing anim
+      if (G.swinging) {
+        G.swingT += dt;
+        G.swingAng = -Math.sin(G.swingT / 0.13 * Math.PI) * 1.6;
+        if (G.swingT >= 0.35) { G.swinging = false; G.swingAng = 0; }
+      }
+      if (G.hitFlash > 0) G.hitFlash = Math.max(0, G.hitFlash - dt * 4);
+      if (G.flash.a > 0) G.flash.a = Math.max(0, G.flash.a - dt * 3);
+
+      G.timer -= dt;
+      if (G.phase === 0) { if (G.timer <= 0) { G.phase = 1; G.timer = 0.42; } }
+      else if (G.phase === 1) { if (G.timer <= 0) launch(G); }
+      else if (G.phase === 2) {
+        if (G.bAlive) {
+          G.bvy += G.bacc * dt; G.by += G.bvy * dt; G.brot += G.brotS * dt;
+          G.trail.unshift({ x: G.bx, y: G.by, spd: G.bvy }); if (G.trail.length > 16) G.trail.pop();
+          if (G.by > HIT_Y + HW_OK + 28) {
+            G.combo = 0; G.misses++; playNote(140, 0.2, 'sawtooth', 0.1);
+            G.bAlive = false; G.phase = 3; G.timer = 0.9; G.trail = [];
+            G.floats.push({ id: ++G.floatId, x: W / 2, y: HIT_Y - 20, v: '⚾ 見逃し', life: 1.0, vy: -40, col: '#ffaa44' });
+          }
+        } else { G.phase = 3; G.timer = 0.5; }
+      } else if (G.phase === 3) {
+        if (G.bAlive) { G.by += G.bvy * dt; G.bvy += 600 * dt; G.bx += 200 * dt; G.brot += 8 * dt; if (G.by > H + 80 || G.bx > W + 80) G.bAlive = false; }
+        if (G.timer <= 0) { G.bAlive = false; G.trail = []; G.phase = 0; G.timer = 1.6 + Math.random() * 0.5; }
+      }
+
+      G.floats.forEach(f => { f.y += f.vy * dt; f.life -= dt; });
+      G.floats = G.floats.filter(f => f.life > 0);
+      partsRef.current.forEach(p => { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += 0.35; p.life -= dt * 1.8; p.r *= 0.94; });
+      partsRef.current = partsRef.current.filter(p => p.life > 0);
+
+      // Draw
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#0a1828'); sky.addColorStop(0.55, '#0f1e30'); sky.addColorStop(1, '#141e08');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // Stadium lights
+      [[36, 26], [W - 36, 26]].forEach(([lx, ly]) => {
+        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 80);
+        g.addColorStop(0, 'rgba(255,240,180,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      });
+
+      // Stands
+      ctx.fillStyle = '#111e30'; ctx.fillRect(0, 0, W, H * 0.18);
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 20; col++) {
+          const cx = col * (W / 19), cy = 15 + row * 16;
+          const cols = ['#bb2233', '#1e44aa', '#229944', '#bb9922', '#774422'];
+          ctx.fillStyle = cols[(row * 7 + col) % cols.length]; ctx.globalAlpha = 0.6;
+          ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#e8b870'; ctx.beginPath(); ctx.arc(cx, cy - 5, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // Field
+      const fy = H * 0.2;
+      ctx.fillStyle = '#162808'; ctx.fillRect(0, fy, W, H - fy);
+      for (let i = 0; i < 7; i++) { ctx.fillStyle = i % 2 === 0 ? '#1a3208' : '#142606'; ctx.fillRect(0, fy + i * ((H - fy) / 7), W, (H - fy) / 7); }
+      ctx.fillStyle = '#6e4828'; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.74, W * 0.38, H * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Mound
+      const mg = ctx.createRadialGradient(PX, H * 0.32, 0, PX, H * 0.32, 24);
+      mg.addColorStop(0, '#8a6038'); mg.addColorStop(1, '#6e4828');
+      ctx.fillStyle = mg; ctx.beginPath(); ctx.ellipse(PX, H * 0.32, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Foul lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(W / 2, BAT_Y + 44); ctx.lineTo(22, fy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W / 2, BAT_Y + 44); ctx.lineTo(W - 22, fy); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Home plate
+      ctx.fillStyle = '#fff'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 6;
+      const hx = W / 2 + 8, hy = BAT_Y + 42;
+      ctx.beginPath(); ctx.moveTo(hx, hy - 8); ctx.lineTo(hx + 11, hy - 2); ctx.lineTo(hx + 11, hy + 7); ctx.lineTo(hx - 11, hy + 7); ctx.lineTo(hx - 11, hy - 2); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Scoreboard
+      ctx.fillStyle = '#080f1c';
+      ctx.beginPath(); ctx.rect(W / 2 - 60, 4, 120, 24); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,200,50,0.4)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.rect(W / 2 - 60, 4, 120, 24); ctx.stroke();
+      const s = Math.ceil(G.t);
+      ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#ffd700'; ctx.fillText('🪙 ' + Math.floor(G.coins), W / 2 - 54, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.textAlign = 'right';
+      ctx.fillText(Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + s % 60, W / 2 + 54, 20);
+
+      // Timer bar
+      ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(14, 31, W - 28, 4);
+      ctx.fillStyle = G.t < 15 ? '#f33' : G.t < 35 ? '#f93' : '#3af';
+      ctx.fillRect(14, 31, (W - 28) * (G.t / TOTAL), 4);
+
+      // Screen flash
+      if (G.flash.a > 0) { ctx.save(); ctx.globalAlpha = G.flash.a * 0.28; ctx.fillStyle = G.flash.col; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+
+      // Hit zone
+      ctx.save();
+      ctx.globalAlpha = 0.07; ctx.fillStyle = '#66aaff'; ctx.fillRect(W / 2 - 50, HIT_Y - HW_OK, 100, HW_OK * 2);
+      ctx.globalAlpha = 0.12; ctx.fillStyle = '#44ffaa'; ctx.fillRect(W / 2 - 45, HIT_Y - HW_G, 90, HW_G * 2);
+      ctx.globalAlpha = 0.2; ctx.fillStyle = '#ffd700'; ctx.fillRect(W / 2 - 40, HIT_Y - HW_P, 80, HW_P * 2);
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = 'rgba(255,215,0,0.3)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(W / 2 - 40, HIT_Y); ctx.lineTo(W / 2 + 40, HIT_Y); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+
+      // Pitcher
+      const ppx = PX, ppy = H * 0.31;
+      const winding = G.phase === 1;
+      const armLift = winding ? Math.sin((1 - (G.timer / 0.42)) * Math.PI) * 0.8 : 0;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(ppx, ppy + 32, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#163380'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ppx - 3, ppy + 12); ctx.lineTo(ppx - 4, ppy + 30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ppx + 3, ppy + 12); ctx.lineTo(ppx + 6, ppy + 30); ctx.stroke();
+      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(ppx - 9, ppy + 27, 10, 5); ctx.fillRect(ppx + 2, ppy + 27, 10, 5);
+      ctx.fillStyle = '#d01a28'; ctx.fillRect(ppx - 11, ppy - 16, 22, 28);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('21', ppx, ppy + 2);
+      ctx.strokeStyle = '#e8a860'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      const ax = ppx + 10 + Math.cos(armLift) * 5, ay = ppy - 8 - Math.sin(armLift) * 16;
+      ctx.beginPath(); ctx.moveTo(ppx + 8, ppy - 8); ctx.lineTo(ax, ay); ctx.stroke();
+      ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(ppx, ppy - 22, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c01020'; ctx.beginPath(); ctx.arc(ppx, ppy - 27, 11, Math.PI * 1.05, Math.PI * 2.1); ctx.fill();
+      ctx.restore();
+
+      // Ball trail + ball
+      if (G.bAlive) {
+        G.trail.forEach((t, i) => {
+          const al = (1 - i / G.trail.length) * 0.38, r = 6 * (1 - i / G.trail.length) * 0.8;
+          const spd = t.spd || 200;
+          const tc = spd > 550 ? `rgba(255,90,30,${al})` : spd < 250 ? `rgba(100,170,255,${al})` : `rgba(255,240,180,${al})`;
+          ctx.save(); ctx.fillStyle = tc; ctx.shadowColor = tc; ctx.shadowBlur = 4;
+          ctx.beginPath(); ctx.arc(t.x, t.y, Math.max(0.5, r), 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        });
+        ctx.save(); ctx.translate(G.bx, G.by); ctx.rotate(G.brot * 0.3);
+        ctx.shadowColor = G.bCol; ctx.shadowBlur = G.bacc > 0 ? 24 : 12;
+        const bg2 = ctx.createRadialGradient(-2, -2, 0, 0, 0, 9);
+        bg2.addColorStop(0, '#ffffff'); bg2.addColorStop(0.6, '#f0f0ee'); bg2.addColorStop(1, '#ccccca');
+        ctx.fillStyle = bg2; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#bb2820'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0.3, Math.PI - 0.3); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, 6, Math.PI + 0.3, Math.PI * 2 - 0.3); ctx.stroke();
+        if (G.bCol !== '#ffffff') { ctx.globalAlpha = 0.32; ctx.fillStyle = G.bCol; ctx.shadowColor = G.bCol; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        if (G.bNm !== '普通' && G.bNm !== '速い' && G.by < HIT_Y - 50) {
+          ctx.save(); ctx.globalAlpha = 0.8; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = G.bCol; ctx.shadowColor = G.bCol; ctx.shadowBlur = 6; ctx.fillText(G.bNm, G.bx, G.by - 14); ctx.restore();
+        }
+      }
+
+      // Batter
+      const bx = BAT_X, by = BAT_Y;
+      const ang = G.swinging ? G.swingAng : 0.15;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(bx + 13, by + 36, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a3680'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(bx + 5, by + 14); ctx.lineTo(bx + 2, by + 34); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx + 15, by + 14); ctx.lineTo(bx + 18, by + 34); ctx.stroke();
+      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(bx - 3, by + 31, 11, 6); ctx.fillRect(bx + 12, by + 31, 11, 6);
+      ctx.fillStyle = '#1e3ecc'; ctx.fillRect(bx, by - 18, 26, 32);
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('3', bx + 13, by - 1);
+      ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(bx + 13, by - 27, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f1144'; ctx.beginPath(); ctx.arc(bx + 13, by - 32, 12, Math.PI * 1.1, Math.PI * 2.2); ctx.fill();
+      // Bat
+      ctx.save(); ctx.translate(bx + 24, by - 12); ctx.rotate(ang);
+      ctx.fillStyle = '#cc8030'; ctx.strokeStyle = '#553010'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-3, 0); ctx.bezierCurveTo(-4, 16, -8, 36, -7, 52); ctx.bezierCurveTo(-5, 54, 5, 54, 7, 52); ctx.bezierCurveTo(8, 36, 4, 16, 3, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      if (G.hitFlash > 0) { ctx.globalAlpha = G.hitFlash * 0.45; ctx.fillStyle = G.hitCol; ctx.shadowColor = G.hitCol; ctx.shadowBlur = 24; ctx.beginPath(); ctx.ellipse(bx + 13, by - 8, 32, 26, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+
+      // NOW indicator
+      if (G.phase === 2 && G.bAlive) {
+        const d = HIT_Y - G.by;
+        if (d > 0 && d < 150) {
+          const al = Math.max(0, (1 - d / 150) * 0.95);
+          ctx.save(); ctx.globalAlpha = al; ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 10;
+          ctx.font = '900 18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('NOW!', BAT_X + 72, HIT_Y + 6); ctx.restore();
+        }
+      }
+
+      // Windup hint
+      if (G.phase === 0 || G.phase === 1) {
+        const blink = Math.sin(Date.now() * 0.005) > 0;
+        if (blink) { ctx.save(); ctx.globalAlpha = 0.45; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#aabbff'; ctx.fillText('構えろ…', W / 2, H * 0.34 + 44); ctx.restore(); }
+      }
+
+      // Particles
+      partsRef.current.forEach(p => {
+        ctx.save(); ctx.globalAlpha = Math.max(0, p.life * 0.9); ctx.fillStyle = p.col; ctx.shadowColor = p.col; ctx.shadowBlur = p.star ? 14 : 6;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, p.r), 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      });
+
+      // Floats
+      G.floats.forEach(f => {
+        ctx.save(); ctx.globalAlpha = Math.min(1, f.life * 1.6);
+        ctx.font = `900 ${f.big ? 24 : 16}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = f.col; ctx.strokeStyle = 'rgba(0,0,0,0.95)'; ctx.lineWidth = f.big ? 4 : 3;
+        ctx.strokeText(f.v, f.x, f.y); ctx.fillText(f.v, f.x, f.y);
+        ctx.restore();
+      });
+
+      // Combo
+      if (G.combo >= 2) {
+        ctx.save(); ctx.textAlign = 'right'; ctx.font = '900 17px sans-serif';
+        ctx.fillStyle = G.combo >= 8 ? '#ffd700' : G.combo >= 5 ? '#ff9900' : '#ffcc44';
+        ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 12;
+        const ct = G.combo + ' COMBO ×' + comboMult(G.combo).toFixed(1);
+        ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
+        ctx.strokeText(ct, W - 12, H - 120); ctx.fillText(ct, W - 12, H - 120);
+        ctx.restore();
+      }
+
+      setScore(Math.floor(G.coins));
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
+
+  useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(score), 2500); return () => clearTimeout(t); } }, [phase, score]);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="st" style={{ justifyContent: 'center' }}>⚾ バッティングヒーロー</div>
+      {phase === "ready" && (
+        <>
+          <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8 }}>
+            上からボールが落ちてくる！<br/>打者の位置でタイミングよく打て！<br/>緩急に惑わされるな！制限時間: 70秒
+          </p>
+          <button className="btn bp" onClick={startGame}>⚾ PLAY BALL!</button>
+        </>
+      )}
+      {phase === "play" && (
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none' }}
+            onPointerDown={e => { e.preventDefault(); doSwing(); }} />
+          <div style={{ position: 'relative', marginTop: 4, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', zIndex: 41, pointerEvents: 'none' }}>
+            <canvas ref={canvasRef} width={W} height={H}
+              style={{ borderRadius: 14, border: '2px solid rgba(255,200,50,0.15)', touchAction: 'none', width: '100%', height: 'auto',
+                boxShadow: '0 0 20px rgba(255,200,50,0.1)' }} />
+          </div>
+        </>
+      )}
+      {phase === "done" && (
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <div style={{ fontSize: 44, margin: '12px 0' }}>⚾</div>
+          <p style={{ fontSize: 20, fontWeight: 900, color: '#fbbf24' }}>🪙 {score} コイン獲得！</p>
+          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8 }}>
+            PERFECT: {gameRef.current?.perfects || 0} / GREAT: {gameRef.current?.greats || 0} / 最大コンボ: {gameRef.current?.maxCombo || 0}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // COIN RUNNER GAME (90 seconds side-scrolling runner)
 // ============================================================
 function CoinRunnerGame({ onDone }) {
@@ -9025,6 +9429,7 @@ function GameHistoryScreen() {
     mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷',
     quickdraw: '🔫 早撃ちガンマン',
     coinRunner: '🏃 コインランナー',
+    batting: '⚾ バッティングヒーロー',
     pinball: '🎱 ピンボール',
     chainBurst: '💥 チェインバースト'
   };
@@ -9032,6 +9437,7 @@ function GameHistoryScreen() {
   const GAME_TABS = [
     { id: "tap", icon: "👊", name: "連打" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
     { id: "gem", icon: "💎", name: "キャッチ" },
@@ -9233,6 +9639,7 @@ function RankingScreen() {
     { id: "mathHardAdd", icon: "🧮", name: "上級±" },
     { id: "mathHardMult", icon: "✖️", name: "上級×÷" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
   ];
