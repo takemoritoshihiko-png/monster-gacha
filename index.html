@@ -2783,7 +2783,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2590, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2330, pinball: 2560, chainBurst: 2160 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -5644,14 +5644,14 @@ function ShootingGame({ onDone }) {
 
     if (phase > 0.66 && r < 3) {
       // Gold star - only after 10s
-      type = 'gold'; icon = '⭐'; size = 11; fontSize = 22; glow = '#fbbf24'; coins = 22;
+      type = 'gold'; icon = '⭐'; size = 11; fontSize = 22; glow = '#fbbf24'; coins = 29;
       x = 30 + Math.random() * (CANVAS_W - 60);
       y = 30 + Math.random() * (CANVAS_H - 60);
       vx = (Math.random() - 0.5) * 2;
       vy = (Math.random() - 0.5) * 1.5;
     } else if (r < 3 + 12) {
       // UFO
-      type = 'ufo'; icon = '🛸'; size = 15; fontSize = 30; glow = '#60a5fa'; coins = 11;
+      type = 'ufo'; icon = '🛸'; size = 15; fontSize = 30; glow = '#60a5fa'; coins = 14;
       const dir = Math.random() > 0.5 ? 1 : -1;
       x = dir > 0 ? -20 : CANVAS_W + 20;
       y = 30 + Math.random() * (CANVAS_H * 0.5);
@@ -5659,13 +5659,13 @@ function ShootingGame({ onDone }) {
       vy = 0;
     } else if (r < 3 + 12 + 25) {
       // Target
-      type = 'target'; icon = '🎯'; size = 17; fontSize = 34; glow = '#f87171'; coins = 6;
+      type = 'target'; icon = '🎯'; size = 17; fontSize = 34; glow = '#f87171'; coins = 8;
       x = 30 + Math.random() * (CANVAS_W - 60);
       y = 50 + Math.random() * (CANVAS_H - 120);
       vx = 0; vy = 0;
     } else {
       // Balloon
-      type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 2;
+      type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 3;
       x = 20 + Math.random() * (CANVAS_W - 40);
       y = CANVAS_H + 20;
       vx = 0; vy = -(0.5 + Math.random() * 0.5 + phase * 0.5);
@@ -5839,11 +5839,11 @@ function ShootingGame({ onDone }) {
     if (hit) {
       hit.alive = false;
       let coins = hit.coins;
-      if (hit.type === 'target' && hitDist <= 15) coins = 8;
+      if (hit.type === 'target' && hitDist <= 15) coins = 10;
       comboRef.current++;
       if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
-      if (comboRef.current >= 10) coins += 6;
-      else if (comboRef.current >= 5) coins += 2;
+      if (comboRef.current >= 10) coins += 8;
+      else if (comboRef.current >= 5) coins += 3;
       earnedRef.current += coins;
       statsRef.current[hit.type]++;
       setEarned(earnedRef.current);
@@ -6854,11 +6854,11 @@ function BattingGame({ onDone }) {
   const HW_P = 13, HW_G = 28, HW_OK = 50;
 
   const BALLS = [
-    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 36 },
-    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 55 },
-    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 77 },
-    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 104 },
-    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 91 },
+    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 32 },
+    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 50 },
+    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 69 },
+    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 94 },
+    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 82 },
   ];
   const pickBall = () => { const tot = BALLS.reduce((s, b) => s + b.w, 0); let r = Math.random() * tot; for (const b of BALLS) { r -= b.w; if (r <= 0) return b; } return BALLS[1]; };
   const comboMult = (c) => c >= 5 ? 1.5 : c >= 4 ? 1.4 : c >= 3 ? 1.2 : c >= 2 ? 1.1 : 1.0;
