@@ -3193,7 +3193,7 @@ function MonsterGacha() {
                         <span style={{ color: '#c084fc' }}>{n.name}</span>
                         <span>が</span>
                         <span style={{ fontWeight: 700, color: n.isUra ? '#c0a0ff' : n.rank >= 10 ? '#ff6b81' : n.rank === 9 ? '#ffd700' : '#c8d6e5' }}>
-                          {n.isUra ? '🚪' : '★'}{n.rank} {n.item}
+                          ★{n.rank} {n.item}
                         </span>
                       </div>
                     );
@@ -8113,7 +8113,7 @@ function RankingScreen() {
     { icon: "🎰", label: "ガチャ回数" },
     { icon: "🎁", label: "ギフト" },
     { icon: "🎮", label: "ミニゲーム" },
-    { icon: "🚪", label: "裏" },
+    { icon: "★", label: "裏" },
   ];
 
   const GAME_TABS = [
@@ -8304,7 +8304,7 @@ function RankingScreen() {
                 )}
                 {tab === 5 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 13, fontWeight: 900, color: 'rgba(200,180,255,0.7)' }}>
-                    🚪{r.uraCount || 0}<span style={{ fontSize: 9, opacity: 0.4 }}>/66</span>
+                    ★{r.uraCount || 0}<span style={{ fontSize: 9, opacity: 0.4 }}>/66</span>
                   </div>
                 )}
               </div>
