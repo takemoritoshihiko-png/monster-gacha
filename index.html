@@ -8208,7 +8208,10 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
         <div style={{ textAlign: 'center', marginBottom: 10, position: 'relative', padding: '6px 0' }}>
           <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)' }} />
           <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", color: '#a78bfa' }}>— LEGEND WING —</div>
-          <div className="rank-diamond" style={{ fontSize: 12, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif" }}>★MAX COLLECTION</div>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <span className="rank-diamond" style={{ fontSize: 12, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif" }}>★MAX COLLECTION</span>
+            <span style={{ position: 'absolute', top: -6, right: -48, fontSize: 8, color: '#ffd700', opacity: 0.35, fontWeight: 700, whiteSpace: 'nowrap' }}>×1 <span style={{ opacity: 0.5 }}>and</span> ×3</span>
+          </div>
           <div style={{ position: 'absolute', bottom: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)' }} />
         </div>
         <div style={{ borderRadius: 16, overflow: 'hidden', position: 'relative',
