@@ -2737,7 +2737,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2880, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2560, batting: 2590, pinball: 2560, chainBurst: 2160 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -6767,11 +6767,11 @@ function BattingGame({ onDone }) {
   const HW_P = 13, HW_G = 28, HW_OK = 50;
 
   const BALLS = [
-    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 40 },
-    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 61 },
-    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 86 },
-    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 115 },
-    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 101 },
+    { nm: '普通', col: '#aaccff', spd: 260, vr: 30, acc: 0, w: 0.20, pts: 36 },
+    { nm: '速い', col: '#ffffff', spd: 380, vr: 40, acc: 0, w: 0.25, pts: 55 },
+    { nm: '超速い', col: '#ffcc44', spd: 520, vr: 50, acc: 0, w: 0.20, pts: 77 },
+    { nm: 'マッハ', col: '#ff5533', spd: 700, vr: 60, acc: 0, w: 0.15, pts: 104 },
+    { nm: '加速球', col: '#ff44ff', spd: 150, vr: 20, acc: 400, w: 0.20, pts: 91 },
   ];
   const pickBall = () => { const tot = BALLS.reduce((s, b) => s + b.w, 0); let r = Math.random() * tot; for (const b of BALLS) { r -= b.w; if (r <= 0) return b; } return BALLS[1]; };
   const comboMult = (c) => c >= 5 ? 1.5 : c >= 4 ? 1.4 : c >= 3 ? 1.2 : c >= 2 ? 1.1 : 1.0;
