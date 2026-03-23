@@ -2700,7 +2700,7 @@ function MonsterGacha() {
   }, [nickname]);
 
   // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 960, kuku: 800, mathMid: 1200, mathHardAdd: 1360, mathHardMult: 800, coinRunner: 2560, pinball: 2560, chainBurst: 2160 };
+  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 640, shooting: 720, memory: 510, quickdraw: 700, mathEasy: 960, kuku: 800, mathMid: 1200, mathHardAdd: 1360, mathHardMult: 1200, coinRunner: 2560, pinball: 2560, chainBurst: 2160 };
 
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -5069,9 +5069,9 @@ function MathHardMultGame({ onDone }) {
     if (isNaN(n)) return;
     if (n === prob.answer) {
       const ns = streak + 1;
-      const bonus = ns >= 4 ? 21 : 0;
+      const bonus = ns >= 4 ? 32 : 0;
       if (ns >= 4) sfx('correctStreak'); else sfx('correct');
-      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 42 + bonus); setFb(bonus > 0 ? "⭕+21" : "⭕");
+      setCorrect(c => c + 1); setStreak(ns); setEarned(e => e + 63 + bonus); setFb(bonus > 0 ? "⭕+32" : "⭕");
     } else { sfx('wrong'); setStreak(0); setFb("❌"); }
     setAns(""); setProb(gen());
     setTimeout(() => setFb(""), 400);
