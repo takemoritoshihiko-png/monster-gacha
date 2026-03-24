@@ -57,15 +57,23 @@
       localStorage.setItem(RK, '1');
       console.log('Scores reset for あいこ');
     })();
-    // ONE-TIME: reset all game scores for ユート
+    // ONE-TIME: reset all game scores for ゆと (v2)
     (function(){
-      const RK = '_resetYuto_v1';
+      const RK = '_resetYuto_v2';
       if (localStorage.getItem(RK)) return;
       const db = window.fbDb, name = 'ゆと';
       db.ref('rankings/' + name + '/bestScores').set(null);
       db.ref('rankings/' + name + '/playCounts').set(null);
+      // Also clear weekly/daily rankings for ゆと
+      const d2 = new Date(); d2.setHours(0,0,0,0);
+      const day = d2.getDay(), diff = day === 0 ? 6 : day - 1;
+      d2.setDate(d2.getDate() - diff);
+      const wk = d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
+      db.ref('weeklyRankings/' + wk + '/' + name).remove();
+      const today = d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(new Date().getDate()).padStart(2,'0');
+      db.ref('dailyRankings/' + today + '/' + name).remove();
       localStorage.setItem(RK, '1');
-      console.log('All scores reset for ゆと');
+      console.log('All scores fully reset for ゆと (v2)');
     })();
     // ONE-TIME: clean up duplicate congrats entries, keep only 1 per player+tier
     (function(){
@@ -1690,9 +1698,9 @@ function MonsterGacha() {
         localStorage.setItem('_resetAikoLocal_v1', '1');
       }
       // Reset all scores for ユート
-      if (d.nickname === 'ゆと' && !localStorage.getItem('_resetYutoLocal_v1')) {
+      if (d.nickname === 'ゆと' && !localStorage.getItem('_resetYutoLocal_v2')) {
         bs = {}; pc = {}; ws = {};
-        localStorage.setItem('_resetYutoLocal_v1', '1');
+        localStorage.setItem('_resetYutoLocal_v2', '1');
       }
       setBestScores(bs);
       setPlayCounts(pc);
