@@ -7210,8 +7210,10 @@ function JugglerGame({ onScore, onClose }) {
 
       {(phase === "playing" || phase === "done") && (
         <>
-          {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none' }}
-            onPointerDown={e => { e.preventDefault(); doSpin(); }} />}
+          {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none', overscrollBehavior: 'none' }}
+            onPointerDown={e => { e.preventDefault(); doSpin(); }}
+            onTouchMove={e => { e.preventDefault(); }}
+            onTouchStart={e => { e.preventDefault(); }} />}
 
           <div style={{ background: '#060806', borderBottom: '1px solid #1a2a1a', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
