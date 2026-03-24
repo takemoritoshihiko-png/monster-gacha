@@ -6873,6 +6873,8 @@ function QuickDrawGame({ onScore, onClose }) {
 function JugglerGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [score, setScore] = useState(0);
+  const [tick, setTick] = useState(0);
+  const rerender = () => setTick(t => t + 1);
   const gRef = useRef(null);
   const timerRef = useRef(null);
   const lampRef = useRef(null);
@@ -6926,7 +6928,7 @@ function JugglerGame({ onScore, onClose }) {
       const G = gRef.current; if (!G) return;
       G.t--;
       if (G.t <= 0) { G.t = 0; clearInterval(timerRef.current); endGame(); }
-      setScore(s => s); // force re-render
+      rerender();
     }, 1000);
   };
 
@@ -7000,7 +7002,8 @@ function JugglerGame({ onScore, onClose }) {
           G.screenGlow=`radial-gradient(circle at 50% 45%,rgba(255,200,0,0.02) 0%,transparent 30%)`;
         }
       }
-      setScore(s => s); // trigger re-render
+      // Throttle re-renders to ~30fps
+      if (!loop._lastRender || ts - loop._lastRender > 33) { loop._lastRender = ts; rerender(); }
       lampRef.current = requestAnimationFrame(loop);
     };
     lampRef.current = requestAnimationFrame(loop);
@@ -7014,7 +7017,7 @@ function JugglerGame({ onScore, onClose }) {
     if (type === 'god') {
       // CRT effect
       G.crtActive = true; G.crtPhase = 1; G.crtStart = performance.now(); sndPuchun();
-      setScore(s => s);
+      rerender();
       setTimeout(() => {
         G.crtActive = false; G.flashAlpha = 0.7;
         G.lamp = 'god'; G.lampMainText = 'GOD'; G.lampMainSize = 'min(30vw,130px)'; G.lampSubText = 'JACKPOT'; G.shaking = true;
@@ -7023,8 +7026,8 @@ function JugglerGame({ onScore, onClose }) {
         setTimeout(() => { G.flashAlpha = 0.4; setTimeout(() => { G.flashAlpha = 0; }, 80); }, 800);
         setTimeout(() => { G.flashAlpha = 0.4; setTimeout(() => { G.flashAlpha = 0; }, 80); }, 1600);
         setTimeout(() => { if (G.t <= 0 && phase !== 'playing') return; sndGodCoins(); G.coins += 1000; G.godC++; G.msgColor = '#ffd700'; G.msg = '👑 GOD +1,000 👑'; setScore(G.coins); }, 3500);
-        setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; setScore(s => s); }, 5000);
-        setScore(s => s);
+        setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; rerender(); }, 5000);
+        rerender();
       }, 850);
       return;
     }
@@ -7046,7 +7049,7 @@ function JugglerGame({ onScore, onClose }) {
       else { G.coins += 100; G.barC++; G.msgColor = '#ffc040'; G.msg = '★ REG +100 ★'; }
       setScore(G.coins);
     }, (gs - 0.5) * 1000);
-    setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; setScore(s => s); }, type === 'big' ? 2500 : 1500);
+    setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; rerender(); }, type === 'big' ? 2500 : 1500);
   };
 
   const doSpin = () => {
@@ -7056,7 +7059,7 @@ function JugglerGame({ onScore, onClose }) {
     if (r < GOD_P) onHit('god');
     else if (r < GOD_P + BIG_P) onHit('big');
     else if (r < GOD_P + BIG_P + BAR_P) onHit('bar');
-    setScore(s => s);
+    rerender();
   };
 
   useEffect(() => () => { clearInterval(timerRef.current); if (lampRef.current) cancelAnimationFrame(lampRef.current); }, []);
