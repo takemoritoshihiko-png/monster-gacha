@@ -6668,6 +6668,10 @@ function QuickDrawGame({ onScore, onClose }) {
     setResults([...resultsRef.current]);
     setLastResult(entry);
 
+    // Dynamic result display time based on remaining time
+    const elapsedR = startRef.current ? (Date.now() - startRef.current) / 1000 : 0;
+    const remainR = TOTAL_ROUNDS - (roundRef.current + 1);
+    const resultDelay = remainR > 0 && (23 - elapsedR) < remainR * 3 ? 600 : 1200;
     setTimeout(() => {
       if (roundRef.current + 1 >= TOTAL_ROUNDS) {
         clearInterval(timerRef.current);
@@ -6680,7 +6684,7 @@ function QuickDrawGame({ onScore, onClose }) {
         setRound(roundRef.current);
         startRound();
       }
-    }, 1200);
+    }, resultDelay);
   };
 
   const startRound = () => {
@@ -6692,7 +6696,14 @@ function QuickDrawGame({ onScore, onClose }) {
     const texts = ['まだだ...', 'じっと待て...', '集中...', '来るぞ...', '油断するな...', '息を止めろ...'];
     setWaitText(texts[Math.floor(Math.random() * texts.length)]);
 
-    const waitTime = 1500 + Math.random() * 2500;
+    // Calculate wait time dynamically to ensure 6 rounds fit in 23 seconds
+    const elapsed = startRef.current ? (Date.now() - startRef.current) / 1000 : 0;
+    const remainingRounds = TOTAL_ROUNDS - roundRef.current;
+    const timeLeft23 = Math.max(0, 23 - elapsed);
+    const timePerRound = remainingRounds > 0 ? timeLeft23 / remainingRounds : 3;
+    // Each round needs: waitTime + reaction(~0.5s) + result(1.2s) = ~waitTime + 1.7s
+    const maxWait = Math.max(0.8, timePerRound - 1.7);
+    const waitTime = 800 + Math.random() * Math.min(maxWait * 1000 - 800, 2200);
 
     waitTimerRef.current = setTimeout(() => {
       setPhase("draw");
@@ -6701,12 +6712,15 @@ function QuickDrawGame({ onScore, onClose }) {
       playNote(800, 0.1, 'square', 0.1);
       playNote(1000, 0.08, 'square', 0.08, 0.05);
 
+      // Dynamic timeout based on remaining time
+      const elapsedNow = startRef.current ? (Date.now() - startRef.current) / 1000 : 0;
+      const dynTimeout = Math.max(800, Math.min(TIMEOUT_MS, (23 - elapsedNow) * 500));
       timeoutRef.current = setTimeout(() => {
         if (phaseRef.current === "draw") {
           sfx('wrong');
           handleRoundResult(0, 'タイムアウト', '#ef4444', 'timeout');
         }
-      }, TIMEOUT_MS);
+      }, dynTimeout);
     }, waitTime);
   };
 
