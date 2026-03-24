@@ -2433,7 +2433,7 @@ function MonsterGacha() {
       });
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
-    const synthDuration = targetRank >= 11 ? 4300 : targetRank === 10 ? 3300 : targetRank === 9 ? 2800 : targetRank === 8 ? 2300 : 1800;
+    const synthDuration = targetRank >= 11 ? 4100 : targetRank === 10 ? 3100 : targetRank === 9 ? 2600 : targetRank === 8 ? 2100 : 1600;
     synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, synthDuration)];
   }, [collection]);
 
@@ -2456,7 +2456,7 @@ function MonsterGacha() {
         window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
       }
       playSynthSound(11);
-      synthQueueRef.current = [setTimeout(() => setSynthResult(null), 3800)];
+      synthQueueRef.current = [setTimeout(() => setSynthResult(null), 3600)];
       return n;
     });
     setSynthRetry(null);
@@ -2524,7 +2524,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const getDuration = (r) => r >= 11 ? 4000 : r === 10 ? 3000 : r === 9 ? 2500 : 2000;
+      const getDuration = (r) => r >= 11 ? 3800 : r === 10 ? 2800 : r === 9 ? 2300 : 1800;
       let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
         const ms = elapsed;
@@ -2551,12 +2551,12 @@ function MonsterGacha() {
             if (rt) setSynthRetry({ resultTypeId: rt.id, resultName: lastMax.name, resultIcon: lastMax.icon });
           }
         }
-      }, elapsed + 1500));
+      }, elapsed + 1300));
       synthQueueRef.current = timers;
     } else {
       sfx('synth');
       setSynthResult({ batch: true, count: totalSynths });
-      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, 2300)];
+      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, 2100)];
     }
   }, [collection, findSynthCandidates]);
 
