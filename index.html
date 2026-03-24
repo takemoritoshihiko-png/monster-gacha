@@ -2446,13 +2446,16 @@ function MonsterGacha() {
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
-        if (nickname && window.fbDb) {
-          window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
-        }
         // Check if player owns 4+ unique ★MAX types → offer retry
         const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
         if (maxPatternsOwned >= 4) {
-          setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon });
+          // Don't send notification yet - wait for retry decision
+          setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon, pendingNotif: true });
+        } else {
+          // No retry available, send notification immediately
+          if (nickname && window.fbDb) {
+            window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+          }
         }
         playNote(50, 0.8, 'sawtooth', 0.12);
         playSweep(80, 3000, 1.0, 'sine', 0.1);
@@ -4490,7 +4493,13 @@ function MonsterGacha() {
                 🔄 やり直す
               </button>
               <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
-                onClick={() => setSynthRetry(null)}>
+                onClick={() => {
+                  // Send the pending notification for the accepted item
+                  if (synthRetry && synthRetry.pendingNotif && nickname && window.fbDb) {
+                    window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: synthRetry.resultName, icon: synthRetry.resultIcon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+                  }
+                  setSynthRetry(null);
+                }}>
                 このままでOK
               </button>
             </div>
