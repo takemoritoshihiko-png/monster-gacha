@@ -7124,7 +7124,7 @@ function JugglerGame({ onScore, onClose }) {
         setTimeout(() => setFlashAlpha(0), 100);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 800);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 1600);
-        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(1500 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
+        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(2500 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
         setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, 5000);
       }, 850);
       return;
@@ -7149,7 +7149,7 @@ function JugglerGame({ onScore, onClose }) {
     setTimeout(() => {
       if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return;
       // コインシャワー音は削除済み
-      const baseCoins = type === 'big' ? 500 : 150;
+      const baseCoins = type === 'big' ? 800 : 200;
       const earn = Math.round(baseCoins * jugMult);
       coinsRef.current += earn; setCoins(coinsRef.current);
       const jugLabel = (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ジャグ連' + newJugRen + ' ×' + jugMult.toFixed(1) : '');
@@ -7161,10 +7161,10 @@ function JugglerGame({ onScore, onClose }) {
 
   const doSpin = () => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
-    // Max 2 taps per event cycle
-    tapCountRef.current++;
-    if (tapCountRef.current > 2) return;
-    setTimeout(() => { tapCountRef.current = 0; }, 100);
+    // 同時タップ禁止: 1タップずつ
+    if (tapCountRef.current > 0) return;
+    tapCountRef.current = 1;
+    setTimeout(() => { tapCountRef.current = 0; }, 150);
     gameNRef.current++; setGameN(gameNRef.current); spinCountRef.current++; setSpinCount(spinCountRef.current);
     coinsRef.current -= 1; setCoins(coinsRef.current); sndTap(); setMsg('');
     // Reset juguren if over 100 spins without hit
