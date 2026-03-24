@@ -1667,14 +1667,11 @@ function MonsterGacha() {
     if (d) {
       setCoins(d.coins ?? 50);
       const loadedCol = decompressCol(d.collection);
-      // ONE-TIME: grant Congratulations T1 to mati
-      if (d.nickname === 'mati' && !localStorage.getItem('_grantMatiT1Local_v1')) {
-        if (!loadedCol['cg1_12']) {
-          const nr = RARITIES[11];
-          const ci = CONGRATS_TIERS[0];
-          loadedCol['cg1_12'] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '展示室報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
-        }
-        localStorage.setItem('_grantMatiT1Local_v1', '1');
+      // Ensure mati always has Congratulations T1 in collection
+      if (d.nickname === 'mati' && !loadedCol['cg1_12']) {
+        const nr = RARITIES[11];
+        const ci = CONGRATS_TIERS[0];
+        loadedCol['cg1_12'] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '展示室報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
       }
       setCollection(loadedCol);
       setTotalPulls(d.totalPulls ?? 0);
@@ -2033,22 +2030,22 @@ function MonsterGacha() {
     CONGRATS_TIERS.forEach(ct => { if (collection[ct.key]) gt = Math.max(gt, ct.tier); });
     return gt;
   }, [collection]);
-  const prevTier = useRef(-1);
+  const prevGrantedTier = useRef(-1);
   const congratsShownRef = useRef(false);
   useEffect(() => {
-    // Skip on initial load - wait for collection to be loaded
-    if (prevTier.current === -1) {
-      prevTier.current = congratsTier;
+    // Wait for collection to be loaded (grantedTier will reflect existing items)
+    if (prevGrantedTier.current === -1) {
+      prevGrantedTier.current = grantedTier;
       return;
     }
-    // Only fire if congratsTier increased AND the corresponding item hasn't been granted yet
-    if (congratsTier > prevTier.current && congratsTier > grantedTier && !congratsShownRef.current) {
+    // Only fire when congratsTier exceeds what has ALREADY been granted in collection
+    if (congratsTier > grantedTier && !congratsShownRef.current) {
       congratsShownRef.current = true;
       // Grant new tier items
       const nr = RARITIES[11];
       setCollection(prev => {
         const n = { ...prev };
-        for (let t = prevTier.current + 1; t <= congratsTier; t++) {
+        for (let t = grantedTier + 1; t <= congratsTier; t++) {
           const ci = CONGRATS_TIERS[t - 1];
           if (!n[ci.key]) n[ci.key] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '展示室報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
         }
@@ -2065,7 +2062,7 @@ function MonsterGacha() {
         window.fbDb.ref('notifications/congrats').once('value').then(snap => {
           const existing = new Set();
           snap.forEach(child => { const d = child.val(); if (d) existing.add((d.name || '') + '_' + (d.tier || 0)); });
-          for (let t = prevTier.current + 1; t <= congratsTier; t++) {
+          for (let t = grantedTier + 1; t <= congratsTier; t++) {
             const ci = CONGRATS_TIERS[t - 1];
             if (!existing.has(nickname + '_' + t)) {
               window.fbDb.ref('notifications/congrats').push({
@@ -2076,7 +2073,7 @@ function MonsterGacha() {
         });
       }
     }
-    prevTier.current = congratsTier;
+    prevGrantedTier.current = grantedTier;
   }, [congratsTier, grantedTier]);
 
   // Gacha
