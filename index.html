@@ -7138,7 +7138,7 @@ function JugglerGame({ onScore, onClose }) {
       if (type === 'big') { setBigC(b=>b+1); setMsgColor('#ff3366'); setMsg('★★ BIG +' + earn + jugLabel + ' ★★'); }
       else { setBarC(b=>b+1); setMsgColor('#ffc040'); setMsg('★ REG +' + earn + jugLabel + ' ★'); }
     }, (gs - 0.5) * 1000);
-    setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, type === 'big' ? 2500 : 1500);
+    setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, type === 'big' ? 2300 : 1300);
   };
 
   const doSpin = () => {
