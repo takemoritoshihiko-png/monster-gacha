@@ -1579,8 +1579,13 @@ function MonsterGacha() {
       setNickname(d.nickname || "");
       let bs = d.bestScores || {}; let pc = d.playCounts || {};
       let ws = d.weeklyScores || {};
-      // Universal score reset: always check against scoreResetVersion
       // Score reset completed - no further resets needed
+      // ONE-TIME: clear あいこ playCounts only (not bestScores)
+      if (d.nickname === 'あいこ' && !localStorage.getItem('_resetAikoPC_v1')) {
+        pc = {};
+        if (window.fbDb) window.fbDb.ref('rankings/あいこ/playCounts').set(null);
+        localStorage.setItem('_resetAikoPC_v1', '1');
+      }
       setBestScores(bs);
       setPlayCounts(pc);
       setLastLoginDate(d.lastLoginDate || null);
