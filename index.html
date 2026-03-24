@@ -1832,6 +1832,18 @@ function MonsterGacha() {
     window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue).catch(() => {});
     window.fbDb.ref('dailyGiftTotal/' + today + '/' + nickname).transaction(current => (current || 0) + giftValue).catch(() => {});
     contributeMission('gift', giftValue);
+    // Record gift history for ★7+ items
+    if (item.rank >= 7) {
+      const histRef = window.fbDb.ref('notifications/giftHistory');
+      histRef.push({
+        sender: nickname, receiver: trimmedName, item: item.name, icon: item.icon,
+        rank: item.rank, timestamp: Date.now()
+      }).catch(() => {});
+      histRef.orderByChild('timestamp').once('value').then(snap => {
+        const keys = []; snap.forEach(child => keys.push(child.key));
+        if (keys.length > 20) keys.slice(0, keys.length - 20).forEach(k => histRef.child(k).remove());
+      }).catch(() => {});
+    }
     sfx('sell');
     setShowGiftModal(null);
     setSaveMsg('🎁 ' + trimmedName + 'に' + item.name + 'を送りました！');
@@ -2663,15 +2675,27 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
-  // Item requests (wishlist) - realtime
+  // ONE-TIME: clear all existing item requests
+  useEffect(() => {
+    if (!window.fbDb || localStorage.getItem('_clearReqs_v1')) return;
+    window.fbDb.ref('notifications/itemRequests').remove();
+    localStorage.setItem('_clearReqs_v1', '1');
+  }, []);
+  // Item requests (wishlist) - realtime, max 2 per player shown
   useEffect(() => {
     if (!window.fbDb) return;
-    const ref = window.fbDb.ref('notifications/itemRequests').orderByChild('timestamp').limitToLast(6);
+    const ref = window.fbDb.ref('notifications/itemRequests').orderByChild('timestamp').limitToLast(20);
     const handler = ref.on('value', snapshot => {
       const reqs = [];
       snapshot.forEach(child => { const d = child.val(); if (d && d.name && d.typeId && d.rank && d.icon && d.itemName) reqs.push({ fbKey: child.key, ...d }); });
       reqs.reverse();
-      setItemRequests(reqs);
+      // Show max 2 per player
+      const perPlayer = {};
+      const filtered = reqs.filter(r => {
+        perPlayer[r.name] = (perPlayer[r.name] || 0) + 1;
+        return perPlayer[r.name] <= 2;
+      });
+      setItemRequests(filtered);
     });
     return () => ref.off('value', handler);
   }, []);
@@ -3523,20 +3547,27 @@ function MonsterGacha() {
                   {itemRequests.map((req, i) => {
                     const myItem = collection[`${req.typeId}_${req.rank}`];
                     const canSend = myItem && myItem.count > 1 && req.name !== nickname && req.rank < 11;
+                    const isMyRequest = req.name === nickname;
                     return (
                       <div key={req.fbKey} onClick={() => canSend && setShowRequestConfirm(req)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0',
                           borderBottom: i < itemRequests.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                           fontSize: 10, cursor: canSend ? 'pointer' : 'default',
-                          opacity: canSend ? 1 : 0.5 }}>
+                          opacity: canSend ? 1 : isMyRequest ? 0.8 : 0.5 }}>
                         <span style={{ fontSize: 16 }}>{req.icon}</span>
                         <span style={{ color: '#f472b6', fontWeight: 700 }}>{req.name}</span>
                         <span style={{ opacity: 0.5 }}>が</span>
                         <span style={{ fontWeight: 700, color: req.rank >= 10 ? '#ff6b81' : req.rank >= 8 ? '#ffd700' : req.rarity?.color || '#fff' }}>
                           ★{req.rank} {req.itemName}
                         </span>
-                        <span style={{ opacity: 0.4 }}>を求めています</span>
+                        {!isMyRequest && <span style={{ opacity: 0.4 }}>を求めています</span>}
                         {canSend && <span style={{ marginLeft: 'auto', fontSize: 12 }}>🎁</span>}
+                        {isMyRequest && <span onClick={e => { e.stopPropagation();
+                          if (window.fbDb) window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove();
+                          setSaveMsg('リクエストをキャンセルしました'); setTimeout(() => setSaveMsg(''), 2000);
+                        }} style={{ marginLeft: 'auto', fontSize: 9, padding: '2px 8px', borderRadius: 6,
+                          background: 'rgba(255,100,100,0.15)', border: '1px solid rgba(255,100,100,0.3)',
+                          color: '#ff6b6b', cursor: 'pointer', fontWeight: 700 }}>✕ 取消</span>}
                       </div>
                     );
                   })}
@@ -3609,22 +3640,10 @@ function MonsterGacha() {
                           setShowRequestConfirm(null);
                           return;
                         }
-                        // First remove request, then send gift, then log history
+                        // First remove request, then send gift (gift history is recorded in sendGift for ★7+)
                         if (window.fbDb) {
                           window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().then(() => {
                             sendGift(itemKey, req.name);
-                            // Log gift history
-                            const histRef = window.fbDb.ref('notifications/giftHistory');
-                            histRef.push({
-                              sender: nickname, receiver: req.name, item: req.itemName, icon: req.icon,
-                              rank: req.rank, timestamp: Date.now()
-                            }).catch(() => {});
-                            // Trim to max 20
-                            histRef.orderByChild('timestamp').once('value').then(snap => {
-                              const keys = [];
-                              snap.forEach(child => keys.push(child.key));
-                              if (keys.length > 20) keys.slice(0, keys.length - 20).forEach(k => histRef.child(k).remove());
-                            }).catch(() => {});
                           }).catch(() => {
                             sendGift(itemKey, req.name);
                           });
@@ -3980,10 +3999,10 @@ function MonsterGacha() {
               const existing = [];
               snap.forEach(child => existing.push({ key: child.key, ts: child.val().timestamp || 0 }));
               if (existing.length >= 2) {
-                // Remove oldest to make room (keep 1, add 1 = max 2)
-                existing.sort((a, b) => a.ts - b.ts);
-                const removes = existing.slice(0, existing.length - 1).map(e => reqRef.child(e.key).remove());
-                return Promise.all(removes);
+                setSaveMsg('⚠️ リクエストは最大2個までです。先にキャンセルしてください');
+                setTimeout(() => setSaveMsg(''), 3000);
+                setRequestMode(false);
+                return Promise.reject('max_reached');
               }
             }).then(() => {
               return reqRef.push({
