@@ -5726,7 +5726,8 @@ function ShootingGame({ onDone }) {
       y = 50 + Math.random() * (CANVAS_H - 120);
       vx = 0; vy = 0;
     } else {
-      // Balloon
+      // Balloon (50% cut in last 10 seconds)
+      if (phase > 0.5 && Math.random() < 0.5) return;
       type = 'balloon'; icon = '🎈'; size = 20; fontSize = 40; glow = '#f472b6'; coins = 3;
       x = 20 + Math.random() * (CANVAS_W - 40);
       y = CANVAS_H + 20;
