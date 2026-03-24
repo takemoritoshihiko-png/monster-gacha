@@ -2600,7 +2600,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', juggler: 'ジャグラー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -3936,6 +3936,7 @@ function MonsterGacha() {
               { label: '🏃 アドベンチャー', color: 'rgba(74,222,128,0.2)', bg: 'linear-gradient(180deg, rgba(40,70,50,0.85), rgba(25,45,32,0.95))', border: 'rgba(74,222,128,0.2)',
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
+                  { id: "juggler", icon: "🎰", name: "ジャグラー" },
                   { id: "batting", icon: "⚾", name: "バッティングヒーロー" },
                   { id: "pinball", icon: "🎱", name: "ピンボール" },
                   { id: "chainBurst", icon: "💥", name: "チェインバースト" },
@@ -3983,6 +3984,7 @@ function MonsterGacha() {
         )}
         {screen === "minigame" && miniGame === "tap" && <TapGame onScore={(c) => handleMiniGameScore('tap', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onScore={(c) => handleMiniGameScore('coinRunner', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "juggler" && <JugglerGame onScore={(c) => handleMiniGameScore('juggler', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "batting" && <BattingGame onScore={(c) => handleMiniGameScore('batting', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "pinball" && <PinballGame onScore={(c) => handleMiniGameScore('pinball', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onScore={(c) => handleMiniGameScore('chainBurst', c)} onClose={handleMiniGameClose} />}
@@ -6866,6 +6868,323 @@ function QuickDrawGame({ onScore, onClose }) {
 
 // GEM CATCH GAME (ジュエルキャッチ)
 // ============================================================
+// JUGGLER GAME (300 seconds slot machine game)
+// ============================================================
+function JugglerGame({ onScore, onClose }) {
+  const [phase, setPhase] = useState("ready");
+  const [score, setScore] = useState(0);
+  const gRef = useRef(null);
+  const timerRef = useRef(null);
+  const lampRef = useRef(null);
+  const crtRef = useRef(null);
+
+  const BIG_P = 1/240.94, BAR_P = 1/240.94, GOD_P = 1/8192, TOTAL = 300;
+
+  // Synth helper using audioCtx buffer
+  const synth = (dur, fn, vol=0.7) => {
+    const a = audioCtx; if (!a) return; if (a.state==='suspended') a.resume();
+    const sr=a.sampleRate, buf=a.createBuffer(2, sr*dur, sr);
+    for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);for(let i=0;i<d.length;i++)d[i]=fn(i/sr,ch);}
+    const bs=a.createBufferSource();bs.buffer=buf;const g=a.createGain();g.gain.value=vol;bs.connect(g);g.connect(a.destination);bs.start(a.currentTime);
+  };
+  const tone = (f,st,dur,vol=0.25,type='sine') => {
+    const a=audioCtx;if(!a)return;
+    const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;
+    g.gain.setValueAtTime(vol,a.currentTime+st);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+st+dur);
+    o.connect(g);g.connect(a.destination);o.start(a.currentTime+st);o.stop(a.currentTime+st+dur);
+  };
+  const sndTap = () => synth(0.06,(s)=>{const c=Math.sin(2*Math.PI*4000*s)*Math.exp(-s*60)*0.4;const b=Math.sin(2*Math.PI*1200*s)*Math.exp(-s*40)*0.2;return(c+b)*0.6;},0.2);
+  const sndGakon = () => synth(0.8,(s,ch)=>{const at=Math.exp(-s*40)*0.9;const m1=Math.sin(2*Math.PI*220*s+Math.sin(2*Math.PI*440*s)*0.5)*at;const rn=(Math.sin(2*Math.PI*880*s)*0.2+Math.sin(2*Math.PI*1320*s)*0.15+Math.sin(2*Math.PI*1760*s)*0.08)*Math.exp(-s*8);const th=Math.sin(2*Math.PI*55*s)*0.6*Math.exp(-s*20);const rs=Math.sin(2*Math.PI*165*s)*0.25*Math.exp(-s*4);const mc=(Math.random()*2-1)*0.4*Math.exp(-s*30);return(m1+rn+th+rs+mc)*(ch===0?0.55:0.5);},0.9);
+  const sndBigFanfare = () => { sndGakon(); [523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,0.25+i*0.12,0.5,0.22)); tone(131,0.1,1.0,0.12); };
+  const sndBarChime = () => { [440,554,659].forEach((f,i)=>tone(f,i*0.15,0.5,0.2)); };
+  const sndCoins = (n=10) => synth(1.4,(s,ch)=>{let v=0;for(let i=0;i<n;i++){const off=i*(1.0/n),f=2000+i*220+(ch*100);if(s>off)v+=Math.sin(2*Math.PI*f*(s-off))*Math.exp(-(s-off)*5)*0.1;}return v*0.85;},0.65);
+  const sndPuchun = () => synth(0.3,(s,ch)=>{const sw=Math.sin(2*Math.PI*(9000*Math.exp(-s*16)+150)*s)*0.55*Math.exp(-s*7);const zp=Math.sin(2*Math.PI*14000*s)*0.1*Math.exp(-s*35);const td=Math.sin(2*Math.PI*60*s)*0.5*Math.exp(-s*20);const st=(Math.random()*2-1)*0.4*Math.exp(-s*25);return(sw+zp+td+st)*0.85;},1.0);
+  const sndGodGong = () => synth(5.0,(s,ch)=>{const f0=55;const g1=Math.sin(2*Math.PI*f0*s)*0.5*Math.exp(-s*0.5);const g2=Math.sin(2*Math.PI*f0*2*s)*0.35*Math.exp(-s*0.7);const g3=Math.sin(2*Math.PI*f0*3*s)*0.2*Math.exp(-s*0.9);const g4=Math.sin(2*Math.PI*f0*4*s)*0.12*Math.exp(-s*1.1);const g5=Math.sin(2*Math.PI*f0*6*s)*0.06*Math.exp(-s*1.5);const sh=Math.sin(2*Math.PI*f0*8*s*(1+0.003*Math.sin(2*Math.PI*2.5*s)))*0.04*Math.exp(-s*0.5);const ht=Math.exp(-s*6)*(Math.random()*2-1)*0.7;const sb=Math.sin(2*Math.PI*27.5*s)*0.3*Math.exp(-s*0.8);return(g1+g2+g3+g4+g5+sh+ht+sb)*(ch===0?0.65:0.6);},1.0);
+  const sndGodCoins = () => synth(2.5,(s,ch)=>{let v=0;for(let n=0;n<24;n++){const o=n*0.06,f=1600+n*160+(ch*70);if(s>o)v+=Math.sin(2*Math.PI*f*(s-o))*Math.exp(-(s-o)*3)*0.07;}return v*0.9;},0.8);
+
+  const fmtT = (s) => { const m=Math.floor(s/60); return m+':'+(s%60<10?'0':'')+s%60; };
+  const fmtP = (g,h) => h===0?'1/ -':'1/'+Math.round(g/h);
+
+  const initGame = () => ({
+    t: TOTAL, coins: 0, gameN: 0, bigC: 0, barC: 0, godC: 0, locked: false, shaking: false,
+    msg: '', msgColor: '#333', lamp: 'off', lampStart: null, lampPattern: null,
+    crtActive: false, crtPhase: 0, crtStart: null,
+    flashAlpha: 0, screenGlow: 'none',
+    // Lamp state
+    lampGlow: 'none', lampTextColor: 'rgba(255,255,255,0.02)', lampTextShadow: 'none',
+    lampSubColor: 'rgba(255,255,255,0.02)', lampSubShadow: 'none',
+    lampBorder: '#0e0e0e', lampBoxShadow: 'none', lampBg: '#040404',
+    lampRingBorder: 'transparent', lampRingShadow: 'none',
+    lampMainText: 'GOGO!', lampMainSize: 'min(22vw,100px)', lampSubText: 'CHANCE',
+  });
+
+  const startGame = () => {
+    gRef.current = initGame();
+    setPhase("playing"); setScore(0);
+    bgm.stop(); stopMainBgm();
+    timerRef.current = setInterval(() => {
+      const G = gRef.current; if (!G) return;
+      G.t--;
+      if (G.t <= 0) { G.t = 0; clearInterval(timerRef.current); endGame(); }
+      setScore(s => s); // force re-render
+    }, 1000);
+  };
+
+  const endGame = () => {
+    const G = gRef.current; if (!G) return;
+    setPhase("done");
+    G.msg = 'TIME UP'; G.msgColor = '#666';
+    resetLamp();
+  };
+
+  const resetLamp = () => {
+    const G = gRef.current; if (!G) return;
+    if (lampRef.current) { cancelAnimationFrame(lampRef.current); lampRef.current = null; }
+    G.lamp = 'off'; G.shaking = false;
+    G.lampGlow = 'none'; G.lampTextColor = 'rgba(255,255,255,0.02)'; G.lampTextShadow = 'none';
+    G.lampSubColor = 'rgba(255,255,255,0.02)'; G.lampSubShadow = 'none';
+    G.lampBorder = '#0e0e0e'; G.lampBoxShadow = 'none'; G.lampBg = '#040404';
+    G.lampRingBorder = 'transparent'; G.lampRingShadow = 'none';
+    G.screenGlow = 'none'; G.lampMainText = 'GOGO!'; G.lampMainSize = 'min(22vw,100px)'; G.lampSubText = 'CHANCE';
+  };
+
+  const setL = (G, h,s,l,p,a) => {
+    G.lampGlow = `radial-gradient(circle,hsla(${h},${s}%,${l+15}%,${a*1.1}) 0%,hsla(${h},${s}%,${l+5}%,${a*0.5}) 30%,hsla(${h},${s*0.7}%,${l-10}%,${a*0.08}) 65%,transparent 88%)`;
+    G.lampTextColor = `hsla(${h},${s}%,${l+25}%,${0.9+0.1*p})`;
+    G.lampTextShadow = `0 0 15px hsla(${h},${s}%,${l+10}%,${0.9*p}),0 0 40px hsla(${h},${s}%,${l}%,${0.5*p}),0 0 80px hsla(${h},${s*0.8}%,${l-5}%,${0.2*p})`;
+    G.lampSubColor = `hsla(${h},${s}%,${l+10}%,${0.4*p})`; G.lampSubShadow = `0 0 8px hsla(${h},${s}%,${l}%,${0.3*p})`;
+    G.lampBorder = `hsla(${h},${s}%,${l-5}%,${0.3+0.5*p})`;
+    G.lampBoxShadow = `0 0 25px hsla(${h},${s}%,${l-5}%,${0.3*p}),inset 0 0 35px hsla(${h},${s}%,${l}%,${0.06*p})`;
+    G.lampRingBorder = `hsla(${h},${s}%,${l-5}%,${0.15+0.2*p})`; G.lampRingShadow = `0 0 10px hsla(${h},${s}%,${l-5}%,${0.12*p})`;
+    G.screenGlow = `radial-gradient(circle at 50% 45%,hsla(${h},${s}%,${l-10}%,${a*0.1}) 0%,hsla(${h},${s}%,${l-20}%,${a*0.03}) 30%,transparent 60%)`;
+  };
+
+  // Lamp animation loop
+  useEffect(() => {
+    if (phase !== "playing" && phase !== "done") return;
+    let running = true;
+    const loop = (ts) => {
+      if (!running) return;
+      const G = gRef.current; if (!G || G.lamp === 'off') { lampRef.current = requestAnimationFrame(loop); return; }
+      const e = G.lampStart ? (ts - G.lampStart) / 1000 : 0;
+      if (!G.lampStart) G.lampStart = ts;
+
+      if (G.lamp === 'bar') { const p=0.82+0.18*Math.sin(e*4.5),a=0.6+0.35*p; setL(G,340,75,50,p,a); }
+      else if (G.lamp === 'rainbow') { const h=(e*140)%360,p=0.72+0.28*Math.sin(e*6.5),a=0.65+0.3*p; setL(G,h,100,55,p,a); }
+      else if (G.lamp === 'white') { const p=0.6+0.4*Math.sin(e*11),a=0.7+0.25*p;
+        G.lampGlow=`radial-gradient(circle,rgba(255,255,255,${a}) 0%,rgba(220,220,255,${a*0.35}) 35%,transparent 80%)`;
+        G.lampTextColor=`rgba(255,255,255,${0.92+0.08*p})`;G.lampTextShadow=`0 0 22px rgba(255,255,255,${0.95*p}),0 0 55px rgba(210,210,255,${0.5*p})`;
+        G.lampSubColor=`rgba(255,255,255,${0.5*p})`;G.lampBorder=`rgba(255,255,255,${0.4+0.5*p})`;G.lampBoxShadow=`0 0 30px rgba(255,255,255,${0.35*p})`;
+        G.lampRingBorder=`rgba(255,255,255,${0.2+0.3*p})`;G.screenGlow=`radial-gradient(circle at 50% 45%,rgba(255,255,255,${0.12*p}) 0%,transparent 55%)`;
+      }
+      else if (G.lamp === 'flicker') { const on=Math.sin(e*15*15)>0;
+        if(on){const p=0.78+0.22*Math.sin(e*6),a=0.65*p+0.25;setL(G,335,100,53,p,a);}
+        else{G.lampGlow='none';G.lampTextColor='rgba(255,255,255,0.02)';G.lampTextShadow='none';G.lampSubColor='rgba(255,255,255,0.02)';G.lampBorder='#0e0e0e';G.lampBoxShadow='none';G.lampRingBorder='transparent';G.screenGlow='none';}
+      }
+      else if (G.lamp === 'grad') { const p=0.75+0.25*Math.sin(e*5);const h1=(e*65)%360,h2=(h1+120)%360,h3=(h1+240)%360,a=0.6+0.35*p;
+        G.lampGlow=`conic-gradient(from ${e*50}deg,hsla(${h1},100%,55%,${a}),hsla(${h2},100%,52%,${a*0.85}),hsla(${h3},100%,50%,${a*0.7}),hsla(${h1},100%,55%,${a}))`;
+        G.lampTextColor=`hsla(${h1},100%,82%,${0.9+0.1*p})`;G.lampTextShadow=`0 0 20px hsla(${h1},100%,62%,${0.9*p}),0 0 50px hsla(${h2},100%,52%,${0.4*p})`;
+        G.lampSubColor=`hsla(${h2},100%,68%,${0.4*p})`;G.lampBorder=`hsla(${h1},100%,48%,${0.4+0.4*p})`;G.lampBoxShadow=`0 0 25px hsla(${h1},100%,45%,${0.3*p})`;
+        G.lampRingBorder=`hsla(${h2},100%,48%,${0.2+0.2*p})`;G.screenGlow=`conic-gradient(from ${e*50}deg at 50% 45%,hsla(${h1},100%,35%,${0.08*p}),hsla(${h2},100%,30%,${0.05*p}),transparent)`;
+      }
+      else if (G.lamp === 'god') { const fc=Math.floor(e*60);const on=Math.sin(fc*0.7)>0,p=0.7+0.3*Math.sin(e*14);
+        if(on){const hue=(e*150)%50,a=0.85+0.15*p;
+          G.lampGlow=`radial-gradient(circle,rgba(255,255,255,${a}) 0%,hsla(${42+hue},100%,58%,${a*0.55}) 25%,transparent 80%)`;
+          G.lampTextColor=`rgba(255,${225+30*p|0},${115+40*p|0},1)`;G.lampTextShadow=`0 0 25px rgba(255,215,0,1),0 0 60px rgba(255,180,0,0.7),0 0 100px rgba(255,255,255,0.4)`;
+          G.lampSubColor=`rgba(255,215,0,${0.7*p})`;G.lampBorder=`rgba(255,215,0,${0.6+0.35*p})`;G.lampBoxShadow=`0 0 40px rgba(255,215,0,0.5),0 0 80px rgba(255,180,0,0.2)`;
+          G.lampBg=`radial-gradient(circle,rgba(35,28,0,1) 0%,#040404 60%)`;G.lampRingBorder=`rgba(255,215,0,${0.4+0.4*p})`;
+          G.screenGlow=`radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.2*p}) 0%,rgba(255,180,0,${0.08*p}) 20%,transparent 65%)`;
+        }else{
+          G.lampGlow='radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 50%)';G.lampTextColor='rgba(255,215,0,0.2)';G.lampTextShadow='0 0 6px rgba(255,200,0,0.1)';
+          G.lampSubColor='rgba(255,215,0,0.1)';G.lampBorder='rgba(255,215,0,0.12)';G.lampBoxShadow='none';G.lampBg='#040404';G.lampRingBorder='rgba(255,215,0,0.06)';
+          G.screenGlow=`radial-gradient(circle at 50% 45%,rgba(255,200,0,0.02) 0%,transparent 30%)`;
+        }
+      }
+      setScore(s => s); // trigger re-render
+      lampRef.current = requestAnimationFrame(loop);
+    };
+    lampRef.current = requestAnimationFrame(loop);
+    return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); };
+  }, [phase]);
+
+  const onHit = (type) => {
+    const G = gRef.current; if (!G) return;
+    G.locked = true; resetLamp(); G.lampStart = null;
+
+    if (type === 'god') {
+      // CRT effect
+      G.crtActive = true; G.crtPhase = 1; G.crtStart = performance.now(); sndPuchun();
+      setScore(s => s);
+      setTimeout(() => {
+        G.crtActive = false; G.flashAlpha = 0.7;
+        G.lamp = 'god'; G.lampMainText = 'GOD'; G.lampMainSize = 'min(30vw,130px)'; G.lampSubText = 'JACKPOT'; G.shaking = true;
+        sndGodGong();
+        setTimeout(() => { G.flashAlpha = 0; }, 100);
+        setTimeout(() => { G.flashAlpha = 0.4; setTimeout(() => { G.flashAlpha = 0; }, 80); }, 800);
+        setTimeout(() => { G.flashAlpha = 0.4; setTimeout(() => { G.flashAlpha = 0; }, 80); }, 1600);
+        setTimeout(() => { if (G.t <= 0 && phase !== 'playing') return; sndGodCoins(); G.coins += 1000; G.godC++; G.msgColor = '#ffd700'; G.msg = '👑 GOD +1,000 👑'; setScore(G.coins); }, 3500);
+        setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; setScore(s => s); }, 5000);
+        setScore(s => s);
+      }, 850);
+      return;
+    }
+
+    const bigPatterns = ['rainbow', 'bar', 'grad', 'white', 'flicker'];
+    if (type === 'big') {
+      G.flashAlpha = 0.5; setTimeout(() => { G.flashAlpha = 0; }, 60);
+      G.lamp = bigPatterns[Math.floor(Math.random() * 5)];
+      if (Math.random() < 0.5) sndBigFanfare();
+    } else {
+      G.lamp = 'bar';
+      if (Math.random() < 0.5) sndBarChime();
+    }
+    const gs = type === 'big' ? 2.0 : 1.0;
+    setTimeout(() => {
+      if (G.t <= 0 && phase !== 'playing' && phase !== 'done') return;
+      sndCoins(type === 'big' ? 10 : 5);
+      if (type === 'big') { G.coins += 600; G.bigC++; G.msgColor = '#ff3366'; G.msg = '★★ BIG +600 ★★'; }
+      else { G.coins += 100; G.barC++; G.msgColor = '#ffc040'; G.msg = '★ REG +100 ★'; }
+      setScore(G.coins);
+    }, (gs - 0.5) * 1000);
+    setTimeout(() => { G.locked = false; resetLamp(); G.msg = ''; setScore(s => s); }, type === 'big' ? 2500 : 1500);
+  };
+
+  const doSpin = () => {
+    const G = gRef.current; if (!G || G.locked || phase !== 'playing') return;
+    G.gameN++; sndTap(); G.msg = '';
+    const r = Math.random();
+    if (r < GOD_P) onHit('god');
+    else if (r < GOD_P + BIG_P) onHit('big');
+    else if (r < GOD_P + BIG_P + BAR_P) onHit('bar');
+    setScore(s => s);
+  };
+
+  useEffect(() => () => { clearInterval(timerRef.current); if (lampRef.current) cancelAnimationFrame(lampRef.current); }, []);
+  useEffect(() => { if (phase === "done") { onScore(gRef.current?.coins || 0); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);
+
+  const G = gRef.current || initGame();
+
+  // CRT overlay rendering
+  const renderCRT = () => {
+    if (!G.crtActive) return null;
+    const elapsed = performance.now() - (G.crtStart || performance.now());
+    let content;
+    if (elapsed < 160) { const p = elapsed / 160; const h = 100 * (1 - p);
+      content = React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, height: Math.max(h, 0.5) + '%', top: (50 - h / 2) + '%', background: '#fff' } });
+    } else if (elapsed < 280) { const p = (elapsed - 160) / 120;
+      content = React.createElement('div', { style: { position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: (50 * p) + '%', right: (50 * p) + '%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1 - p * 0.7 } });
+    } else if (elapsed < 530) { const p = (elapsed - 280) / 250;
+      content = React.createElement('div', { style: { position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1 - p, boxShadow: '0 0 12px #fff' } });
+    } else { content = null; }
+    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' } }, content);
+  };
+
+  return (
+    <div style={{ textAlign: 'center', background: '#030305', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden' }}>
+      {/* Screen glow */}
+      <div style={{ position: 'absolute', inset: 0, background: G.screenGlow, pointerEvents: 'none', zIndex: 0 }} />
+      {/* Screen flash */}
+      {G.flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: G.flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
+      {/* CRT */}
+      {renderCRT()}
+
+      {phase === "ready" && (
+        <div style={{ padding: '40px 20px' }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#2aee2a', fontFamily: "'Courier New',monospace", marginBottom: 12, textShadow: '0 0 10px rgba(42,238,42,0.5)' }}>🎰 ジャグラー</div>
+          <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8, color: '#888' }}>
+            画面タップでレバーON！<br/>GOGOランプが光れば大当たり！<br/>制限時間: 5分
+          </p>
+          <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #cc0022, #ee3355)' }}>START</button>
+        </div>
+      )}
+
+      {(phase === "playing" || phase === "done") && (
+        <>
+          {/* Touch overlay */}
+          {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none' }}
+            onPointerDown={e => { e.preventDefault(); doSpin(); }} />}
+
+          {/* Data Counter */}
+          <div style={{ background: '#060806', borderBottom: '1px solid #1a2a1a', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                <span style={{ fontSize: 9, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>GAME</span>
+                <span style={{ fontSize: 34, fontWeight: 800, color: '#2aee2a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: '0 0 10px rgba(42,238,42,0.5)' }}>{G.gameN}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>TIME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: G.t <= 10 ? '#ff2222' : '#2aee2a', textShadow: G.t <= 10 ? '0 0 8px rgba(255,34,34,0.6)' : '0 0 6px rgba(42,238,42,0.3)' }}>{fmtT(G.t)}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>COIN</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: '#eecc22', textShadow: '0 0 6px rgba(238,204,34,0.3)' }}>{G.coins.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {[
+                { label: 'GOD', val: G.godC, prob: fmtP(G.gameN, G.godC), color: '#ffd700', probColor: '#bb8800' },
+                { label: 'BIG', val: G.bigC, prob: fmtP(G.gameN, G.bigC), color: '#ff2244', probColor: '#bb1133' },
+                { label: 'REG', val: G.barC, prob: fmtP(G.gameN, G.barC), color: '#ff9922', probColor: '#bb7711' },
+                { label: '合算', val: G.bigC + G.barC + G.godC, prob: fmtP(G.gameN, G.bigC + G.barC + G.godC), color: '#22ccee', probColor: '#1199bb' },
+              ].map(s => (
+                <div key={s.label} style={{ flex: 1, background: '#080a08', border: '1px solid #152515', borderRadius: 5, padding: '4px 2px 3px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, fontFamily: "'Courier New',monospace", color: s.color, textShadow: `0 0 6px ${s.color}44`, marginBottom: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Courier New',monospace", lineHeight: 1, color: s.color, textShadow: `0 0 6px ${s.color}44` }}>{s.val}</div>
+                  <div style={{ fontSize: 9, fontFamily: "'Courier New',monospace", marginTop: 1, color: s.probColor, opacity: 0.75 }}>{s.prob}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* GOGO Lamp */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1, padding: '16px 4px', pointerEvents: 'none' }}>
+            <div style={{ width: '92%', maxWidth: 380, aspectRatio: '16/10', borderRadius: 20, position: 'relative',
+              background: G.lampBg, border: `3px solid ${G.lampBorder}`, overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+              boxShadow: G.lampBoxShadow,
+              animation: G.shaking ? 'shake 0.15s linear infinite' : 'none' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.8)', pointerEvents: 'none', zIndex: 3 }} />
+              <div style={{ position: 'absolute', inset: 0, background: G.lampGlow, pointerEvents: 'none', zIndex: 1 }} />
+              <div style={{ fontSize: G.lampMainSize, fontWeight: 900, letterSpacing: '0.1em', color: G.lampTextColor,
+                zIndex: 2, fontStyle: 'italic', lineHeight: 1, textAlign: 'center', textShadow: G.lampTextShadow }}>{G.lampMainText}</div>
+              <div style={{ position: 'absolute', bottom: 'min(2.5vw,12px)', fontSize: 'min(3.2vw,14px)', color: G.lampSubColor,
+                zIndex: 2, letterSpacing: 5, fontWeight: 700, textShadow: G.lampSubShadow }}>{G.lampSubText}</div>
+              {/* Ring */}
+              <div style={{ position: 'absolute', inset: -5, borderRadius: 25, border: `2px solid ${G.lampRingBorder}`,
+                pointerEvents: 'none', zIndex: 4, boxShadow: G.lampRingShadow }} />
+            </div>
+          </div>
+
+          {/* Message */}
+          <div style={{ padding: '4px 12px', textAlign: 'center', pointerEvents: 'none', position: 'relative', zIndex: 41 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, minHeight: 18, marginBottom: 4, color: G.msgColor, letterSpacing: 1 }}>{G.msg}</div>
+            {phase === "playing" && <div style={{ fontSize: 9, color: '#444', marginBottom: 4 }}>どこでもタップでレバーON</div>}
+          </div>
+
+          {/* Result */}
+          {phase === "done" && (
+            <div style={{ margin: '4px 12px', padding: '8px 10px', background: 'rgba(10,10,15,0.95)', border: '1px solid #1a1a1a', borderRadius: 8, textAlign: 'left', pointerEvents: 'none', position: 'relative', zIndex: 41 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2, textAlign: 'center', color: '#ffd700', letterSpacing: 2 }}>★ RESULT ★</div>
+              <div style={{ fontSize: 11, color: '#888', lineHeight: 1.8 }}>
+                ゲーム数：<b style={{ color: '#ddd' }}>{G.gameN}G</b><br/>
+                GOD：<b style={{ color: '#ddd' }}>{G.godC}回</b>（{fmtP(G.gameN, G.godC)}）<br/>
+                BIG：<b style={{ color: '#ddd' }}>{G.bigC}回</b>（{fmtP(G.gameN, G.bigC)}） ／ REG：<b style={{ color: '#ddd' }}>{G.barC}回</b>（{fmtP(G.gameN, G.barC)}）<br/>
+                合算：<b style={{ color: '#ddd' }}>{(G.bigC + G.barC + G.godC)}回</b>（{fmtP(G.gameN, G.bigC + G.barC + G.godC)}）<br/>
+                獲得コイン：<b style={{ color: '#ddd' }}>{G.coins.toLocaleString()}枚</b>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}`}</style>
+    </div>
+  );
+}
+
+// ============================================================
 // ============================================================
 // BATTING HERO GAME (70 seconds timing batting game)
 // ============================================================
@@ -9546,7 +9865,7 @@ function GameHistoryScreen() {
   const HISTORY_GAMES = {
     tap: '👊 連打バトル', shooting: '🎯 シューティング', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー',
     tower: '🪙 コインタワー', memory: '🃏 神経衰弱', quickdraw: '🔫 早撃ちガンマン',
-    coinRunner: '🏃 コインランナー', batting: '⚾ バッティングヒーロー', pinball: '🎱 ピンボール', chainBurst: '💥 チェインバースト',
+    coinRunner: '🏃 コインランナー', juggler: '🎰 ジャグラー', batting: '⚾ バッティングヒーロー', pinball: '🎱 ピンボール', chainBurst: '💥 チェインバースト',
     mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級', mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
@@ -9559,6 +9878,7 @@ function GameHistoryScreen() {
     { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "juggler", icon: "🎰", name: "ジャグラー" },
     { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
@@ -9750,6 +10070,7 @@ function RankingScreen() {
     { id: "memory", icon: "🃏", name: "神経衰弱" },
     { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
+    { id: "juggler", icon: "🎰", name: "ジャグラー" },
     { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
