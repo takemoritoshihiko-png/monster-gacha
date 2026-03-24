@@ -15,7 +15,17 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-    // All one-time reset scripts have been completed and removed
+    // Clean gift history: remove entries below ★7
+    (function(){
+      if (localStorage.getItem('_cleanGiftHist_v1')) return;
+      window.fbDb.ref('notifications/giftHistory').once('value').then(snap => {
+        snap.forEach(child => {
+          const d = child.val();
+          if (d && (d.rank || 0) < 7) child.ref.remove();
+        });
+      });
+      localStorage.setItem('_cleanGiftHist_v1', '1');
+    })();
   </script>
 </head>
 <body>
