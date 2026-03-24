@@ -7298,11 +7298,14 @@ function JugglerGame({ onScore, onClose }) {
                         {h.type === 'god' ? 'G' : h.type === 'big' ? 'B' : 'R'}{h.at}
                         {h.is1G && <span style={{ color: '#ffee00' }}>⚡</span>}
                         {h.jugRen >= 2 && !h.is1G && <span style={{ color: '#ff4466' }}>★</span>}
-                        {h.is1G && h.streak1G >= 2 && (
+                        {h.jugRen >= 2 && (
                           <span style={{ position: 'absolute', top: -5, right: -4, fontSize: 7, fontWeight: 900,
-                            color: '#fff', background: 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff)',
+                            color: '#fff',
+                            background: h.is1G
+                              ? 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff)'
+                              : 'rgba(255,68,102,0.8)',
                             borderRadius: 4, padding: '0 2px', lineHeight: 1.3,
-                            textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>×{h.streak1G}</span>
+                            textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>×{h.jugRen}</span>
                         )}
                       </div>
                     ))}
