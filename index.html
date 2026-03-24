@@ -6945,12 +6945,25 @@ function JugglerGame({ onScore, onClose }) {
     sg: `radial-gradient(circle at 50% 45%,hsla(${h},${s}%,${l-10}%,${a*0.1}) 0%,transparent 60%)`,
   });
 
-  // Lamp animation via requestAnimationFrame
+  // Main game loop: timer + lamp animation via requestAnimationFrame
   useEffect(() => {
     if (phase !== "playing" && phase !== "done") return;
     let running = true;
+    let lastTimerUpdate = 0;
     const loop = (ts) => {
       if (!running) return;
+      // Timer update (every second)
+      if (phaseRef.current === 'playing' && startTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const newTimeLeft = Math.max(0, TOTAL - elapsed);
+        if (newTimeLeft !== timeLeftRef.current) {
+          timeLeftRef.current = newTimeLeft;
+          setTimeLeft(newTimeLeft);
+          if (newTimeLeft <= 0) {
+            phaseRef.current = 'done'; setPhase("done"); setMsg('TIME UP'); setMsgColor('#666'); resetLamp();
+          }
+        }
+      }
       const lt = lampTypeRef.current;
       if (lt === 'off') { lampRef.current = requestAnimationFrame(loop); return; }
       if (!lampStartRef.current) lampStartRef.current = ts;
@@ -6978,19 +6991,17 @@ function JugglerGame({ onScore, onClose }) {
     return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); };
   }, [phase]);
 
+  const startTimeRef = useRef(null);
+  const timeLeftRef = useRef(TOTAL);
+
   const startGame = () => {
     setPhase("playing"); phaseRef.current = 'playing';
     setGameN(0); setTimeLeft(TOTAL); setCoins(0); setBigC(0); setBarC(0); setGodC(0);
     setMsg(''); setLocked(false); lockedRef.current = false;
     coinsRef.current = 0; gameNRef.current = 0; tapCountRef.current = 0; spinCountRef.current = 0; setSpinCount(0);
+    startTimeRef.current = Date.now(); timeLeftRef.current = TOTAL;
     resetLamp();
     bgm.stop(); stopMainBgm();
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) { clearInterval(timerRef.current); setPhase("done"); phaseRef.current = 'done'; setMsg('TIME UP'); setMsgColor('#666'); resetLamp(); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
   };
 
   const onHit = (type) => {
@@ -7042,7 +7053,7 @@ function JugglerGame({ onScore, onClose }) {
     else if (r < GOD_P + BIG_P + BAR_P) onHit('bar');
   };
 
-  useEffect(() => () => { clearInterval(timerRef.current); if (lampRef.current) cancelAnimationFrame(lampRef.current); }, []);
+  useEffect(() => () => { if (lampRef.current) cancelAnimationFrame(lampRef.current); }, []);
   useEffect(() => { if (phase === "done") { onScore(coinsRef.current); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);
 
   const ls = lampStyle;
