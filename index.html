@@ -6873,7 +6873,7 @@ function QuickDrawGame({ onScore, onClose }) {
 function JugglerGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [gameN, setGameN] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(180);
+  const [timeLeft, setTimeLeft] = useState(300);
   const [coins, setCoins] = useState(0);
   const [bigC, setBigC] = useState(0);
   const [barC, setBarC] = useState(0);
@@ -6905,7 +6905,7 @@ function JugglerGame({ onScore, onClose }) {
   const gameNRef = useRef(0);
   const tapCountRef = useRef(0);
 
-  const BIG_P = 1/240.94, BAR_P = 1/240.94, GOD_P = 1/8192, TOTAL = 180;
+  const BIG_P = 1/240.94, BAR_P = 1/240.94, GOD_P = 1/8192, TOTAL = 300;
 
   const synth = (dur, fn, vol=0.7) => {
     const a = audioCtx; if (!a) return; if (a.state==='suspended') a.resume();
@@ -7162,7 +7162,7 @@ function JugglerGame({ onScore, onClose }) {
         <div style={{ padding: '40px 20px' }}>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#2aee2a', fontFamily: "'Courier New',monospace", marginBottom: 12, textShadow: '0 0 10px rgba(42,238,42,0.5)' }}>🎰 ジャグラー</div>
           <p style={{ fontSize: 11, opacity: 0.5, margin: '12px 0', lineHeight: 1.8, color: '#888' }}>
-            画面タップでレバーON！<br/>GOGOランプが光れば大当たり！<br/>100G以内の連続ボーナスでジャグ連！<br/>制限時間: 3分
+            画面タップでレバーON！<br/>GOGOランプが光れば大当たり！<br/>100G以内の連続ボーナスでジャグ連！<br/>制限時間: 5分
           </p>
           <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #cc0022, #ee3355)' }}>START</button>
         </div>
