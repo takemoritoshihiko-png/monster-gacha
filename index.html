@@ -1979,23 +1979,6 @@ function MonsterGacha() {
   const [showClear, setShowClear] = useState(false);
   const [showClearTier, setShowClearTier] = useState(null);
   const [clearReady, setClearReady] = useState(false);
-  // DEBUG: triple-tap title to test Tier1 celebration
-  const debugTapRef = useRef({ count: 0, timer: null });
-  const debugTestTier1 = () => {
-    debugTapRef.current.count++;
-    clearTimeout(debugTapRef.current.timer);
-    if (debugTapRef.current.count >= 3) {
-      debugTapRef.current.count = 0;
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-      setShowClearTier(CONGRATS_TIERS[0]);
-      setClearReady(false);
-      setShowClear(true);
-      bgm.stop(); stopMainBgm();
-      setTimeout(() => setClearReady(true), 5000);
-    } else {
-      debugTapRef.current.timer = setTimeout(() => { debugTapRef.current.count = 0; }, 1500);
-    }
-  };
   // Track which tiers have already been granted (check collection for existing ★12 items)
   const grantedTier = useMemo(() => {
     let gt = 0;
@@ -3071,7 +3054,7 @@ function MonsterGacha() {
       <style>{CSS}</style>
       <div className="hdr">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="hdr-t" onPointerDown={e => { e.preventDefault(); debugTestTier1(); }} style={{ touchAction: 'manipulation' }}>TREASURE GACHA</div>
+          <div className="hdr-t">TREASURE GACHA</div>
           <div style={{ fontSize: 9, color: 'rgba(167,139,250,0.6)', fontWeight: 700, background: 'rgba(139,92,246,0.15)', borderRadius: 6, padding: '2px 6px' }}>
             SLOT {slotId}
           </div>
