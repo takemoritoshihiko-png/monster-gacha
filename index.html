@@ -1975,13 +1975,23 @@ function MonsterGacha() {
       debugTapRef.current.timer = setTimeout(() => { debugTapRef.current.count = 0; }, 1500);
     }
   };
-  const prevTier = useRef(null);
+  // Track which tiers have already been granted (check collection for existing ★12 items)
+  const grantedTier = useMemo(() => {
+    let gt = 0;
+    CONGRATS_TIERS.forEach(ct => { if (collection[ct.key]) gt = Math.max(gt, ct.tier); });
+    return gt;
+  }, [collection]);
+  const prevTier = useRef(-1);
+  const congratsShownRef = useRef(false);
   useEffect(() => {
-    if (prevTier.current === null) {
+    // Skip on initial load - wait for collection to be loaded
+    if (prevTier.current === -1) {
       prevTier.current = congratsTier;
       return;
     }
-    if (congratsTier > prevTier.current) {
+    // Only fire if congratsTier increased AND the corresponding item hasn't been granted yet
+    if (congratsTier > prevTier.current && congratsTier > grantedTier && !congratsShownRef.current) {
+      congratsShownRef.current = true;
       // Grant new tier items
       const nr = RARITIES[11];
       setCollection(prev => {
@@ -2009,7 +2019,7 @@ function MonsterGacha() {
       }
     }
     prevTier.current = congratsTier;
-  }, [congratsTier]);
+  }, [congratsTier, grantedTier]);
 
   // Gacha
   const autoOpenRef = useRef([]);
@@ -4265,7 +4275,7 @@ function MonsterGacha() {
               <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>おめでとうございます！全ての伝説のトレジャーを集めました。</div>
               <button className="btn bp" disabled={!clearReady}
                 style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
-                onClick={() => { setShowClear(false); resumeMainBgm(); }}>
+                onClick={() => { setShowClear(false); congratsShownRef.current = false; resumeMainBgm(); }}>
                 {clearReady ? '受け取る' : '...'}
               </button>
             </div>
@@ -4335,7 +4345,7 @@ function MonsterGacha() {
               </div>
               <button className="btn bp" disabled={!clearReady}
                 style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
-                onClick={() => { setShowClear(false); resumeMainBgm(); }}>
+                onClick={() => { setShowClear(false); congratsShownRef.current = false; resumeMainBgm(); }}>
                 {clearReady ? '受け取る' : '...'}
               </button>
             </div>
