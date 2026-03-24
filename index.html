@@ -6929,7 +6929,7 @@ function JugglerGame({ onScore, onClose }) {
   const fmtP = (g,h) => h===0?'1/ -':'1/'+Math.round(g/h);
 
   const resetLamp = () => {
-    if (lampRef.current) { cancelAnimationFrame(lampRef.current); lampRef.current = null; }
+    // Don't cancel RAF - let the loop keep running, it will see 'off' and skip
     lampTypeRef.current = 'off'; lampStartRef.current = null;
     setLampStyle({}); setShaking(false); setScreenGlow('none');
     setLampMainText('GOGO!'); setLampMainSize('min(22vw,100px)'); setLampSubText('CHANCE');
@@ -7101,13 +7101,13 @@ function JugglerGame({ onScore, onClose }) {
           <div style={{ background: '#060806', borderBottom: '1px solid #1a2a1a', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <span style={{ fontSize: 9, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>GAME</span>
-                <span style={{ fontSize: 34, fontWeight: 800, color: '#2aee2a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: '0 0 10px rgba(42,238,42,0.5)' }}>{gameN}</span>
+                <span style={{ fontSize: 9, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>ボーナス間</span>
+                <span style={{ fontSize: 34, fontWeight: 800, color: spinCount >= 500 ? '#ff2222' : spinCount >= 200 ? '#ff9922' : '#2aee2a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: spinCount >= 500 ? '0 0 10px rgba(255,34,34,0.5)' : '0 0 10px rgba(42,238,42,0.5)' }}>{spinCount}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>ハマリ</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: spinCount >= 500 ? '#ff2222' : spinCount >= 200 ? '#ff9922' : '#2aee2a', textShadow: spinCount >= 500 ? '0 0 8px rgba(255,34,34,0.6)' : '0 0 6px rgba(42,238,42,0.3)' }}>{spinCount}</div>
+                  <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>GAME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: '#2aee2a', textShadow: '0 0 6px rgba(42,238,42,0.3)' }}>{gameN}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>TIME</div>
