@@ -7164,7 +7164,7 @@ function JugglerGame({ onScore, onClose }) {
     // 同時タップ禁止: 1タップずつ
     if (tapCountRef.current > 0) return;
     tapCountRef.current = 1;
-    setTimeout(() => { tapCountRef.current = 0; }, 100);
+    setTimeout(() => { tapCountRef.current = 0; }, 150);
     gameNRef.current++; setGameN(gameNRef.current); spinCountRef.current++; setSpinCount(spinCountRef.current);
     coinsRef.current -= 1; setCoins(coinsRef.current); sndTap(); setMsg('');
     // Reset juguren if over 100 spins without hit
