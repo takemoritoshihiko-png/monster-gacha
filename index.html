@@ -2803,23 +2803,19 @@ function MonsterGacha() {
     });
   }, [nickname]);
 
-  // Score caps per game to prevent illegitimate scores
-  const SCORE_CAPS = { tap: 720, gem: 720, timing: 720, tower: 1075, shooting: 936, memory: 510, quickdraw: 700, mathEasy: 1150, kuku: 880, mathMid: 2250, mathHardAdd: 4500, mathHardMult: 3600, coinRunner: 2990, batting: 2730, pinball: 3590, chainBurst: 2520 };
-
   const handleMiniGameDone = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
-    const capped = Math.min(boosted, SCORE_CAPS[gameId] || 9999);
-    setCoins(p => p + capped);
+    setCoins(p => p + boosted);
     setBestScores(prev => {
-      const isNewBest = capped > (prev[gameId] || 0);
+      const isNewBest = boosted > (prev[gameId] || 0);
       if (isNewBest) {
-        setNewRecord({ gameId, score: capped, prev: prev[gameId] || 0 });
+        setNewRecord({ gameId, score: boosted, prev: prev[gameId] || 0 });
         setTimeout(() => setNewRecord(null), 3000);
       }
-      const updated = isNewBest ? { ...prev, [gameId]: capped } : prev;
+      const updated = isNewBest ? { ...prev, [gameId]: boosted } : prev;
       // Immediately update Firebase with new best score
       if (isNewBest && nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(capped);
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted);
       }
       return updated;
     });
@@ -2834,24 +2830,24 @@ function MonsterGacha() {
     setWeeklyScores(prev => {
       const weekId = getWeekId();
       const weekData = prev._weekId === weekId ? prev : { _weekId: weekId };
-      const isNewWeekBest = capped > (weekData[gameId] || 0);
-      const updated = isNewWeekBest ? { ...weekData, [gameId]: capped } : weekData;
+      const isNewWeekBest = boosted > (weekData[gameId] || 0);
+      const updated = isNewWeekBest ? { ...weekData, [gameId]: boosted } : weekData;
       // Write weekly and daily scores to Firebase
       if (isNewWeekBest && nickname && window.fbDb) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(capped);
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted);
       }
       const today = getLocalDate();
       if (nickname && window.fbDb) {
-        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, capped));
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, boosted));
       }
       return updated;
     });
     contributeMission('minigame', 1);
-    if (gameId === 'tap') contributeMission('tap', capped);
-    if (gameId === 'timing') contributeMission('timing', capped);
-    if (gameId === 'shooting') contributeMission('shooting', capped);
-    if (gameId === 'quickdraw') contributeMission('quickdraw', capped);
-    if (gameId === 'memory') contributeMission('memory', capped);
+    if (gameId === 'tap') contributeMission('tap', boosted);
+    if (gameId === 'timing') contributeMission('timing', boosted);
+    if (gameId === 'shooting') contributeMission('shooting', boosted);
+    if (gameId === 'quickdraw') contributeMission('quickdraw', boosted);
+    if (gameId === 'memory') contributeMission('memory', boosted);
     mainBgmRef.current = false; // Allow main BGM to restart
     bgm.stop(); // Ensure minigame BGM is stopped
     setMiniGame(null);
