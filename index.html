@@ -57,24 +57,32 @@
       localStorage.setItem(RK, '1');
       console.log('Scores reset for あいこ');
     })();
-    // ONE-TIME: grant Congratulations T1 to mati
+    // ONE-TIME: clean up duplicate congrats entries, keep only 1 per player+tier
     (function(){
-      const GK = '_grantMatiT1_v1';
-      if (localStorage.getItem(GK)) return;
+      const CK = '_cleanupCongrats_v1';
+      if (localStorage.getItem(CK)) return;
       const db = window.fbDb;
-      // Add cg1_12 to mati's collection in Firebase rankings
-      db.ref('rankings/mati').once('value').then(snap => {
-        const data = snap.val();
-        if (!data) return;
-        // Update congratsTier
-        db.ref('rankings/mati/congratsTier').set(1);
+      db.ref('notifications/congrats').once('value').then(snap => {
+        const seen = {};
+        const toDelete = [];
+        snap.forEach(child => {
+          const d = child.val();
+          if (!d) return;
+          const key = (d.name || '') + '_' + (d.tier || 0);
+          if (seen[key]) { toDelete.push(child.key); }
+          else { seen[key] = child.key; }
+        });
+        toDelete.forEach(k => db.ref('notifications/congrats/' + k).remove());
+        // Ensure mati has exactly 1 Tier1 entry
+        if (!seen['mati_1']) {
+          db.ref('notifications/congrats').push({
+            name: 'mati', tier: 1, tierLabel: 'Tier 1', icon: '👑', item: '永劫の至宝', timestamp: Date.now()
+          });
+        }
+        if (toDelete.length > 0) console.log('Cleaned up ' + toDelete.length + ' duplicate congrats entries');
       });
-      // Record in congrats history
-      db.ref('notifications/congrats').push({
-        name: 'mati', tier: 1, tierLabel: 'Tier 1', icon: '👑', item: '永劫の至宝', timestamp: Date.now()
-      });
-      localStorage.setItem(GK, '1');
-      console.log('Congratulations T1 granted to mati');
+      db.ref('rankings/mati/congratsTier').set(1);
+      localStorage.setItem(CK, '1');
     })();
     // ONE-TIME: clear today's dailyMissions for fresh start (v3)
     (function(){
@@ -2037,14 +2045,20 @@ function MonsterGacha() {
       bgm.stop(); stopMainBgm();
       sfx('congrats' + congratsTier);
       setTimeout(() => setClearReady(true), 5000);
-      // Record Congratulations to persistent history
+      // Record Congratulations to persistent history (check for duplicates first)
       if (nickname && window.fbDb) {
-        for (let t = prevTier.current + 1; t <= congratsTier; t++) {
-          const ci = CONGRATS_TIERS[t - 1];
-          window.fbDb.ref('notifications/congrats').push({
-            name: nickname, tier: t, tierLabel: ci.tierLabel, icon: ci.icon, item: ci.name, timestamp: Date.now()
-          }).catch(() => {});
-        }
+        window.fbDb.ref('notifications/congrats').once('value').then(snap => {
+          const existing = new Set();
+          snap.forEach(child => { const d = child.val(); if (d) existing.add((d.name || '') + '_' + (d.tier || 0)); });
+          for (let t = prevTier.current + 1; t <= congratsTier; t++) {
+            const ci = CONGRATS_TIERS[t - 1];
+            if (!existing.has(nickname + '_' + t)) {
+              window.fbDb.ref('notifications/congrats').push({
+                name: nickname, tier: t, tierLabel: ci.tierLabel, icon: ci.icon, item: ci.name, timestamp: Date.now()
+              }).catch(() => {});
+            }
+          }
+        });
       }
     }
     prevTier.current = congratsTier;
