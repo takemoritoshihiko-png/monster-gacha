@@ -23,6 +23,10 @@
       if (localStorage.getItem(RESET_KEY)) return;
       // Set reset version on Firebase so other clients know
       db.ref('meta/scoreResetVersion').set(window._scoreResetVersion);
+      // Also clear today's dailyMissions data for fresh start
+      const td = new Date();
+      const todayStr = td.getFullYear()+'-'+String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
+      db.ref('dailyMissions/' + todayStr).remove();
       // Reset all players' bestScores and playCounts in rankings
       db.ref('rankings').once('value').then(snap => {
         const updates = {};
@@ -39,6 +43,17 @@
         }).catch(e => console.error('Score reset failed:', e));
       });
       localStorage.setItem(RESET_KEY, '1');
+    })();
+    // ONE-TIME: clear today's dailyMissions for fresh start (v3)
+    (function(){
+      const DMRK = '_resetDailyMissions_v3';
+      if (localStorage.getItem(DMRK)) return;
+      const td = new Date();
+      const todayStr = td.getFullYear()+'-'+String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
+      window.fbDb.ref('dailyMissions/' + todayStr).remove().then(() => {
+        console.log('Daily missions reset for ' + todayStr);
+      }).catch(() => {});
+      localStorage.setItem(DMRK, '1');
     })();
     // Check if another client triggered a reset we haven't applied yet
     window.fbDb.ref('meta/scoreResetVersion').on('value', snap => {
@@ -1848,6 +1863,7 @@ function MonsterGacha() {
     setTotalGiftValue(prev => prev + giftValue);
     window.fbDb.ref('rankings/' + nickname + '/totalGiftValue').transaction(current => (current || 0) + giftValue).catch(() => {});
     window.fbDb.ref('dailyGiftTotal/' + today + '/' + nickname).transaction(current => (current || 0) + giftValue).catch(() => {});
+    contributeMission('gift', giftValue);
     sfx('sell');
     setShowGiftModal(null);
     setSaveMsg('🎁 ' + trimmedName + 'に' + item.name + 'を送りました！');
@@ -2686,8 +2702,7 @@ function MonsterGacha() {
     });
     return () => ref.off('value', handler);
   }, []);
-  // Daily Missions loading
-
+  // Daily Missions loading (simplified v3)
   useEffect(() => {
     if (!window.fbDb) return;
     const today = missionDate;
@@ -2697,25 +2712,19 @@ function MonsterGacha() {
     setDailyProgress({});
 
     const ref = window.fbDb.ref('dailyMissions/' + today);
-    const hasGiftMission = missions.some(m => m.type === 'gift');
-
-    const updateProgress = (data, giftTotal) => {
+    const handler = ref.on('value', snapshot => {
+      const data = snapshot.val() || {};
       const progress = {};
       const completed = {};
       missions.forEach(m => {
-        if (m.type === 'gift' && giftTotal !== undefined) {
-          progress[m.id] = { total: giftTotal, contributions: {}, target: m.target };
-          completed[m.id] = giftTotal >= m.target;
-        } else {
-          const mData = data[m.id] || {};
-          const total = Object.values(mData.contributions || {}).reduce((s, v) => s + v, 0);
-          progress[m.id] = { total, contributions: mData.contributions || {}, target: m.target };
-          completed[m.id] = total >= m.target;
-        }
+        const mData = data[m.id] || {};
+        const contribs = mData.contributions || {};
+        const total = Object.values(contribs).reduce((s, v) => s + (v || 0), 0);
+        progress[m.id] = { total, target: m.target };
+        completed[m.id] = total >= m.target;
       });
       setDailyProgress(progress);
       setDailyCompleted(completed);
-      // Check if all 3 missions completed and this player hasn't claimed reward yet
       const allDone = missions.every(m => completed[m.id]);
       if (allDone && nickname && window.fbDb) {
         const claimRef = window.fbDb.ref('dailyMissions/' + today + '/claimed/' + nickname);
@@ -2728,77 +2737,8 @@ function MonsterGacha() {
           }
         });
       }
-    };
-
-    let giftHandler = null;
-    const giftRef = hasGiftMission ? window.fbDb.ref('dailyGiftTotal/' + today) : null;
-
-    // Calculate today's start/end timestamps for gift fallback
-    const todayStart = new Date(today + 'T00:00:00').getTime();
-    const todayEnd = todayStart + 86400000;
-
-    const getGiftTotal = (callback) => {
-      if (!giftRef) { callback(0); return; }
-      giftRef.once('value').then(gSnap => {
-        const vals = gSnap.val() || {};
-        const total = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
-        if (total > 0) { callback(total); return; }
-        // Fallback: scan all gifts for today's timestamps
-        window.fbDb.ref('gifts').once('value').then(allGifts => {
-          let fallbackTotal = 0;
-          allGifts.forEach(recipient => {
-            recipient.forEach(gift => {
-              const g = gift.val();
-              if (g && g.timestamp >= todayStart && g.timestamp < todayEnd && g.value) {
-                fallbackTotal += g.value;
-              }
-            });
-          });
-          // Write fallback results back to dailyGiftTotal for future reads
-          if (fallbackTotal > 0 && nickname) {
-            // Group by sender for accurate per-person tracking
-            const bySender = {};
-            allGifts.forEach(recipient => {
-              recipient.forEach(gift => {
-                const g = gift.val();
-                if (g && g.timestamp >= todayStart && g.timestamp < todayEnd && g.value && g.from) {
-                  bySender[g.from] = (bySender[g.from] || 0) + g.value;
-                }
-              });
-            });
-            Object.entries(bySender).forEach(([sender, val]) => {
-              window.fbDb.ref('dailyGiftTotal/' + today + '/' + sender).set(val);
-            });
-          }
-          callback(fallbackTotal);
-        }).catch(() => callback(0));
-      });
-    };
-
-    const handler = ref.on('value', snapshot => {
-      const data = snapshot.val() || {};
-      if (hasGiftMission) {
-        getGiftTotal(giftTotal => updateProgress(data, giftTotal));
-      } else {
-        updateProgress(data);
-      }
     });
-
-    // Also listen to dailyGiftTotal changes for gift mission updates
-    if (hasGiftMission && giftRef) {
-      giftHandler = giftRef.on('value', gSnap => {
-        const vals = gSnap.val() || {};
-        const giftTotal = Object.values(vals).reduce((s, v) => s + (v || 0), 0);
-        ref.once('value').then(snapshot => {
-          updateProgress(snapshot.val() || {}, giftTotal);
-        });
-      });
-    }
-
-    return () => {
-      ref.off('value', handler);
-      if (giftHandler && giftRef) giftRef.off('value', giftHandler);
-    };
+    return () => ref.off('value', handler);
   }, [loaded, slotId, missionDate]);
 
   const contributeMission = useCallback((missionType, amount) => {
@@ -2807,7 +2747,6 @@ function MonsterGacha() {
     const missions = generateDailyMissions(today);
     const mission = missions.find(m => m.type === missionType);
     if (!mission) return;
-
     const maxPerPerson = Math.ceil(mission.target / 2);
     const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
     ref.transaction(current => {
