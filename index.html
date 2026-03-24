@@ -6918,8 +6918,12 @@ function JugglerGame({ onScore, onClose }) {
   };
   const sndTap = () => synth(0.06,(s)=>{return(Math.sin(2*Math.PI*4000*s)*Math.exp(-s*60)*0.4+Math.sin(2*Math.PI*1200*s)*Math.exp(-s*40)*0.2)*0.6;},0.2);
   const sndGakon = () => synth(0.8,(s,ch)=>{const at=Math.exp(-s*40)*0.9;return(Math.sin(2*Math.PI*220*s+Math.sin(2*Math.PI*440*s)*0.5)*at+(Math.sin(2*Math.PI*880*s)*0.2+Math.sin(2*Math.PI*1320*s)*0.15+Math.sin(2*Math.PI*1760*s)*0.08)*Math.exp(-s*8)+Math.sin(2*Math.PI*55*s)*0.6*Math.exp(-s*20)+Math.sin(2*Math.PI*165*s)*0.25*Math.exp(-s*4)+(Math.random()*2-1)*0.4*Math.exp(-s*30))*(ch===0?0.55:0.5);},0.9);
-  const sndBigFanfare = () => { sndGakon(); [523,659,784,1047,1319,1568].forEach((f,i)=>jTone(f,0.25+i*0.12,0.5,0.22)); jTone(131,0.1,1.0,0.12); };
-  const sndBarChime = () => { [440,554,659].forEach((f,i)=>jTone(f,i*0.15,0.5,0.2)); };
+  // 4 hit sound patterns
+  const sndHit1 = () => { sndGakon(); [523,659,784,1047,1319,1568].forEach((f,i)=>jTone(f,0.25+i*0.12,0.5,0.22)); jTone(131,0.1,1.0,0.12); }; // ガコン+上昇ファンファーレ
+  const sndHit2 = () => { synth(0.15,(s)=>(Math.random()*2-1)*Math.exp(-s*20)*0.6,0.5); [784,988,1175,1568].forEach((f,i)=>jTone(f,0.1+i*0.08,0.3,0.18)); }; // バン+高音キラキラ
+  const sndHit3 = () => { jTone(65,0,0.4,0.15,'sawtooth'); synth(0.12,(s)=>(Math.random()*2-1)*Math.exp(-s*25)*0.5,0.4); [659,831,988].forEach((f,i)=>jTone(f,0.15+i*0.1,0.4,0.2)); }; // ドスン+3音チャイム
+  const sndHit4 = () => { synth(0.5,(s,ch)=>{const sw=Math.sin(2*Math.PI*(800+400*Math.sin(2*Math.PI*6*s))*s)*0.3*Math.exp(-s*3);const bell=Math.sin(2*Math.PI*1200*s)*0.2*Math.exp(-s*4);return(sw+bell)*(ch===0?0.55:0.5);},0.6); [440,659,880,1100].forEach((f,i)=>jTone(f,0.2+i*0.1,0.35,0.16)); }; // うねりスウィープ+4音
+  const hitSounds = [sndHit1, sndHit2, sndHit3, sndHit4];
   const sndCoinsJ = (n=10) => synth(1.4,(s,ch)=>{let v=0;for(let i=0;i<n;i++){const off=i*(1.0/n),f=2000+i*220+(ch*100);if(s>off)v+=Math.sin(2*Math.PI*f*(s-off))*Math.exp(-(s-off)*5)*0.1;}return v*0.85;},0.65);
   const sndPuchun = () => synth(0.3,(s,ch)=>{return(Math.sin(2*Math.PI*(9000*Math.exp(-s*16)+150)*s)*0.55*Math.exp(-s*7)+Math.sin(2*Math.PI*14000*s)*0.1*Math.exp(-s*35)+Math.sin(2*Math.PI*60*s)*0.5*Math.exp(-s*20)+(Math.random()*2-1)*0.4*Math.exp(-s*25))*0.85;},1.0);
   const sndGodGong = () => synth(5.0,(s,ch)=>{const f0=55;return(Math.sin(2*Math.PI*f0*s)*0.5*Math.exp(-s*0.5)+Math.sin(2*Math.PI*f0*2*s)*0.35*Math.exp(-s*0.7)+Math.sin(2*Math.PI*f0*3*s)*0.2*Math.exp(-s*0.9)+Math.sin(2*Math.PI*f0*4*s)*0.12*Math.exp(-s*1.1)+Math.sin(2*Math.PI*f0*6*s)*0.06*Math.exp(-s*1.5)+Math.sin(2*Math.PI*f0*8*s*(1+0.003*Math.sin(2*Math.PI*2.5*s)))*0.04*Math.exp(-s*0.5)+Math.exp(-s*6)*(Math.random()*2-1)*0.7+Math.sin(2*Math.PI*27.5*s)*0.3*Math.exp(-s*0.8))*(ch===0?0.65:0.6);},1.0);
@@ -6969,7 +6973,13 @@ function JugglerGame({ onScore, onClose }) {
       if (!lampStartRef.current) lampStartRef.current = ts;
       const e = (ts - lampStartRef.current) / 1000;
       let st = {};
+      // === REG (BAR) 3 patterns ===
       if (lt === 'bar') { const p=0.82+0.18*Math.sin(e*4.5),a=0.6+0.35*p; st=computeLamp(340,75,50,p,a); }
+      else if (lt === 'bar2') { // 青紫の静かな点灯
+        const p=0.7+0.3*Math.sin(e*3),a=0.5+0.3*p; st=computeLamp(260,70,45,p,a); }
+      else if (lt === 'bar3') { // 緑のゆっくり脈動
+        const p=0.65+0.35*Math.sin(e*2.5),a=0.55+0.35*p; st=computeLamp(120,80,42,p,a); }
+      // === BIG 8 patterns ===
       else if (lt === 'rainbow') { const h=(e*140)%360,p=0.72+0.28*Math.sin(e*6.5),a=0.65+0.3*p; st=computeLamp(h,100,55,p,a); }
       else if (lt === 'white') { const p=0.6+0.4*Math.sin(e*11),a=0.7+0.25*p;
         st={glow:`radial-gradient(circle,rgba(255,255,255,${a}) 0%,rgba(220,220,255,${a*0.35}) 35%,transparent 80%)`,textColor:`rgba(255,255,255,${0.92+0.08*p})`,textShadow:`0 0 22px rgba(255,255,255,${0.95*p}),0 0 55px rgba(210,210,255,${0.5*p})`,subColor:`rgba(255,255,255,${0.5*p})`,subShadow:'none',border:`rgba(255,255,255,${0.4+0.5*p})`,boxShadow:`0 0 30px rgba(255,255,255,${0.35*p})`,ringBorder:`rgba(255,255,255,${0.2+0.3*p})`,bg:'#040404',sg:`radial-gradient(circle at 50% 45%,rgba(255,255,255,${0.12*p}) 0%,transparent 55%)`}; }
@@ -6979,6 +6989,12 @@ function JugglerGame({ onScore, onClose }) {
       }
       else if (lt === 'grad') { const p=0.75+0.25*Math.sin(e*5);const h1=(e*65)%360,h2=(h1+120)%360,h3=(h1+240)%360,a=0.6+0.35*p;
         st={glow:`conic-gradient(from ${e*50}deg,hsla(${h1},100%,55%,${a}),hsla(${h2},100%,52%,${a*0.85}),hsla(${h3},100%,50%,${a*0.7}),hsla(${h1},100%,55%,${a}))`,textColor:`hsla(${h1},100%,82%,${0.9+0.1*p})`,textShadow:`0 0 20px hsla(${h1},100%,62%,${0.9*p}),0 0 50px hsla(${h2},100%,52%,${0.4*p})`,subColor:`hsla(${h2},100%,68%,${0.4*p})`,subShadow:'none',border:`hsla(${h1},100%,48%,${0.4+0.4*p})`,boxShadow:`0 0 25px hsla(${h1},100%,45%,${0.3*p})`,ringBorder:`hsla(${h2},100%,48%,${0.2+0.2*p})`,bg:'#040404',sg:`conic-gradient(from ${e*50}deg at 50% 45%,hsla(${h1},100%,35%,${0.08*p}),hsla(${h2},100%,30%,${0.05*p}),transparent)`}; }
+      else if (lt === 'pulse') { // 赤の高速パルス
+        const p=0.5+0.5*Math.abs(Math.sin(e*8)),a=0.8*p; st=computeLamp(0,100,55,p,a); }
+      else if (lt === 'aurora') { // オーロラ（青緑〜紫）
+        const h=180+60*Math.sin(e*1.5),p=0.7+0.3*Math.sin(e*4),a=0.6+0.3*p; st=computeLamp(h,85,50,p,a); }
+      else if (lt === 'fire') { // 炎（赤→オレンジ→黄）
+        const h=10+25*Math.sin(e*7),p=0.75+0.25*Math.sin(e*9),a=0.7+0.25*p; st=computeLamp(h,100,52,p,a); }
       else if (lt === 'god') { const fc=Math.floor(e*60);const on=Math.sin(fc*0.7)>0,p=0.7+0.3*Math.sin(e*14);
         if(on){const hue=(e*150)%50,a=0.85+0.15*p;
           st={glow:`radial-gradient(circle,rgba(255,255,255,${a}) 0%,hsla(${42+hue},100%,58%,${a*0.55}) 25%,transparent 80%)`,textColor:`rgba(255,${225+30*p|0},${115+40*p|0},1)`,textShadow:`0 0 25px rgba(255,215,0,1),0 0 60px rgba(255,180,0,0.7),0 0 100px rgba(255,255,255,0.4)`,subColor:`rgba(255,215,0,${0.7*p})`,subShadow:'none',border:`rgba(255,215,0,${0.6+0.35*p})`,boxShadow:`0 0 40px rgba(255,215,0,0.5),0 0 80px rgba(255,180,0,0.2)`,ringBorder:`rgba(255,215,0,${0.4+0.4*p})`,bg:`radial-gradient(circle,rgba(35,28,0,1) 0%,#040404 60%)`,sg:`radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.2*p}) 0%,rgba(255,180,0,${0.08*p}) 20%,transparent 65%)`};
@@ -7021,14 +7037,19 @@ function JugglerGame({ onScore, onClose }) {
       }, 850);
       return;
     }
-    const bigPatterns = ['rainbow', 'bar', 'grad', 'white', 'flicker'];
+    const bigPatterns = ['rainbow', 'bar', 'grad', 'white', 'flicker', 'pulse', 'aurora', 'fire'];
+    const barPatterns = ['bar', 'bar2', 'bar3'];
+    // Sound: 5 options equally distributed (20% silent, 20% x4 sounds)
+    const soundIdx = Math.floor(Math.random() * 5); // 0=silent, 1-4=sound
     if (type === 'big') {
-      setFlashAlpha(0.5); setTimeout(() => setFlashAlpha(0), 60);
-      lampTypeRef.current = bigPatterns[Math.floor(Math.random() * 5)];
-      if (Math.random() < 0.3) sndBigFanfare();
+      lampTypeRef.current = bigPatterns[Math.floor(Math.random() * 8)];
+      if (soundIdx > 0) hitSounds[soundIdx - 1]();
+      // BIG only: 20% chance flash + 20% chance shake
+      if (Math.random() < 0.2) { setFlashAlpha(0.6); setTimeout(() => setFlashAlpha(0), 80); }
+      if (Math.random() < 0.2) { setShaking(true); setTimeout(() => setShaking(false), 400); }
     } else {
-      lampTypeRef.current = 'bar';
-      if (Math.random() < 0.3) sndBarChime();
+      lampTypeRef.current = barPatterns[Math.floor(Math.random() * 3)];
+      if (soundIdx > 0) hitSounds[soundIdx - 1]();
     }
     const gs = type === 'big' ? 2.0 : 1.0;
     setTimeout(() => {
