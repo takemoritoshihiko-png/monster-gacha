@@ -1969,7 +1969,7 @@ function MonsterGacha() {
       setShowClearTier(CONGRATS_TIERS[0]);
       setClearReady(false);
       setShowClear(true);
-      bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+      bgm.stop(); stopMainBgm();
       setTimeout(() => setClearReady(true), 5000);
     } else {
       debugTapRef.current.timer = setTimeout(() => { debugTapRef.current.count = 0; }, 1500);
@@ -1995,7 +1995,7 @@ function MonsterGacha() {
       setShowClearTier(CONGRATS_TIERS[congratsTier - 1]);
       setClearReady(false);
       setShowClear(true);
-      bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+      bgm.stop(); stopMainBgm();
       sfx('congrats' + congratsTier);
       setTimeout(() => setClearReady(true), 5000);
       // Record Congratulations to persistent history
@@ -2229,7 +2229,7 @@ function MonsterGacha() {
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
     if (coins < cost) return;
-    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+    bgm.stop(); stopMainBgm();
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
     contributeMission('gacha', n);
@@ -2402,7 +2402,7 @@ function MonsterGacha() {
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
-    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+    bgm.stop(); stopMainBgm();
     setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
     if (rank === 10 && targetRank === 11) {
@@ -2459,7 +2459,7 @@ function MonsterGacha() {
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
     const synthDuration = targetRank >= 11 ? 4300 : targetRank === 10 ? 3300 : targetRank === 9 ? 2800 : targetRank === 8 ? 2300 : 1800;
-    synthQueueRef.current = [setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, synthDuration)];
+    synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, synthDuration)];
   }, [collection]);
 
   const doSynthMaxRetry = useCallback(() => {
@@ -2492,7 +2492,7 @@ function MonsterGacha() {
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     const candidates = findSynthCandidates();
     if (candidates.length === 0) return;
-    bgm.stop(); mainBgmControl.pause(); mainBgmRef.current = false;
+    bgm.stop(); stopMainBgm();
     const totalSynths = candidates.reduce((sum, c) => sum + c.synthCount, 0);
 
     // Build rareItems and new collection SYNCHRONOUSLY before calling setState
@@ -2566,7 +2566,7 @@ function MonsterGacha() {
       }, elapsed));
       timers.push(setTimeout(() => {
         setSynthResult(null);
-        if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
+        resumeMainBgm();
         // Check ★MAX retry for last ★11 item from batch
         const lastMax = rareItems.filter(r => r.rank === 11).pop();
         if (lastMax) {
@@ -2581,22 +2581,26 @@ function MonsterGacha() {
     } else {
       sfx('synth');
       setSynthResult({ batch: true, count: totalSynths });
-      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }, 2300)];
+      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, 2300)];
     }
   }, [collection, findSynthCandidates]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); setShowUraMuseum(false); };
 
-  // Main BGM: play on idle screens, stop during gacha/minigame
+  // Main BGM: play on idle screens, stop during gacha/minigame/synth
   const mainBgmRef = useRef(false);
+  const stopMainBgm = () => { mainBgmControl.pause(); mainBgmRef.current = false; };
+  const resumeMainBgm = () => { if (volMain > 0 && loaded && slotId !== null) { mainBgmControl.play(); mainBgmRef.current = true; } };
   useEffect(() => {
     if (!loaded || slotId === null || volMain === 0) {
       if (mainBgmRef.current) { mainBgmControl.stop(); mainBgmRef.current = false; }
       return;
     }
     const isMinigamePlaying = screen === 'minigame' && miniGame;
-    const isGachaChests = screen === 'gacha' && gachaPhase === 'chests';
-    const shouldPlay = !isMinigamePlaying && !isGachaChests;
+    const isGachaActive = screen === 'gacha' && (gachaPhase === 'chests' || gachaPhase === 'cue');
+    const isSynthActive = !!synthResult;
+    const isClearActive = showClear;
+    const shouldPlay = !isMinigamePlaying && !isGachaActive && !isSynthActive && !isClearActive;
 
     if (shouldPlay && !mainBgmRef.current) {
       mainBgmControl.play();
@@ -2605,7 +2609,7 @@ function MonsterGacha() {
       mainBgmControl.pause();
       mainBgmRef.current = false;
     }
-  }, [screen, miniGame, gachaPhase, loaded, slotId, volMain]);
+  }, [screen, miniGame, gachaPhase, synthResult, showClear, loaded, slotId, volMain]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
   // Auto-save when all gacha chests are opened (prevent reload exploit)
@@ -2828,8 +2832,8 @@ function MonsterGacha() {
     if (gameId === 'shooting') contributeMission('shooting', boosted);
     if (gameId === 'quickdraw') contributeMission('quickdraw', boosted);
     if (gameId === 'memory') contributeMission('memory', boosted);
-    mainBgmRef.current = false; // Allow main BGM to restart
     bgm.stop(); // Ensure minigame BGM is stopped
+    // Main BGM will auto-resume via useEffect when screen changes back
     setMiniGame(null);
   }, [nickname]);
 
@@ -3057,8 +3061,8 @@ function MonsterGacha() {
               { label: 'BGM', icon: '🎵', val: volMain, set: (v) => {
                 const nv = parseFloat(v); setVolMain(nv); volMainBgm = nv;
                 mainBgmControl.setVolume(nv);
-                if (nv === 0) { mainBgmControl.pause(); mainBgmRef.current = false; }
-                else if (!mainBgmRef.current && screen !== 'minigame') { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
+                if (nv === 0) { stopMainBgm(); }
+                else if (!mainBgmRef.current && screen !== 'minigame') { resumeMainBgm(); }
                 localStorage.setItem('gacha_volumes', JSON.stringify({ main: nv, game: volGame, sfx: volSfxState }));
               }},
               { label: 'ゲーム音', icon: '🎮', val: volGame, set: (v) => {
@@ -3086,7 +3090,7 @@ function MonsterGacha() {
             <button onClick={() => {
               setVolMain(0); setVolGame(0); setVolSfxState(0);
               volMainBgm = 0; volGameBgm = 0; volSfx = 0;
-              mainBgmControl.setVolume(0); mainBgmControl.pause(); mainBgmRef.current = false; bgm.stop();
+              mainBgmControl.setVolume(0); stopMainBgm(); bgm.stop();
               if (bgmMaster) bgmMaster.gain.value = 0;
               if (sfxMaster) sfxMaster.gain.value = 0;
               localStorage.setItem('gacha_volumes', JSON.stringify({ main: 0, game: 0, sfx: 0 }));
@@ -4261,7 +4265,7 @@ function MonsterGacha() {
               <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>おめでとうございます！全ての伝説のトレジャーを集めました。</div>
               <button className="btn bp" disabled={!clearReady}
                 style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
-                onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
+                onClick={() => { setShowClear(false); resumeMainBgm(); }}>
                 {clearReady ? '受け取る' : '...'}
               </button>
             </div>
@@ -4331,7 +4335,7 @@ function MonsterGacha() {
               </div>
               <button className="btn bp" disabled={!clearReady}
                 style={{ fontSize: 14, padding: '12px 32px', opacity: clearReady ? 1 : 0.3, transition: 'opacity 0.5s' }}
-                onClick={() => { setShowClear(false); if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; } }}>
+                onClick={() => { setShowClear(false); resumeMainBgm(); }}>
                 {clearReady ? '受け取る' : '...'}
               </button>
             </div>
