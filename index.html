@@ -15,83 +15,7 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-    // ONE-TIME RESET: clear ALL players' bestScores, keep playCounts (v4)
-    window._scoreResetVersion = 4;
-    (function(){
-      const db = window.fbDb;
-      const RESET_KEY = '_resetAllScores_v4';
-      if (localStorage.getItem(RESET_KEY)) return;
-      // Set reset version on Firebase so other clients know
-      db.ref('meta/scoreResetVersion').set(window._scoreResetVersion);
-      // Also clear today's dailyMissions data for fresh start
-      const td = new Date();
-      const todayStr = td.getFullYear()+'-'+String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
-      db.ref('dailyMissions/' + todayStr).remove();
-      // Reset all players' bestScores in rankings (keep playCounts for history)
-      db.ref('rankings').once('value').then(snap => {
-        const updates = {};
-        snap.forEach(child => {
-          const name = child.key;
-          updates['rankings/' + name + '/bestScores'] = null;
-        });
-        // Also clear all weeklyRankings and dailyRankings
-        updates['weeklyRankings'] = null;
-        updates['dailyRankings'] = null;
-        db.ref().update(updates).then(() => {
-          console.log('All players game scores reset on Firebase');
-        }).catch(e => console.error('Score reset failed:', e));
-      });
-      localStorage.setItem(RESET_KEY, '1');
-    })();
-    // (Individual player resets removed - handled by universal reset v3)
-    // ONE-TIME: clean up duplicate congrats entries, keep only 1 per player+tier
-    (function(){
-      const CK = '_cleanupCongrats_v1';
-      if (localStorage.getItem(CK)) return;
-      const db = window.fbDb;
-      db.ref('notifications/congrats').once('value').then(snap => {
-        const seen = {};
-        const toDelete = [];
-        snap.forEach(child => {
-          const d = child.val();
-          if (!d) return;
-          const key = (d.name || '') + '_' + (d.tier || 0);
-          if (seen[key]) { toDelete.push(child.key); }
-          else { seen[key] = child.key; }
-        });
-        toDelete.forEach(k => db.ref('notifications/congrats/' + k).remove());
-        // Ensure mati has exactly 1 Tier1 entry
-        if (!seen['mati_1']) {
-          db.ref('notifications/congrats').push({
-            name: 'mati', tier: 1, tierLabel: 'Tier 1', icon: '👑', item: '永劫の至宝', timestamp: Date.now()
-          });
-        }
-        if (toDelete.length > 0) console.log('Cleaned up ' + toDelete.length + ' duplicate congrats entries');
-      });
-      db.ref('rankings/mati/congratsTier').set(1);
-      localStorage.setItem(CK, '1');
-    })();
-    // ONE-TIME: clear today's dailyMissions for fresh start (v3)
-    (function(){
-      const DMRK = '_resetDailyMissions_v3';
-      if (localStorage.getItem(DMRK)) return;
-      const td = new Date();
-      const todayStr = td.getFullYear()+'-'+String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
-      window.fbDb.ref('dailyMissions/' + todayStr).remove().then(() => {
-        console.log('Daily missions reset for ' + todayStr);
-      }).catch(() => {});
-      localStorage.setItem(DMRK, '1');
-    })();
-    // Check if another client triggered a reset we haven't applied yet
-    window.fbDb.ref('meta/scoreResetVersion').on('value', snap => {
-      const ver = snap.val() || 0;
-      const localVer = parseInt(localStorage.getItem('_appliedResetVer') || '0');
-      if (ver > localVer) {
-        localStorage.setItem('_appliedResetVer', String(ver));
-        // Force reload to apply reset via _scoreResetApplied check in loadSlot
-        if (localVer > 0) window.location.reload();
-      }
-    });
+    // All one-time reset scripts have been completed and removed
   </script>
 </head>
 <body>
@@ -1656,16 +1580,7 @@ function MonsterGacha() {
       let bs = d.bestScores || {}; let pc = d.playCounts || {};
       let ws = d.weeklyScores || {};
       // Universal score reset: always check against scoreResetVersion
-      // bestScores (ハイスコア) と weeklyScores はリセット、playCounts (プレイ回数) は保持
-      const localResetVer = parseInt(localStorage.getItem('_scoreResetApplied') || '0');
-      if (localResetVer < (window._scoreResetVersion || 0)) {
-        bs = {}; ws = {};
-        localStorage.setItem('_scoreResetApplied', String(window._scoreResetVersion));
-        // Also clear Firebase bestScores for this player immediately (keep playCounts)
-        if (d.nickname && window.fbDb) {
-          window.fbDb.ref('rankings/' + d.nickname + '/bestScores').set(null);
-        }
-      }
+      // Score reset completed - no further resets needed
       setBestScores(bs);
       setPlayCounts(pc);
       setLastLoginDate(d.lastLoginDate || null);
