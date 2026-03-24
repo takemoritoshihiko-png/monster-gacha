@@ -15,11 +15,11 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-    // ONE-TIME RESET: clear ALL players' game scores (v2)
-    window._scoreResetVersion = 2;
+    // ONE-TIME RESET: clear ALL players' game scores (v3)
+    window._scoreResetVersion = 3;
     (function(){
       const db = window.fbDb;
-      const RESET_KEY = '_resetAllScores_v2';
+      const RESET_KEY = '_resetAllScores_v3';
       if (localStorage.getItem(RESET_KEY)) return;
       // Set reset version on Firebase so other clients know
       db.ref('meta/scoreResetVersion').set(window._scoreResetVersion);
@@ -44,37 +44,7 @@
       });
       localStorage.setItem(RESET_KEY, '1');
     })();
-    // ONE-TIME: reset specific scores for あいこ
-    (function(){
-      const RK = '_resetAiko_v1';
-      if (localStorage.getItem(RK)) return;
-      const db = window.fbDb, name = 'あいこ';
-      const games = ['tap','shooting','timing','memory','quickdraw'];
-      games.forEach(g => {
-        db.ref('rankings/' + name + '/bestScores/' + g).set(0);
-        db.ref('rankings/' + name + '/playCounts/' + g).set(0);
-      });
-      localStorage.setItem(RK, '1');
-      console.log('Scores reset for あいこ');
-    })();
-    // ONE-TIME: reset all game scores for ゆと (v2)
-    (function(){
-      const RK = '_resetYuto_v2';
-      if (localStorage.getItem(RK)) return;
-      const db = window.fbDb, name = 'ゆと';
-      db.ref('rankings/' + name + '/bestScores').set(null);
-      db.ref('rankings/' + name + '/playCounts').set(null);
-      // Also clear weekly/daily rankings for ゆと
-      const d2 = new Date(); d2.setHours(0,0,0,0);
-      const day = d2.getDay(), diff = day === 0 ? 6 : day - 1;
-      d2.setDate(d2.getDate() - diff);
-      const wk = d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
-      db.ref('weeklyRankings/' + wk + '/' + name).remove();
-      const today = d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(new Date().getDate()).padStart(2,'0');
-      db.ref('dailyRankings/' + today + '/' + name).remove();
-      localStorage.setItem(RK, '1');
-      console.log('All scores fully reset for ゆと (v2)');
-    })();
+    // (Individual player resets removed - handled by universal reset v3)
     // ONE-TIME: clean up duplicate congrats entries, keep only 1 per player+tier
     (function(){
       const CK = '_cleanupCongrats_v1';
@@ -1688,19 +1658,16 @@ function MonsterGacha() {
       setNickname(d.nickname || "");
       let bs = d.bestScores || {}; let pc = d.playCounts || {};
       let ws = d.weeklyScores || {};
-      if (!localStorage.getItem('_resetAllScoresLocal_v2')) {
+      // Universal score reset: always check against scoreResetVersion
+      const localResetVer = parseInt(localStorage.getItem('_scoreResetApplied') || '0');
+      if (localResetVer < (window._scoreResetVersion || 0)) {
         bs = {}; pc = {}; ws = {};
-        localStorage.setItem('_resetAllScoresLocal_v2', '1');
-      }
-      // Reset specific scores for あいこ
-      if (d.nickname === 'あいこ' && !localStorage.getItem('_resetAikoLocal_v1')) {
-        ['tap','shooting','timing','memory','quickdraw'].forEach(g => { bs[g] = 0; pc[g] = 0; delete ws[g]; });
-        localStorage.setItem('_resetAikoLocal_v1', '1');
-      }
-      // Reset all scores for ユート
-      if (d.nickname === 'ゆと' && !localStorage.getItem('_resetYutoLocal_v2')) {
-        bs = {}; pc = {}; ws = {};
-        localStorage.setItem('_resetYutoLocal_v2', '1');
+        localStorage.setItem('_scoreResetApplied', String(window._scoreResetVersion));
+        // Also clear Firebase scores for this player immediately
+        if (d.nickname && window.fbDb) {
+          window.fbDb.ref('rankings/' + d.nickname + '/bestScores').set(null);
+          window.fbDb.ref('rankings/' + d.nickname + '/playCounts').set(null);
+        }
       }
       setBestScores(bs);
       setPlayCounts(pc);
