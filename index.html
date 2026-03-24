@@ -7050,14 +7050,47 @@ function JugglerGame({ onScore, onClose }) {
     let newJugRen;
     if (hitAt <= 100) { newJugRen = jugRenRef.current + 1; } else { newJugRen = 1; }
     jugRenRef.current = newJugRen; setJugRen(newJugRen);
-    const jugMult = 1 + (newJugRen - 1) * 0.1; // 1.0, 1.1, 1.2, 1.3...
+    // Multiplier: base + 1G連ボーナス(+1.0 if hitAt===1)
+    const baseMult = 1 + (newJugRen - 1) * 0.1; // 1.0, 1.1, 1.2...
+    const jugMult = hitAt === 1 ? baseMult + 1.0 : baseMult; // 1G連: +1.0 added
+    const is1Gren = hitAt === 1;
     spinCountRef.current = 0; setSpinCount(0);
-    // Add to history (max 10)
+    // Add to history (max 20)
     setHistory(prev => {
-      const entry = { type, at: hitAt, jugRen: newJugRen };
+      const entry = { type, at: hitAt, jugRen: newJugRen, is1G: is1Gren };
       const next = [entry, ...prev];
-      return next.slice(0, 10);
+      return next.slice(0, 20);
     });
+    // 1G連: 雷のような激しいサウンド
+    if (is1Gren) {
+      synth(0.8, (s, ch) => {
+        const thunder = (Math.random()*2-1) * Math.exp(-s*3) * 0.7;
+        const crack = Math.sin(2*Math.PI*80*s) * Math.exp(-s*5) * 0.5;
+        const rumble = Math.sin(2*Math.PI*40*s*(1+Math.random()*0.3)) * Math.exp(-s*1.5) * 0.4;
+        const zap = Math.sin(2*Math.PI*(8000*Math.exp(-s*12))*s) * Math.exp(-s*8) * 0.3;
+        return (thunder + crack + rumble + zap) * (ch===0 ? 0.6 : 0.55);
+      }, 1.0);
+      [1568, 1976, 2349, 2793, 3136].forEach((f, i) => jTone(f, 0.05 + i*0.03, 0.2, 0.15));
+      setFlashAlpha(0.8); setTimeout(() => setFlashAlpha(0), 120);
+      setShaking(true); setTimeout(() => setShaking(false), 500);
+    }
+    // Juguren escalating sound effects (louder with each consecutive hit)
+    if (newJugRen >= 2) {
+      const intensity = Math.min(newJugRen, 5);
+      // Progressive escalation: more notes, higher pitch, louder
+      const baseVol = 0.1 + intensity * 0.04;
+      const baseFreqs = [523, 659, 784, 988, 1175, 1397, 1568, 1760, 2093];
+      const noteCount = 3 + intensity * 2; // 5,7,9,11,13
+      for (let i = 0; i < noteCount && i < baseFreqs.length; i++) {
+        jTone(baseFreqs[i], 0.05 + i * 0.04, 0.25 + intensity * 0.05, baseVol);
+      }
+      if (intensity >= 3) { synth(0.15, (s) => (Math.random()*2-1)*Math.exp(-s*18)*0.4, 0.3 + intensity * 0.1); } // crash noise
+      if (intensity >= 4) { jTone(65, 0, 0.5, 0.12 + intensity * 0.02, 'sawtooth'); } // sub bass
+      if (intensity >= 5) { // max intensity: full orchestra
+        [2093, 2349, 2637, 3136].forEach((f, i) => jTone(f, 0.3 + i * 0.05, 0.3, 0.06));
+        synth(0.3, (s) => (Math.random()*2-1)*Math.exp(-s*8)*0.3, 0.4);
+      }
+    }
 
     if (type === 'god') {
       setCrtActive(true); setCrtStart(performance.now()); sndPuchun();
@@ -7068,7 +7101,7 @@ function JugglerGame({ onScore, onClose }) {
         setTimeout(() => setFlashAlpha(0), 100);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 800);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 1600);
-        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(1500 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (newJugRen >= 2 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
+        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(1500 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
         setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, 5000);
       }, 850);
       return;
@@ -7096,8 +7129,9 @@ function JugglerGame({ onScore, onClose }) {
       const baseCoins = type === 'big' ? 500 : 150;
       const earn = Math.round(baseCoins * jugMult);
       coinsRef.current += earn; setCoins(coinsRef.current);
-      if (type === 'big') { setBigC(b=>b+1); setMsgColor('#ff3366'); setMsg('★★ BIG +' + earn + (newJugRen >= 2 ? ' ジャグ連' + newJugRen + ' ×' + jugMult.toFixed(1) : '') + ' ★★'); }
-      else { setBarC(b=>b+1); setMsgColor('#ffc040'); setMsg('★ REG +' + earn + (newJugRen >= 2 ? ' ジャグ連' + newJugRen + ' ×' + jugMult.toFixed(1) : '') + ' ★'); }
+      const jugLabel = (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ジャグ連' + newJugRen + ' ×' + jugMult.toFixed(1) : '');
+      if (type === 'big') { setBigC(b=>b+1); setMsgColor('#ff3366'); setMsg('★★ BIG +' + earn + jugLabel + ' ★★'); }
+      else { setBarC(b=>b+1); setMsgColor('#ffc040'); setMsg('★ REG +' + earn + jugLabel + ' ★'); }
     }, (gs - 0.5) * 1000);
     setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, type === 'big' ? 2500 : 1500);
   };
