@@ -2428,9 +2428,9 @@ function MonsterGacha() {
         if (nickname && window.fbDb) {
           window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
         }
-        // Check if player owns 5+ unique ★MAX patterns → offer retry
-        const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
-        if (maxPatternsOwned >= 4) {
+        // Check if player owns 4+ total ★MAX → offer retry
+        const totalMaxOwned = TYPES.reduce((s, t) => s + (n[`${t.id}_11`]?.count || 0), 0);
+        if (totalMaxOwned >= 4) {
           setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon });
         }
         playNote(50, 0.8, 'sawtooth', 0.12);
@@ -2567,6 +2567,15 @@ function MonsterGacha() {
       timers.push(setTimeout(() => {
         setSynthResult(null);
         if (volMain > 0) { mainBgmRef.current = false; mainBgmControl.play(); mainBgmRef.current = true; }
+        // Check ★MAX retry for last ★11 item from batch
+        const lastMax = rareItems.filter(r => r.rank === 11).pop();
+        if (lastMax) {
+          const totalMax = TYPES.reduce((s, t) => s + (n[`${t.id}_11`]?.count || 0), 0);
+          if (totalMax >= 4) {
+            const rt = TYPES.find(t => MONSTERS[t.id][10].name === lastMax.name);
+            if (rt) setSynthRetry({ resultTypeId: rt.id, resultName: lastMax.name, resultIcon: lastMax.icon });
+          }
+        }
       }, elapsed + 1500));
       synthQueueRef.current = timers;
     } else {
@@ -4446,7 +4455,7 @@ function MonsterGacha() {
               {synthRetry.resultName}が出ました
             </div>
             <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16 }}>
-              ★MAXを5種類以上持っているため、<br/>1回だけやり直せます！
+              ★MAXを4個以上持っているため、<br/>1回だけやり直せます！
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px',
