@@ -6923,7 +6923,7 @@ function JugglerGame({ onScore, onClose }) {
   const gameNRef = useRef(0);
   const tapCountRef = useRef(0);
 
-  const BIG_P = 1/240.94, BAR_P = 1/240.94, GOD_P = 1/8192, TOTAL = 180;
+  const BIG_P = 1/200, BAR_P = 1/200, GOD_P = 1/4096, TOTAL = 180;
 
   const synth = (dur, fn, vol=0.7) => {
     const a = audioCtx; if (!a) return; if (a.state==='suspended') a.resume();
@@ -7124,7 +7124,7 @@ function JugglerGame({ onScore, onClose }) {
         setTimeout(() => setFlashAlpha(0), 100);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 800);
         setTimeout(() => { setFlashAlpha(0.4); setTimeout(() => setFlashAlpha(0), 80); }, 1600);
-        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(2500 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
+        setTimeout(() => { if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return; sndGodCoins(); const earn = Math.round(2000 * jugMult); coinsRef.current += earn; setCoins(coinsRef.current); setGodC(g=>g+1); setMsgColor('#ffd700'); setMsg('👑 GOD +' + earn.toLocaleString() + (is1Gren ? ' 1G連!' : '') + (jugMult > 1 ? ' ×' + jugMult.toFixed(1) : '') + ' 👑'); }, 3500);
         setTimeout(() => { lockedRef.current = false; setLocked(false); resetLamp(); setMsg(''); }, 5000);
       }, 850);
       return;
@@ -7164,7 +7164,7 @@ function JugglerGame({ onScore, onClose }) {
     // 同時タップ禁止: 1タップずつ
     if (tapCountRef.current > 0) return;
     tapCountRef.current = 1;
-    setTimeout(() => { tapCountRef.current = 0; }, 150);
+    setTimeout(() => { tapCountRef.current = 0; }, 100);
     gameNRef.current++; setGameN(gameNRef.current); spinCountRef.current++; setSpinCount(spinCountRef.current);
     coinsRef.current -= 1; setCoins(coinsRef.current); sndTap(); setMsg('');
     // Reset juguren if over 100 spins without hit
