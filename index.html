@@ -6919,7 +6919,7 @@ function JugglerGame({ onScore, onClose }) {
     g.gain.setValueAtTime(vol,a.currentTime+st);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+st+dur);
     o.connect(g);g.connect(a.destination);o.start(a.currentTime+st);o.stop(a.currentTime+st+dur);
   };
-  const sndTap = () => synth(0.06,(s)=>{return(Math.sin(2*Math.PI*4000*s)*Math.exp(-s*60)*0.4+Math.sin(2*Math.PI*1200*s)*Math.exp(-s*40)*0.2)*0.6;},0.2);
+  const sndTap = () => synth(0.06,(s)=>{return(Math.sin(2*Math.PI*4000*s)*Math.exp(-s*60)*0.4+Math.sin(2*Math.PI*1200*s)*Math.exp(-s*40)*0.2)*0.6;},0.12);
   const sndGakon = () => synth(0.8,(s,ch)=>{const at=Math.exp(-s*40)*0.9;return(Math.sin(2*Math.PI*220*s+Math.sin(2*Math.PI*440*s)*0.5)*at+(Math.sin(2*Math.PI*880*s)*0.2+Math.sin(2*Math.PI*1320*s)*0.15+Math.sin(2*Math.PI*1760*s)*0.08)*Math.exp(-s*8)+Math.sin(2*Math.PI*55*s)*0.6*Math.exp(-s*20)+Math.sin(2*Math.PI*165*s)*0.25*Math.exp(-s*4)+(Math.random()*2-1)*0.4*Math.exp(-s*30))*(ch===0?0.55:0.5);},0.9);
   // 4 normal hit sound patterns (BIG/REG共通)
   const sndHit1 = () => { sndGakon(); [523,659,784,1047,1319,1568].forEach((f,i)=>jTone(f,0.25+i*0.12,0.5,0.22)); jTone(131,0.1,1.0,0.12); };
