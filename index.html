@@ -6878,6 +6878,8 @@ function JugglerGame({ onScore, onClose }) {
   const [bigC, setBigC] = useState(0);
   const [barC, setBarC] = useState(0);
   const [godC, setGodC] = useState(0);
+  const [spinCount, setSpinCount] = useState(0);
+  const spinCountRef = useRef(0);
   const [msg, setMsg] = useState('');
   const [msgColor, setMsgColor] = useState('#333');
   const [locked, setLocked] = useState(false);
@@ -6980,7 +6982,7 @@ function JugglerGame({ onScore, onClose }) {
     setPhase("playing"); phaseRef.current = 'playing';
     setGameN(0); setTimeLeft(TOTAL); setCoins(0); setBigC(0); setBarC(0); setGodC(0);
     setMsg(''); setLocked(false); lockedRef.current = false;
-    coinsRef.current = 0; gameNRef.current = 0; tapCountRef.current = 0;
+    coinsRef.current = 0; gameNRef.current = 0; tapCountRef.current = 0; spinCountRef.current = 0; setSpinCount(0);
     resetLamp();
     bgm.stop(); stopMainBgm();
     timerRef.current = setInterval(() => {
@@ -6993,6 +6995,7 @@ function JugglerGame({ onScore, onClose }) {
 
   const onHit = (type) => {
     setLocked(true); lockedRef.current = true; resetLamp(); lampStartRef.current = null;
+    spinCountRef.current = 0; setSpinCount(0);
     if (type === 'god') {
       setCrtActive(true); setCrtStart(performance.now()); sndPuchun();
       setTimeout(() => {
@@ -7032,7 +7035,7 @@ function JugglerGame({ onScore, onClose }) {
     tapCountRef.current++;
     if (tapCountRef.current > 2) return;
     setTimeout(() => { tapCountRef.current = 0; }, 100);
-    gameNRef.current++; setGameN(gameNRef.current); sndTap(); setMsg('');
+    gameNRef.current++; setGameN(gameNRef.current); spinCountRef.current++; setSpinCount(spinCountRef.current); sndTap(); setMsg('');
     const r = Math.random();
     if (r < GOD_P) onHit('god');
     else if (r < GOD_P + BIG_P) onHit('big');
@@ -7102,6 +7105,10 @@ function JugglerGame({ onScore, onClose }) {
                 <span style={{ fontSize: 34, fontWeight: 800, color: '#2aee2a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: '0 0 10px rgba(42,238,42,0.5)' }}>{gameN}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>ハマリ</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: spinCount >= 500 ? '#ff2222' : spinCount >= 200 ? '#ff9922' : '#2aee2a', textShadow: spinCount >= 500 ? '0 0 8px rgba(255,34,34,0.6)' : '0 0 6px rgba(42,238,42,0.3)' }}>{spinCount}</div>
+                </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 7, color: '#2a6a2a', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>TIME</div>
                   <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: timeLeft <= 10 ? '#ff2222' : '#2aee2a', textShadow: timeLeft <= 10 ? '0 0 8px rgba(255,34,34,0.6)' : '0 0 6px rgba(42,238,42,0.3)' }}>{fmtT(timeLeft)}</div>
