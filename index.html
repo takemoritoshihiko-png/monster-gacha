@@ -1784,9 +1784,18 @@ function MonsterGacha() {
           const mn = Math.min(...mc);
           return mn >= 3 ? 3 : mn >= 2 ? 2 : mn >= 1 ? 1 : 0;
         })();
-        const rankData = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, bestScores: bs, playCounts: s.playCounts || {}, weeklyScores: s.weeklyScores || {}, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, uraCount: (s.uraObtained || []).length, updated: Date.now() };
+        const rankBase = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, uraCount: (s.uraObtained || []).length, updated: Date.now() };
         if (window.fbDb) {
-          window.fbDb.ref('rankings/' + s.nickname).set(rankData);
+          window.fbDb.ref('rankings/' + s.nickname).update(rankBase);
+          // Update bestScores and playCounts individually to avoid overwriting concurrent writes
+          if (Object.keys(bs).length > 0) {
+            Object.entries(bs).forEach(([gid, score]) => {
+              window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(current => Math.max(current || 0, score));
+            });
+          }
+          if (s.playCounts && Object.keys(s.playCounts).length > 0) {
+            window.fbDb.ref('rankings/' + s.nickname + '/playCounts').update(s.playCounts);
+          }
           // Track daily and weekly asset snapshots
           const today = getLocalDate();
           const weekId = getWeekId();
