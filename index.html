@@ -57,6 +57,16 @@
       localStorage.setItem(RK, '1');
       console.log('Scores reset for あいこ');
     })();
+    // ONE-TIME: reset all game scores for ユート
+    (function(){
+      const RK = '_resetYuto_v1';
+      if (localStorage.getItem(RK)) return;
+      const db = window.fbDb, name = 'ゆと';
+      db.ref('rankings/' + name + '/bestScores').set(null);
+      db.ref('rankings/' + name + '/playCounts').set(null);
+      localStorage.setItem(RK, '1');
+      console.log('All scores reset for ゆと');
+    })();
     // ONE-TIME: clean up duplicate congrats entries, keep only 1 per player+tier
     (function(){
       const CK = '_cleanupCongrats_v1';
@@ -1681,6 +1691,11 @@ function MonsterGacha() {
       if (d.nickname === 'あいこ' && !localStorage.getItem('_resetAikoLocal_v1')) {
         ['tap','shooting','timing','memory','quickdraw'].forEach(g => { bs[g] = 0; pc[g] = 0; delete ws[g]; });
         localStorage.setItem('_resetAikoLocal_v1', '1');
+      }
+      // Reset all scores for ユート
+      if (d.nickname === 'ゆと' && !localStorage.getItem('_resetYutoLocal_v1')) {
+        bs = {}; pc = {}; ws = {};
+        localStorage.setItem('_resetYutoLocal_v1', '1');
       }
       setBestScores(bs);
       setPlayCounts(pc);
