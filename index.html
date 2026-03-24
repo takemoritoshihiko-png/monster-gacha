@@ -2821,7 +2821,8 @@ function MonsterGacha() {
     });
   }, [nickname]);
 
-  const handleMiniGameDone = useCallback((gameId, earned) => {
+  // Phase 1: Called immediately when game ends - coins + scores recorded instantly
+  const handleMiniGameScore = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
     setCoins(p => p + boosted);
     setBestScores(prev => {
@@ -2831,7 +2832,6 @@ function MonsterGacha() {
         setTimeout(() => setNewRecord(null), 3000);
       }
       const updated = isNewBest ? { ...prev, [gameId]: boosted } : prev;
-      // Immediately update Firebase with new best score
       if (isNewBest && nickname && window.fbDb) {
         window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted);
       }
@@ -2839,7 +2839,6 @@ function MonsterGacha() {
     });
     setPlayCounts(prev => {
       const updated = { ...prev, [gameId]: (prev[gameId] || 0) + 1 };
-      // Also update play count in Firebase immediately
       if (nickname && window.fbDb) {
         window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).set(updated[gameId]);
       }
@@ -2850,7 +2849,6 @@ function MonsterGacha() {
       const weekData = prev._weekId === weekId ? prev : { _weekId: weekId };
       const isNewWeekBest = boosted > (weekData[gameId] || 0);
       const updated = isNewWeekBest ? { ...weekData, [gameId]: boosted } : weekData;
-      // Write weekly and daily scores to Firebase
       if (isNewWeekBest && nickname && window.fbDb) {
         window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted);
       }
@@ -2866,10 +2864,17 @@ function MonsterGacha() {
     if (gameId === 'shooting') contributeMission('shooting', boosted);
     if (gameId === 'quickdraw') contributeMission('quickdraw', boosted);
     if (gameId === 'memory') contributeMission('memory', boosted);
-    bgm.stop(); // Ensure minigame BGM is stopped
-    // Main BGM will auto-resume via useEffect when screen changes back
-    setMiniGame(null);
   }, [nickname]);
+  // Phase 2: Called after result screen delay - closes game and returns to menu
+  const handleMiniGameClose = useCallback(() => {
+    bgm.stop();
+    setMiniGame(null);
+  }, []);
+  // Combined handler for backward compatibility: score immediately, close after delay
+  const handleMiniGameDone = useCallback((gameId, earned) => {
+    handleMiniGameScore(gameId, earned);
+    handleMiniGameClose();
+  }, [handleMiniGameScore, handleMiniGameClose]);
 
   // Loading screen
   // Calculate power from a save data object
@@ -4027,22 +4032,22 @@ function MonsterGacha() {
             </div>
           </div>
         )}
-        {screen === "minigame" && miniGame === "tap" && <TapGame onDone={(c) => handleMiniGameDone('tap', c)} />}
-        {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onDone={(c) => handleMiniGameDone('coinRunner', c)} />}
-        {screen === "minigame" && miniGame === "batting" && <BattingGame onDone={(c) => handleMiniGameDone('batting', c)} />}
-        {screen === "minigame" && miniGame === "pinball" && <PinballGame onDone={(c) => handleMiniGameDone('pinball', c)} />}
-        {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onDone={(c) => handleMiniGameDone('chainBurst', c)} />}
-        {screen === "minigame" && miniGame === "gem" && <GemCatchGame onDone={(c) => handleMiniGameDone('gem', c)} />}
-        {screen === "minigame" && miniGame === "timing" && <TimingGame onDone={(c) => handleMiniGameDone('timing', c)} />}
-        {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onDone={(c) => handleMiniGameDone('tower', c)} />}
-        {screen === "minigame" && miniGame === "memory" && <MemoryGame onDone={(c) => handleMiniGameDone('memory', c)} />}
-        {screen === "minigame" && miniGame === "quickdraw" && <QuickDrawGame onDone={(c) => handleMiniGameDone('quickdraw', c)} />}
-        {screen === "minigame" && miniGame === "shooting" && <ShootingGame onDone={(c) => handleMiniGameDone('shooting', c)} />}
-        {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onDone={(c) => handleMiniGameDone('mathEasy', c)} />}
-        {screen === "minigame" && miniGame === "kuku" && <KukuGame onDone={(c) => handleMiniGameDone('kuku', c)} />}
-        {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onDone={(c) => handleMiniGameDone('mathMid', c)} />}
-        {screen === "minigame" && miniGame === "mathHardAdd" && <MathHardAddGame onDone={(c) => handleMiniGameDone('mathHardAdd', c)} />}
-        {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onDone={(c) => handleMiniGameDone('mathHardMult', c)} />}
+        {screen === "minigame" && miniGame === "tap" && <TapGame onScore={(c) => handleMiniGameScore('tap', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onScore={(c) => handleMiniGameScore('coinRunner', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "batting" && <BattingGame onScore={(c) => handleMiniGameScore('batting', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "pinball" && <PinballGame onScore={(c) => handleMiniGameScore('pinball', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onScore={(c) => handleMiniGameScore('chainBurst', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "gem" && <GemCatchGame onScore={(c) => handleMiniGameScore('gem', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "timing" && <TimingGame onScore={(c) => handleMiniGameScore('timing', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "tower" && <CoinTowerGame onScore={(c) => handleMiniGameScore('tower', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "memory" && <MemoryGame onScore={(c) => handleMiniGameScore('memory', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "quickdraw" && <QuickDrawGame onScore={(c) => handleMiniGameScore('quickdraw', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "shooting" && <ShootingGame onScore={(c) => handleMiniGameScore('shooting', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "mathEasy" && <MathEasyGame onScore={(c) => handleMiniGameScore('mathEasy', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "kuku" && <KukuGame onScore={(c) => handleMiniGameScore('kuku', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "mathMid" && <MathMidGame onScore={(c) => handleMiniGameScore('mathMid', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "mathHardAdd" && <MathHardAddGame onScore={(c) => handleMiniGameScore('mathHardAdd', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onScore={(c) => handleMiniGameScore('mathHardMult', c)} onClose={handleMiniGameClose} />}
 
         {/* COLLECTION */}
         {screen === "collection" && <CollectionView collection={collection} onSelect={setModal}
@@ -4673,7 +4678,7 @@ function MonsterGacha() {
 // ============================================================
 // TAP GAME
 // ============================================================
-function TapGame({ onDone }) {
+function TapGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(10);
   const [earned, setEarned] = useState(0);
@@ -4699,7 +4704,7 @@ function TapGame({ onDone }) {
     }, 50);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const handleTap = () => {
     if (phase !== "play") return;
@@ -4808,7 +4813,7 @@ function TapGame({ onDone }) {
 // ============================================================
 // KUKU GAME (計算ゲーム【初級】九九)
 // ============================================================
-function KukuGame({ onDone }) {
+function KukuGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(20);
   const [prob, setProb] = useState(null);
@@ -4839,7 +4844,7 @@ function KukuGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -4904,7 +4909,7 @@ function KukuGame({ onDone }) {
 // ============================================================
 // MATH MID GAME (計算ゲーム【中級】足し算引き算)
 // ============================================================
-function MathMidGame({ onDone }) {
+function MathMidGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(20);
   const [prob, setProb] = useState(null);
@@ -4941,7 +4946,7 @@ function MathMidGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -5007,7 +5012,7 @@ function MathMidGame({ onDone }) {
 // ============================================================
 // MATH EASY GAME (計算ゲーム【初級】足し算引き算 2桁±1桁)
 // ============================================================
-function MathEasyGame({ onDone }) {
+function MathEasyGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(20);
   const [prob, setProb] = useState(null);
@@ -5042,7 +5047,7 @@ function MathEasyGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -5109,7 +5114,7 @@ function MathEasyGame({ onDone }) {
 // ============================================================
 // MATH HARD ADD/SUB GAME (計算ゲーム【上級】足し算引き算 2桁±2桁)
 // ============================================================
-function MathHardAddGame({ onDone }) {
+function MathHardAddGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(20);
   const [prob, setProb] = useState(null);
@@ -5144,7 +5149,7 @@ function MathHardAddGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -5209,7 +5214,7 @@ function MathHardAddGame({ onDone }) {
 // ============================================================
 // MATH HARD MULT/DIV GAME (計算ゲーム【上級】掛け算割り算 2桁×1桁, 2桁÷1桁)
 // ============================================================
-function MathHardMultGame({ onDone }) {
+function MathHardMultGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [timeLeft, setTimeLeft] = useState(20);
   const [prob, setProb] = useState(null);
@@ -5249,7 +5254,7 @@ function MathHardMultGame({ onDone }) {
     setTimeout(() => inp.current?.focus(), 100);
   };
   useEffect(() => () => { clearInterval(timer.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   const check = (v) => {
     if (!prob) return;
@@ -5324,7 +5329,7 @@ const TIMING_BGM = [
 ];
 const TOTAL_TAPS = 10;
 
-function TimingGame({ onDone }) {
+function TimingGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [taps, setTaps] = useState([]);
   const [tapCount, setTapCount] = useState(0);
@@ -5426,7 +5431,7 @@ function TimingGame({ onDone }) {
   const { bonus: perfectBonus, label: bonusLabel } = calcPerfectBonus(taps);
   const totalCoins = baseCoins + (phase === "done" ? perfectBonus : 0);
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalCoins), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(totalCoins); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -5672,7 +5677,7 @@ const GEM_BGM = [
 // ============================================================
 // SHOOTING GALLERY GAME
 // ============================================================
-function ShootingGame({ onDone }) {
+function ShootingGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [earned, setEarned] = useState(0);
   const [timeLeft, setTimeLeft] = useState(15);
@@ -5947,7 +5952,7 @@ function ShootingGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -6005,7 +6010,7 @@ function ShootingGame({ onDone }) {
 // ============================================================
 // COIN TOWER GAME
 // ============================================================
-function CoinTowerGame({ onDone }) {
+function CoinTowerGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [earned, setEarned] = useState(0);
   const [timeLeft, setTimeLeft] = useState(20);
@@ -6280,7 +6285,7 @@ function CoinTowerGame({ onDone }) {
   };
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current); bgm.stop(); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -6332,7 +6337,7 @@ function CoinTowerGame({ onDone }) {
 // ============================================================
 // MEMORY SPEED GAME (神経衰弱スピード)
 // ============================================================
-function MemoryGame({ onDone }) {
+function MemoryGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [cards, setCards] = useState([]);
   const [revealed, setRevealed] = useState([]);
@@ -6425,7 +6430,7 @@ function MemoryGame({ onDone }) {
   const timeBonus = clearTime !== null ? (clearTime <= 12 ? 400 : clearTime <= 15 ? 300 : clearTime <= 20 ? 150 : clearTime <= 25 ? 100 : 0) : 0;
   const totalReward = pairReward + timeBonus;
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalReward), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(totalReward); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -6576,7 +6581,7 @@ function BubbleGame_PLACEHOLDER({ onDone }) {
   const poppedCount = bubbles.filter(b => b.popped).length;
   const maxTaps = bubbles.length > 0 ? Math.max(...bubbles.map(b => b.taps)) : 0;
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(currentScore), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(currentScore); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -6680,7 +6685,7 @@ function BubbleGame_PLACEHOLDER({ onDone }) {
 // ============================================================
 // QUICK DRAW GUNMAN GAME (早撃ちガンマン)
 // ============================================================
-function QuickDrawGame({ onDone }) {
+function QuickDrawGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [round, setRound] = useState(0);
   const [results, setResults] = useState([]);
@@ -6824,7 +6829,7 @@ function QuickDrawGame({ onDone }) {
     results.every(r => { const m = r.label.match(/(\d+\.\d+)秒/); return m && parseFloat(m[1]) < 0.25; });
   const totalWithBonus = currentTotal + (allFast ? 80 : 0);
 
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(totalWithBonus), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(totalWithBonus); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -6901,7 +6906,7 @@ function QuickDrawGame({ onDone }) {
 // ============================================================
 // BATTING HERO GAME (70 seconds timing batting game)
 // ============================================================
-function BattingGame({ onDone }) {
+function BattingGame({ onScore, onClose }) {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const partsRef = useRef([]);
@@ -7263,7 +7268,7 @@ function BattingGame({ onDone }) {
   }, [phase]);
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(score), 2500); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 2500); return () => clearTimeout(t); } }, [phase, score]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -7303,7 +7308,7 @@ function BattingGame({ onDone }) {
 // ============================================================
 // COIN RUNNER GAME (90 seconds side-scrolling runner)
 // ============================================================
-function CoinRunnerGame({ onDone }) {
+function CoinRunnerGame({ onScore, onClose }) {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
@@ -7589,7 +7594,7 @@ function CoinRunnerGame({ onDone }) {
   const onUp = () => { heldRef.current = false; };
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(score), 3000); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase, score]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -7635,7 +7640,7 @@ function CoinRunnerGame({ onDone }) {
 // ============================================================
 // CHAIN BURST GAME (70 seconds bubble chain explosion)
 // ============================================================
-function ChainBurstGame({ onDone }) {
+function ChainBurstGame({ onScore, onClose }) {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
@@ -7927,7 +7932,7 @@ function ChainBurstGame({ onDone }) {
   };
 
   useEffect(() => () => { bgm.stop(); if(rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if(phase==="done"){const t=setTimeout(()=>onDone(score),3000);return()=>clearTimeout(t);} }, [phase,score]);
+  useEffect(() => { if(phase==="done"){onScore(score);const t=setTimeout(onClose,3000);return()=>clearTimeout(t);} }, [phase,score]);
 
   return (
     <div style={{textAlign:'center'}}>
@@ -7962,7 +7967,7 @@ function ChainBurstGame({ onDone }) {
   );
 }
 
-function PinballGame({ onDone }) {
+function PinballGame({ onScore, onClose }) {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
@@ -8225,7 +8230,7 @@ function PinballGame({ onDone }) {
   }, [phase]);
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(score), 3000); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase, score]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -8274,7 +8279,7 @@ function PinballGame({ onDone }) {
   );
 }
 
-function GemCatchGame({ onDone }) {
+function GemCatchGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [earned, setEarned] = useState(0);
   const [timeLeft, setTimeLeft] = useState(20);
@@ -8557,7 +8562,7 @@ function GemCatchGame({ onDone }) {
     clearTimeout(spawnRef.current);
     bgm.stop();
   }, []);
-  useEffect(() => { if (phase === "done") { const t = setTimeout(() => onDone(earned), 2000); return () => clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (phase === "done") { onScore(earned); const t = setTimeout(onClose, 2000); return () => clearTimeout(t); } }, [phase]);
 
   return (
     <div style={{ textAlign: 'center' }}>
