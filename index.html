@@ -15,11 +15,11 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-    // ONE-TIME RESET: clear ALL players' game scores (v3)
-    window._scoreResetVersion = 3;
+    // ONE-TIME RESET: clear ALL players' bestScores, keep playCounts (v4)
+    window._scoreResetVersion = 4;
     (function(){
       const db = window.fbDb;
-      const RESET_KEY = '_resetAllScores_v3';
+      const RESET_KEY = '_resetAllScores_v4';
       if (localStorage.getItem(RESET_KEY)) return;
       // Set reset version on Firebase so other clients know
       db.ref('meta/scoreResetVersion').set(window._scoreResetVersion);
@@ -27,13 +27,12 @@
       const td = new Date();
       const todayStr = td.getFullYear()+'-'+String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
       db.ref('dailyMissions/' + todayStr).remove();
-      // Reset all players' bestScores and playCounts in rankings
+      // Reset all players' bestScores in rankings (keep playCounts for history)
       db.ref('rankings').once('value').then(snap => {
         const updates = {};
         snap.forEach(child => {
           const name = child.key;
           updates['rankings/' + name + '/bestScores'] = null;
-          updates['rankings/' + name + '/playCounts'] = null;
         });
         // Also clear all weeklyRankings and dailyRankings
         updates['weeklyRankings'] = null;
@@ -88,10 +87,8 @@
       const ver = snap.val() || 0;
       const localVer = parseInt(localStorage.getItem('_appliedResetVer') || '0');
       if (ver > localVer) {
-        localStorage.setItem('_resetAllScores_v2', '1');
-        localStorage.setItem('_resetAllScoresLocal_v2', '1');
         localStorage.setItem('_appliedResetVer', String(ver));
-        // Force reload to apply reset
+        // Force reload to apply reset via _scoreResetApplied check in loadSlot
         if (localVer > 0) window.location.reload();
       }
     });
@@ -1659,14 +1656,14 @@ function MonsterGacha() {
       let bs = d.bestScores || {}; let pc = d.playCounts || {};
       let ws = d.weeklyScores || {};
       // Universal score reset: always check against scoreResetVersion
+      // bestScores (ハイスコア) と weeklyScores はリセット、playCounts (プレイ回数) は保持
       const localResetVer = parseInt(localStorage.getItem('_scoreResetApplied') || '0');
       if (localResetVer < (window._scoreResetVersion || 0)) {
-        bs = {}; pc = {}; ws = {};
+        bs = {}; ws = {};
         localStorage.setItem('_scoreResetApplied', String(window._scoreResetVersion));
-        // Also clear Firebase scores for this player immediately
+        // Also clear Firebase bestScores for this player immediately (keep playCounts)
         if (d.nickname && window.fbDb) {
           window.fbDb.ref('rankings/' + d.nickname + '/bestScores').set(null);
-          window.fbDb.ref('rankings/' + d.nickname + '/playCounts').set(null);
         }
       }
       setBestScores(bs);
