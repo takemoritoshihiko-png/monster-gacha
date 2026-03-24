@@ -44,6 +44,19 @@
       });
       localStorage.setItem(RESET_KEY, '1');
     })();
+    // ONE-TIME: reset specific scores for あいこ
+    (function(){
+      const RK = '_resetAiko_v1';
+      if (localStorage.getItem(RK)) return;
+      const db = window.fbDb, name = 'あいこ';
+      const games = ['tap','shooting','timing','memory','quickdraw'];
+      games.forEach(g => {
+        db.ref('rankings/' + name + '/bestScores/' + g).set(0);
+        db.ref('rankings/' + name + '/playCounts/' + g).set(0);
+      });
+      localStorage.setItem(RK, '1');
+      console.log('Scores reset for あいこ');
+    })();
     // ONE-TIME: clear today's dailyMissions for fresh start (v3)
     (function(){
       const DMRK = '_resetDailyMissions_v3';
@@ -1626,6 +1639,11 @@ function MonsterGacha() {
       if (!localStorage.getItem('_resetAllScoresLocal_v2')) {
         bs = {}; pc = {}; ws = {};
         localStorage.setItem('_resetAllScoresLocal_v2', '1');
+      }
+      // Reset specific scores for あいこ
+      if (d.nickname === 'あいこ' && !localStorage.getItem('_resetAikoLocal_v1')) {
+        ['tap','shooting','timing','memory','quickdraw'].forEach(g => { bs[g] = 0; pc[g] = 0; delete ws[g]; });
+        localStorage.setItem('_resetAikoLocal_v1', '1');
       }
       setBestScores(bs);
       setPlayCounts(pc);
