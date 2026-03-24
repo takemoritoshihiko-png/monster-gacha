@@ -7055,9 +7055,14 @@ function JugglerGame({ onScore, onClose }) {
     const jugMult = hitAt === 1 ? baseMult + 1.0 : baseMult; // 1G連: +1.0 added
     const is1Gren = hitAt === 1;
     spinCountRef.current = 0; setSpinCount(0);
-    // Add to history (max 20)
+    // Add to history (max 30), track consecutive 1G streak
     setHistory(prev => {
-      const entry = { type, at: hitAt, jugRen: newJugRen, is1G: is1Gren };
+      let streak1G = 0;
+      if (is1Gren) {
+        streak1G = 1;
+        for (const h of prev) { if (h.is1G) streak1G++; else break; }
+      }
+      const entry = { type, at: hitAt, jugRen: newJugRen, is1G: is1Gren, streak1G };
       const next = [entry, ...prev];
       return next.slice(0, 30);
     });
@@ -7280,13 +7285,25 @@ function JugglerGame({ onScore, onClose }) {
                 return (
                   <div key={rowStart} style={{ display: 'flex', gap: 2, justifyContent: 'center', marginBottom: 2 }}>
                     {row.map((h, i) => (
-                      <div key={rowStart + i} style={{ fontSize: 7, padding: '1px 3px', borderRadius: 3, fontFamily: "'Courier New',monospace", fontWeight: 700,
-                        background: h.type === 'god' ? 'rgba(255,215,0,0.2)' : h.type === 'big' ? 'rgba(255,34,68,0.15)' : 'rgba(255,153,34,0.12)',
-                        color: h.type === 'god' ? '#ffd700' : h.type === 'big' ? '#ff2244' : '#ff9922',
-                        border: `1px solid ${h.type === 'god' ? 'rgba(255,215,0,0.3)' : h.type === 'big' ? 'rgba(255,34,68,0.2)' : 'rgba(255,153,34,0.15)'}` }}>
+                      <div key={rowStart + i} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, fontFamily: "'Courier New',monospace", fontWeight: 800,
+                        position: 'relative',
+                        background: h.is1G
+                          ? 'linear-gradient(135deg, rgba(255,107,107,0.25), rgba(255,209,61,0.25), rgba(107,255,107,0.25), rgba(107,197,255,0.25), rgba(208,107,255,0.25))'
+                          : h.type === 'god' ? 'rgba(255,215,0,0.2)' : h.type === 'big' ? 'rgba(255,34,68,0.15)' : 'rgba(255,153,34,0.12)',
+                        color: h.is1G ? '#fff' : h.type === 'god' ? '#ffd700' : h.type === 'big' ? '#ff2244' : '#ff9922',
+                        textShadow: h.is1G ? '0 0 6px rgba(255,215,0,0.8)' : 'none',
+                        border: h.is1G
+                          ? '1px solid rgba(255,215,0,0.5)'
+                          : `1px solid ${h.type === 'god' ? 'rgba(255,215,0,0.3)' : h.type === 'big' ? 'rgba(255,34,68,0.2)' : 'rgba(255,153,34,0.15)'}` }}>
                         {h.type === 'god' ? 'G' : h.type === 'big' ? 'B' : 'R'}{h.at}
                         {h.is1G && <span style={{ color: '#ffee00' }}>⚡</span>}
-                        {h.jugRen >= 2 && <span style={{ color: '#ff4466' }}>★</span>}
+                        {h.jugRen >= 2 && !h.is1G && <span style={{ color: '#ff4466' }}>★</span>}
+                        {h.is1G && h.streak1G >= 2 && (
+                          <span style={{ position: 'absolute', top: -5, right: -4, fontSize: 7, fontWeight: 900,
+                            color: '#fff', background: 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff)',
+                            borderRadius: 4, padding: '0 2px', lineHeight: 1.3,
+                            textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>×{h.streak1G}</span>
+                        )}
                       </div>
                     ))}
                   </div>
