@@ -2323,6 +2323,7 @@ function MonsterGacha() {
       sfx('gachaPull');
     }
 
+    if (cueDelay > 0) setGachaPhase("cue");
     setTimeout(() => {
       setCueEffect(null);
       startChestOpen(res);
@@ -2620,7 +2621,8 @@ function MonsterGacha() {
     const isGachaActive = screen === 'gacha' && (gachaPhase === 'chests' || gachaPhase === 'cue');
     const isSynthActive = !!synthResult;
     const isClearActive = showClear;
-    const shouldPlay = !isMinigamePlaying && !isGachaActive && !isSynthActive && !isClearActive;
+    const isRareActive = !!rareEffect;
+    const shouldPlay = !isMinigamePlaying && !isGachaActive && !isSynthActive && !isClearActive && !isRareActive;
 
     if (shouldPlay && !mainBgmRef.current) {
       mainBgmControl.play();
@@ -2629,7 +2631,7 @@ function MonsterGacha() {
       mainBgmControl.pause();
       mainBgmRef.current = false;
     }
-  }, [screen, miniGame, gachaPhase, synthResult, showClear, loaded, slotId, volMain]);
+  }, [screen, miniGame, gachaPhase, synthResult, showClear, rareEffect, loaded, slotId, volMain]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
   // Auto-save when all gacha chests are opened (prevent reload exploit)
