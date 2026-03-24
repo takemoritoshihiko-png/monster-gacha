@@ -57,6 +57,25 @@
       localStorage.setItem(RK, '1');
       console.log('Scores reset for あいこ');
     })();
+    // ONE-TIME: grant Congratulations T1 to mati
+    (function(){
+      const GK = '_grantMatiT1_v1';
+      if (localStorage.getItem(GK)) return;
+      const db = window.fbDb;
+      // Add cg1_12 to mati's collection in Firebase rankings
+      db.ref('rankings/mati').once('value').then(snap => {
+        const data = snap.val();
+        if (!data) return;
+        // Update congratsTier
+        db.ref('rankings/mati/congratsTier').set(1);
+      });
+      // Record in congrats history
+      db.ref('notifications/congrats').push({
+        name: 'mati', tier: 1, tierLabel: 'Tier 1', icon: '👑', item: '永劫の至宝', timestamp: Date.now()
+      });
+      localStorage.setItem(GK, '1');
+      console.log('Congratulations T1 granted to mati');
+    })();
     // ONE-TIME: clear today's dailyMissions for fresh start (v3)
     (function(){
       const DMRK = '_resetDailyMissions_v3';
@@ -1629,7 +1648,17 @@ function MonsterGacha() {
     const d = await stGet(slotKey(id));
     if (d) {
       setCoins(d.coins ?? 50);
-      setCollection(decompressCol(d.collection));
+      const loadedCol = decompressCol(d.collection);
+      // ONE-TIME: grant Congratulations T1 to mati
+      if (d.nickname === 'mati' && !localStorage.getItem('_grantMatiT1Local_v1')) {
+        if (!loadedCol['cg1_12']) {
+          const nr = RARITIES[11];
+          const ci = CONGRATS_TIERS[0];
+          loadedCol['cg1_12'] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '展示室報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
+        }
+        localStorage.setItem('_grantMatiT1Local_v1', '1');
+      }
+      setCollection(loadedCol);
       setTotalPulls(d.totalPulls ?? 0);
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
