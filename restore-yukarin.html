@@ -24,11 +24,11 @@
 <body>
 
 <h1>TREASURE GACHA - データ復旧ツール</h1>
-<p>プレイヤー「ゆかりん」のセーブデータを3/26時点のFirebaseデータから復旧します。</p>
+<p>プレイヤー「ゆかりん」のセーブデータを復旧します（資産2,000億円・ガチャ30,000回転）。</p>
 
 <div class="warn">
-  <strong>注意:</strong> コレクションの詳細（どのモンスターを何体持っていたか）はFirebaseに保存されていないため、
-  ガチャ回数(30,000回)と総資産(約2,000億円)から統計的に推定した内容で復元します。
+  <strong>注意:</strong> コレクションの詳細はFirebaseに保存されていないため、
+  ガチャ回数(30,000回)と総資産(2,000億円)から推定した内容で復元します。
   完全な復元ではありませんが、進捗度は同等になります。
 </div>
 
@@ -100,72 +100,35 @@ const weeklyScores = {
 };
 
 // ============================================================
-// Build collection to match target assets
+// Hardcoded collection: exactly 200,000,000,000 (2,000億円)
+// Realistic distribution for 30,000 pulls with active synthesis
+// ★11(MAX)は合成で獲得、低ランクは合成で消費済みの想定
 // ============================================================
-function buildCollection() {
-  const col = {};
-
-  // Base distribution: realistic counts for 30,000 pulls with synthesis
-  // Players actively synthesize low ranks into higher ones
-  const basePerType = {
-    1: 35, 2: 25, 3: 15, 4: 10, 5: 7, 6: 5, 7: 3, 8: 2
-  };
-
-  // Step 1: Add base items for all 6 types
-  for (const t of TYPES) {
-    for (const [rank, count] of Object.entries(basePerType)) {
-      col[`${t}_${rank}`] = count;
-    }
-  }
-
-  // Step 2: Calculate base value
-  let baseValue = 0;
-  for (const [k, count] of Object.entries(col)) {
-    const rank = parseInt(k.split('_')[1]);
-    baseValue += POWER_VALUES[rank - 1] * count;
-  }
-
-  // Step 3: Fill remaining value with high-rank items
-  let remaining = TARGET_ASSETS - baseValue;
-
-  // Add rank 9 items (distributed across types)
-  const r9perType = [1, 1, 1, 1, 1, 1]; // 1 each = 6 total
-  for (let i = 0; i < TYPES.length; i++) {
-    col[`${TYPES[i]}_9`] = r9perType[i];
-    remaining -= POWER_VALUES[8] * r9perType[i];
-  }
-
-  // Add rank 10 items to fill most of remaining value
-  // congratsTier is 0, so we DON'T give all types MAX
-  // Distribute rank 10 items
-  const r10count = Math.floor(remaining / POWER_VALUES[9]);
-  const r10perType = [0, 0, 0, 0, 0, 0];
-  for (let i = 0; i < r10count; i++) {
-    r10perType[i % TYPES.length]++;
-  }
-  for (let i = 0; i < TYPES.length; i++) {
-    if (r10perType[i] > 0) {
-      col[`${TYPES[i]}_10`] = r10perType[i];
-      remaining -= POWER_VALUES[9] * r10perType[i];
-    }
-  }
-
-  // Remaining value: add more rank 9 items if needed
-  if (remaining > POWER_VALUES[8]) {
-    const extra9 = Math.floor(remaining / POWER_VALUES[8]);
-    col[`gem_9`] = (col[`gem_9`] || 0) + extra9;
-    remaining -= POWER_VALUES[8] * extra9;
-  }
-
-  // Fine-tune with rank 8 items
-  if (remaining > POWER_VALUES[7]) {
-    const extra8 = Math.floor(remaining / POWER_VALUES[7]);
-    col[`gem_8`] = (col[`gem_8`] || 0) + extra8;
-    remaining -= POWER_VALUES[7] * extra8;
-  }
-
-  return col;
-}
+const collection = {
+  // ★1 (1,000円) = 80個 → 80,000
+  gem_1: 20, gold_1: 12, relic_1: 12, art_1: 12, space_1: 12, kingdom_1: 12,
+  // ★2 (10,000円) = 52個 → 520,000
+  gem_2: 10, gold_2: 10, relic_2: 8, art_2: 8, space_2: 8, kingdom_2: 8,
+  // ★3 (100,000円) = 39個 → 3,900,000
+  gem_3: 7, gold_3: 7, relic_3: 7, art_3: 6, space_3: 6, kingdom_3: 6,
+  // ★4 (500,000円) = 27個 → 13,500,000
+  gem_4: 5, gold_4: 5, relic_4: 5, art_4: 4, space_4: 4, kingdom_4: 4,
+  // ★5 (2,500,000円) = 20個 → 50,000,000
+  gem_5: 4, gold_5: 4, relic_5: 3, art_5: 3, space_5: 3, kingdom_5: 3,
+  // ★6 (12,000,000円) = 16個 → 192,000,000
+  gem_6: 3, gold_6: 3, relic_6: 3, art_6: 3, space_6: 2, kingdom_6: 2,
+  // ★7 (60,000,000円) = 14個 → 840,000,000
+  gem_7: 3, gold_7: 3, relic_7: 2, art_7: 2, space_7: 2, kingdom_7: 2,
+  // ★8 (300,000,000円) = 13個 → 3,900,000,000
+  gem_8: 3, gold_8: 2, relic_8: 2, art_8: 2, space_8: 2, kingdom_8: 2,
+  // ★9 ミシカル (1,500,000,000円) = 6個 → 9,000,000,000
+  gem_9: 1, gold_9: 1, relic_9: 1, art_9: 1, space_9: 1, kingdom_9: 1,
+  // ★10 ゴッド (8,000,000,000円) = 12個 → 96,000,000,000
+  gem_10: 2, gold_10: 2, relic_10: 2, art_10: 2, space_10: 2, kingdom_10: 2,
+  // ★11 MAX (30,000,000,000円) = 3個 → 90,000,000,000
+  gem_11: 1, gold_11: 1, relic_11: 1
+  // 合計: 200,000,000,000 (2,000億円) ✓
+};
 
 // ============================================================
 // Calculate total power
@@ -182,7 +145,6 @@ function calcPower(col) {
 // ============================================================
 // Display preview
 // ============================================================
-const collection = buildCollection();
 const actualPower = calcPower(collection);
 
 document.getElementById('totalAsset').textContent =
