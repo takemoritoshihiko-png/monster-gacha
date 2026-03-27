@@ -1735,25 +1735,27 @@ function MonsterGacha() {
         })();
         const rankBase = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, uraCount: (s.uraObtained || []).length, updated: Date.now() };
         if (window.fbDb) {
-          window.fbDb.ref('rankings/' + s.nickname).update(rankBase);
-          // Update bestScores and playCounts individually to avoid overwriting concurrent writes
-          if (Object.keys(bs).length > 0) {
-            Object.entries(bs).forEach(([gid, score]) => {
-              window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(current => Math.max(current || 0, score));
-            });
-          }
-          if (s.playCounts && Object.keys(s.playCounts).length > 0) {
-            window.fbDb.ref('rankings/' + s.nickname + '/playCounts').update(s.playCounts);
-          }
-          // Track daily and weekly asset snapshots
-          const today = getLocalDate();
-          const weekId = getWeekId();
-          window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
-          window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
-          window.fbDb.ref('pullTracking/daily/' + today + '/' + s.nickname).set(s.totalPulls || 0);
-          window.fbDb.ref('pullTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalPulls || 0);
-          window.fbDb.ref('giftTracking/daily/' + today + '/' + s.nickname).set(s.totalGiftValue || 0);
-          window.fbDb.ref('giftTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalGiftValue || 0);
+          // restoreDataが存在する間はランキング上書きをスキップ（復旧データ保護）
+          window.fbDb.ref('rankings/' + s.nickname + '/restoreData').once('value').then(snap => {
+            if (snap.val()) { addLog("復旧待ち: ランキング上書きスキップ"); return; }
+            window.fbDb.ref('rankings/' + s.nickname).update(rankBase);
+            if (Object.keys(bs).length > 0) {
+              Object.entries(bs).forEach(([gid, score]) => {
+                window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(current => Math.max(current || 0, score));
+              });
+            }
+            if (s.playCounts && Object.keys(s.playCounts).length > 0) {
+              window.fbDb.ref('rankings/' + s.nickname + '/playCounts').update(s.playCounts);
+            }
+            const today = getLocalDate();
+            const weekId = getWeekId();
+            window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
+            window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
+            window.fbDb.ref('pullTracking/daily/' + today + '/' + s.nickname).set(s.totalPulls || 0);
+            window.fbDb.ref('pullTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalPulls || 0);
+            window.fbDb.ref('giftTracking/daily/' + today + '/' + s.nickname).set(s.totalGiftValue || 0);
+            window.fbDb.ref('giftTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalGiftValue || 0);
+          }).catch(() => {});
         }
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
     }
