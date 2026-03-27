@@ -28,7 +28,7 @@
 
 <div class="warn">
   <strong>注意:</strong> コレクションの詳細（どのモンスターを何体持っていたか）はFirebaseに保存されていないため、
-  ガチャ回数(26,460回)と総資産(約1,169億円)から統計的に推定した内容で復元します。
+  ガチャ回数(30,000回)と総資産(約2,000億円)から統計的に推定した内容で復元します。
   完全な復元ではありませんが、進捗度は同等になります。
 </div>
 
@@ -37,8 +37,8 @@
   <table>
     <tr><th>項目</th><th>復旧値</th><th>ソース</th></tr>
     <tr><td>ニックネーム</td><td>ゆかりん</td><td>Firebase</td></tr>
-    <tr><td>総資産</td><td id="totalAsset">計算中...</td><td>推定(3/26: 1,169億)</td></tr>
-    <tr><td>ガチャ回数</td><td>26,460回</td><td>Firebase</td></tr>
+    <tr><td>総資産</td><td id="totalAsset">計算中...</td><td>補填(2,000億)</td></tr>
+    <tr><td>ガチャ回数</td><td>30,000回</td><td>補填</td></tr>
     <tr><td>コイン</td><td>10,000</td><td>推定(お詫び付与)</td></tr>
     <tr><td>ギフト総額</td><td>4,860,100,000</td><td>Firebase</td></tr>
     <tr><td>ミニゲームスコア</td><td>16種全て</td><td>Firebase(完全)</td></tr>
@@ -71,8 +71,8 @@ const TYPE_NAMES = { gem: '宝石', gold: '黄金遺産', relic: '古代秘宝',
 // ============================================================
 // Target values from Firebase (3/26 snapshot)
 // ============================================================
-const TARGET_ASSETS = 116997109000;  // ~1,169億
-const TOTAL_PULLS = 26460;
+const TARGET_ASSETS = 200000000000;  // 2,000億
+const TOTAL_PULLS = 30000;
 
 // ============================================================
 // Firebase-sourced data (exact)
@@ -105,10 +105,10 @@ const weeklyScores = {
 function buildCollection() {
   const col = {};
 
-  // Base distribution: realistic counts for 26,460 pulls with synthesis
+  // Base distribution: realistic counts for 30,000 pulls with synthesis
   // Players actively synthesize low ranks into higher ones
   const basePerType = {
-    1: 30, 2: 20, 3: 12, 4: 8, 5: 6, 6: 4, 7: 3, 8: 2
+    1: 35, 2: 25, 3: 15, 4: 10, 5: 7, 6: 5, 7: 3, 8: 2
   };
 
   // Step 1: Add base items for all 6 types
