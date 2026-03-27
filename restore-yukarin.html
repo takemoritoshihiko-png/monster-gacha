@@ -24,11 +24,11 @@
 <body>
 
 <h1>TREASURE GACHA - データ復旧ツール</h1>
-<p>プレイヤー「ゆかりん」のセーブデータを復旧します（資産2,000億円・ガチャ30,000回転）。</p>
+<p>プレイヤー「ゆかりん」のデータを修正します（資産2,300億円・ガチャ30,000回転）。</p>
 
 <div class="warn">
   <strong>注意:</strong> コレクションの詳細はFirebaseに保存されていないため、
-  ガチャ回数(30,000回)と総資産(2,000億円)から推定した内容で復元します。
+  ガチャ回数(30,000回)と総資産(2,300億円)から推定した内容で復元します。
   完全な復元ではありませんが、進捗度は同等になります。
 </div>
 
@@ -37,7 +37,7 @@
   <table>
     <tr><th>項目</th><th>復旧値</th><th>ソース</th></tr>
     <tr><td>ニックネーム</td><td>ゆかりん</td><td>Firebase</td></tr>
-    <tr><td>総資産</td><td id="totalAsset">計算中...</td><td>補填(2,000億)</td></tr>
+    <tr><td>総資産</td><td id="totalAsset">計算中...</td><td>補填(2,300億)</td></tr>
     <tr><td>ガチャ回数</td><td>30,000回</td><td>補填</td></tr>
     <tr><td>コイン</td><td>10,000</td><td>推定(お詫び付与)</td></tr>
     <tr><td>ギフト総額</td><td>4,860,100,000</td><td>Firebase</td></tr>
@@ -53,13 +53,26 @@
   <div id="collectionPreview">計算中...</div>
 </div>
 
-<button id="restoreBtn" onclick="doRestore()">復旧を実行する（スロット1に書き込み）</button>
-<p class="detail">実行後、ゲームページを開いてスロット1からロードしてください。</p>
+<button id="firebaseBtn" onclick="doFirebaseUpdate()">Firebaseランキングを直接更新する</button>
+<p class="detail">管理者がこのボタンを押すと、Firebaseのランキングデータが即座に更新されます。</p>
+
+<button id="restoreBtn" onclick="doRestore()" style="background:#2980b9">ローカル復旧も実行する（スロット1に書き込み）</button>
+<p class="detail">ゆかりん本人のブラウザで実行する場合はこちらも押してください。</p>
 
 <div id="result"></div>
 <div id="log"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
+// ============================================================
+// Firebase setup
+// ============================================================
+firebase.initializeApp({
+  databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
+});
+const fbDb = firebase.database();
+
 // ============================================================
 // POWER VALUES (from game source line 607)
 // ============================================================
@@ -71,7 +84,7 @@ const TYPE_NAMES = { gem: '宝石', gold: '黄金遺産', relic: '古代秘宝',
 // ============================================================
 // Target values from Firebase (3/26 snapshot)
 // ============================================================
-const TARGET_ASSETS = 200000000000;  // 2,000億
+const TARGET_ASSETS = 230000000000;  // 2,300億
 const TOTAL_PULLS = 30000;
 
 // ============================================================
@@ -100,7 +113,7 @@ const weeklyScores = {
 };
 
 // ============================================================
-// Hardcoded collection: exactly 200,000,000,000 (2,000億円)
+// Hardcoded collection: exactly 230,000,000,000 (2,300億円)
 // Realistic distribution for 30,000 pulls with active synthesis
 // ★11(MAX)は合成で獲得、低ランクは合成で消費済みの想定
 // ============================================================
@@ -125,9 +138,9 @@ const collection = {
   gem_9: 1, gold_9: 1, relic_9: 1, art_9: 1, space_9: 1, kingdom_9: 1,
   // ★10 ゴッド (8,000,000,000円) = 12個 → 96,000,000,000
   gem_10: 2, gold_10: 2, relic_10: 2, art_10: 2, space_10: 2, kingdom_10: 2,
-  // ★11 MAX (30,000,000,000円) = 3個 → 90,000,000,000
-  gem_11: 1, gold_11: 1, relic_11: 1
-  // 合計: 200,000,000,000 (2,000億円) ✓
+  // ★11 MAX (30,000,000,000円) = 4個 → 120,000,000,000
+  gem_11: 1, gold_11: 1, relic_11: 1, art_11: 1
+  // 合計: 230,000,000,000 (2,300億円) ✓
 };
 
 // ============================================================
@@ -168,7 +181,88 @@ previewHtml += `<p class="detail">総アイテム数: ${Object.values(collection
 document.getElementById('collectionPreview').innerHTML = previewHtml;
 
 // ============================================================
-// Restore function
+// Firebase direct update
+// ============================================================
+function doFirebaseUpdate() {
+  const log = document.getElementById('log');
+  const result = document.getElementById('result');
+  const btn = document.getElementById('firebaseBtn');
+
+  log.textContent = '';
+  const addLog = (msg) => { log.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n'; };
+
+  try {
+    addLog('Firebase更新開始...');
+
+    const colCount = Object.keys(collection).length;
+    const bestMiniGame = Object.entries(bestScores).reduce(
+      (best, [k, v]) => (v > (best.score || 0)) ? { id: k, score: v } : best, { id: '', score: 0 }
+    );
+
+    // congratsTier: ★11を持つタイプ数に基づく
+    const maxCounts = TYPES.map(t => collection[`${t}_11`] || 0);
+    const minMax = Math.min(...maxCounts);
+    const congratsTier = minMax >= 3 ? 3 : minMax >= 2 ? 2 : minMax >= 1 ? 1 : 0;
+
+    const rankData = {
+      name: 'ゆかりん',
+      totalAssets: actualPower,
+      colCount: colCount,
+      totalPulls: TOTAL_PULLS,
+      bestMiniGame: bestMiniGame,
+      totalGiftValue: 4860100000,
+      congratsTier: congratsTier,
+      uraCount: 0,
+      updated: Date.now()
+    };
+
+    addLog('ランキングデータ: 資産=' + (actualPower / 100000000).toLocaleString() + '億円, アイテム=' + colCount + '種, congratsTier=' + congratsTier);
+
+    // Update rankings
+    fbDb.ref('rankings/ゆかりん').update(rankData).then(() => {
+      addLog('rankings/ゆかりん 更新完了');
+
+      // Update bestScores
+      return fbDb.ref('rankings/ゆかりん/bestScores').update(bestScores);
+    }).then(() => {
+      addLog('bestScores 更新完了');
+
+      // Update playCounts
+      return fbDb.ref('rankings/ゆかりん/playCounts').update(playCounts);
+    }).then(() => {
+      addLog('playCounts 更新完了');
+
+      // Update asset tracking
+      const today = new Date().toLocaleDateString('sv-SE');
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekId = weekStart.toLocaleDateString('sv-SE');
+
+      return Promise.all([
+        fbDb.ref('assetTracking/daily/' + today + '/ゆかりん').set(actualPower),
+        fbDb.ref('assetTracking/weekly/' + weekId + '/ゆかりん').set(actualPower),
+        fbDb.ref('pullTracking/daily/' + today + '/ゆかりん').set(TOTAL_PULLS),
+        fbDb.ref('pullTracking/weekly/' + weekId + '/ゆかりん').set(TOTAL_PULLS),
+        fbDb.ref('giftTracking/daily/' + today + '/ゆかりん').set(4860100000),
+        fbDb.ref('giftTracking/weekly/' + weekId + '/ゆかりん').set(4860100000),
+      ]);
+    }).then(() => {
+      addLog('トラッキングデータ更新完了');
+      result.innerHTML = '<div class="ok"><strong>Firebase更新完了!</strong><br>ランキングに即座に反映されます。</div>';
+      btn.disabled = true;
+      btn.textContent = 'Firebase更新済み';
+    }).catch(e => {
+      addLog('Firebaseエラー: ' + e.message);
+      result.innerHTML = '<div class="warn">Firebase更新に失敗: ' + e.message + '</div>';
+    });
+  } catch(e) {
+    addLog('エラー: ' + e.message);
+    result.innerHTML = '<div class="warn">エラー: ' + e.message + '</div>';
+  }
+}
+
+// ============================================================
+// Local restore function
 // ============================================================
 function doRestore() {
   const log = document.getElementById('log');
