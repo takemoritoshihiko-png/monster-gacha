@@ -1754,7 +1754,8 @@ function MonsterGacha() {
         const cTier = (() => {
           const mc = TYPES.map(t => { const c = compressed[`${t.id}_11`]; return typeof c === 'number' ? c : 0; });
           const mn = Math.min(...mc);
-          return mn >= 3 ? 3 : mn >= 2 ? 2 : mn >= 1 ? 1 : 0;
+          const uraComplete = (s.uraObtained || []).length >= URA_ITEMS.length;
+          return uraComplete ? 3 : mn >= 3 ? 2 : mn >= 1 ? 1 : 0;
         })();
         const rankBase = { name: s.nickname, totalAssets: colPower, colCount: colCount, totalPulls: s.totalPulls, bestMiniGame: bestMiniGame, totalGiftValue: s.totalGiftValue || 0, congratsTier: cTier, uraCount: (s.uraObtained || []).length, updated: Date.now() };
         if (window.fbDb) {
