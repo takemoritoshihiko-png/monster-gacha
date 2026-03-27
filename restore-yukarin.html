@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ゆかりん データ復旧ツール</title>
+<style>
+  body { background: #1a1a2e; color: #eee; font-family: sans-serif; padding: 20px; max-width: 700px; margin: 0 auto; }
+  h1 { color: #ffd700; font-size: 1.4em; }
+  .info { background: #16213e; padding: 15px; border-radius: 8px; margin: 12px 0; }
+  .info h3 { margin: 0 0 8px; color: #00d2ff; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  td, th { padding: 4px 8px; text-align: left; border-bottom: 1px solid #333; }
+  th { color: #aaa; }
+  .warn { background: #3d1f00; border: 1px solid #ff9800; padding: 12px; border-radius: 8px; margin: 12px 0; }
+  button { background: #e74c3c; color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1.1em; cursor: pointer; margin: 16px 0; }
+  button:hover { background: #c0392b; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  .ok { background: #0d3320; border: 1px solid #2ecc71; padding: 12px; border-radius: 8px; margin: 12px 0; }
+  .detail { font-size: 0.85em; color: #aaa; margin-top: 8px; }
+  #log { background: #0a0a1a; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.8em; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<h1>TREASURE GACHA - データ復旧ツール</h1>
+<p>プレイヤー「ゆかりん」のセーブデータを3/26時点のFirebaseデータから復旧します。</p>
+
+<div class="warn">
+  <strong>注意:</strong> コレクションの詳細（どのモンスターを何体持っていたか）はFirebaseに保存されていないため、
+  ガチャ回数(26,460回)と総資産(約1,169億円)から統計的に推定した内容で復元します。
+  完全な復元ではありませんが、進捗度は同等になります。
+</div>
+
+<div class="info">
+  <h3>復旧データ概要</h3>
+  <table>
+    <tr><th>項目</th><th>復旧値</th><th>ソース</th></tr>
+    <tr><td>ニックネーム</td><td>ゆかりん</td><td>Firebase</td></tr>
+    <tr><td>総資産</td><td id="totalAsset">計算中...</td><td>推定(3/26: 1,169億)</td></tr>
+    <tr><td>ガチャ回数</td><td>26,460回</td><td>Firebase</td></tr>
+    <tr><td>コイン</td><td>10,000</td><td>推定(お詫び付与)</td></tr>
+    <tr><td>ギフト総額</td><td>4,860,100,000</td><td>Firebase</td></tr>
+    <tr><td>ミニゲームスコア</td><td>16種全て</td><td>Firebase(完全)</td></tr>
+    <tr><td>プレイ回数</td><td>16種全て</td><td>Firebase(完全)</td></tr>
+    <tr><td>ログインストリーク</td><td>5日</td><td>推定</td></tr>
+    <tr><td>裏ミュージアム</td><td>未取得(0)</td><td>Firebase</td></tr>
+  </table>
+</div>
+
+<div class="info">
+  <h3>復元コレクション内訳</h3>
+  <div id="collectionPreview">計算中...</div>
+</div>
+
+<button id="restoreBtn" onclick="doRestore()">復旧を実行する（スロット1に書き込み）</button>
+<p class="detail">実行後、ゲームページを開いてスロット1からロードしてください。</p>
+
+<div id="result"></div>
+<div id="log"></div>
+
+<script>
+// ============================================================
+// POWER VALUES (from game source line 607)
+// ============================================================
+const POWER_VALUES = [1000, 10000, 100000, 500000, 2500000, 12000000, 60000000, 300000000, 1500000000, 8000000000, 30000000000, 100000000000];
+
+const TYPES = ['gem', 'gold', 'relic', 'art', 'space', 'kingdom'];
+const TYPE_NAMES = { gem: '宝石', gold: '黄金遺産', relic: '古代秘宝', art: '芸術品', space: '宇宙の秘宝', kingdom: '王国' };
+
+// ============================================================
+// Target values from Firebase (3/26 snapshot)
+// ============================================================
+const TARGET_ASSETS = 116997109000;  // ~1,169億
+const TOTAL_PULLS = 26460;
+
+// ============================================================
+// Firebase-sourced data (exact)
+// ============================================================
+const bestScores = {
+  batting: 1438, chainBurst: 2377, coinRunner: 1519, gem: 466,
+  juggler: 2484, kuku: 624, mathEasy: 648, mathHardAdd: 900,
+  mathHardMult: 360, mathMid: 720, memory: 640, pinball: 1135,
+  quickdraw: 444, shooting: 622, tap: 867, timing: 720, tower: 894
+};
+
+const playCounts = {
+  batting: 2, chainBurst: 42, coinRunner: 1, gem: 4,
+  juggler: 3, kuku: 6, mathEasy: 1, mathHardAdd: 1,
+  mathHardMult: 1, mathMid: 1, memory: 11, pinball: 2,
+  quickdraw: 2, shooting: 4, tap: 92, timing: 9, tower: 5
+};
+
+const weeklyScores = {
+  _weekId: "2026-03-23",
+  batting: 1438, chainBurst: 2377, coinRunner: 1519, gem: 466,
+  juggler: 2484, kuku: 624, mathEasy: 648, mathHardAdd: 900,
+  mathHardMult: 360, mathMid: 720, memory: 640, pinball: 1135,
+  quickdraw: 444, shooting: 622, tap: 867, timing: 720, tower: 894
+};
+
+// ============================================================
+// Build collection to match target assets
+// ============================================================
+function buildCollection() {
+  const col = {};
+
+  // Base distribution: realistic counts for 26,460 pulls with synthesis
+  // Players actively synthesize low ranks into higher ones
+  const basePerType = {
+    1: 30, 2: 20, 3: 12, 4: 8, 5: 6, 6: 4, 7: 3, 8: 2
+  };
+
+  // Step 1: Add base items for all 6 types
+  for (const t of TYPES) {
+    for (const [rank, count] of Object.entries(basePerType)) {
+      col[`${t}_${rank}`] = count;
+    }
+  }
+
+  // Step 2: Calculate base value
+  let baseValue = 0;
+  for (const [k, count] of Object.entries(col)) {
+    const rank = parseInt(k.split('_')[1]);
+    baseValue += POWER_VALUES[rank - 1] * count;
+  }
+
+  // Step 3: Fill remaining value with high-rank items
+  let remaining = TARGET_ASSETS - baseValue;
+
+  // Add rank 9 items (distributed across types)
+  const r9perType = [1, 1, 1, 1, 1, 1]; // 1 each = 6 total
+  for (let i = 0; i < TYPES.length; i++) {
+    col[`${TYPES[i]}_9`] = r9perType[i];
+    remaining -= POWER_VALUES[8] * r9perType[i];
+  }
+
+  // Add rank 10 items to fill most of remaining value
+  // congratsTier is 0, so we DON'T give all types MAX
+  // Distribute rank 10 items
+  const r10count = Math.floor(remaining / POWER_VALUES[9]);
+  const r10perType = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < r10count; i++) {
+    r10perType[i % TYPES.length]++;
+  }
+  for (let i = 0; i < TYPES.length; i++) {
+    if (r10perType[i] > 0) {
+      col[`${TYPES[i]}_10`] = r10perType[i];
+      remaining -= POWER_VALUES[9] * r10perType[i];
+    }
+  }
+
+  // Remaining value: add more rank 9 items if needed
+  if (remaining > POWER_VALUES[8]) {
+    const extra9 = Math.floor(remaining / POWER_VALUES[8]);
+    col[`gem_9`] = (col[`gem_9`] || 0) + extra9;
+    remaining -= POWER_VALUES[8] * extra9;
+  }
+
+  // Fine-tune with rank 8 items
+  if (remaining > POWER_VALUES[7]) {
+    const extra8 = Math.floor(remaining / POWER_VALUES[7]);
+    col[`gem_8`] = (col[`gem_8`] || 0) + extra8;
+    remaining -= POWER_VALUES[7] * extra8;
+  }
+
+  return col;
+}
+
+// ============================================================
+// Calculate total power
+// ============================================================
+function calcPower(col) {
+  let total = 0;
+  for (const [k, count] of Object.entries(col)) {
+    const rank = parseInt(k.split('_')[1]);
+    total += (POWER_VALUES[rank - 1] || 0) * count;
+  }
+  return total;
+}
+
+// ============================================================
+// Display preview
+// ============================================================
+const collection = buildCollection();
+const actualPower = calcPower(collection);
+
+document.getElementById('totalAsset').textContent =
+  (actualPower / 100000000).toLocaleString(undefined, { maximumFractionDigits: 0 }) + '億円 (' + actualPower.toLocaleString() + ')';
+
+// Collection preview
+let previewHtml = '<table><tr><th>タイプ</th>';
+for (let r = 1; r <= 11; r++) previewHtml += `<th>★${r}</th>`;
+previewHtml += '</tr>';
+for (const t of TYPES) {
+  previewHtml += `<tr><td>${TYPE_NAMES[t]}</td>`;
+  for (let r = 1; r <= 11; r++) {
+    const count = collection[`${t}_${r}`] || 0;
+    const style = count > 0 && r >= 9 ? 'color:#ffd700;font-weight:bold' : count > 0 ? '' : 'color:#555';
+    previewHtml += `<td style="${style}">${count || '-'}</td>`;
+  }
+  previewHtml += '</tr>';
+}
+previewHtml += '</table>';
+previewHtml += `<p class="detail">総アイテム数: ${Object.values(collection).reduce((s, c) => s + c, 0)}個 / 差分: ${(actualPower - TARGET_ASSETS).toLocaleString()}円</p>`;
+document.getElementById('collectionPreview').innerHTML = previewHtml;
+
+// ============================================================
+// Restore function
+// ============================================================
+function doRestore() {
+  const log = document.getElementById('log');
+  const result = document.getElementById('result');
+  const btn = document.getElementById('restoreBtn');
+
+  log.textContent = '';
+  const addLog = (msg) => { log.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n'; };
+
+  try {
+    addLog('復旧開始...');
+
+    const saveData = {
+      coins: 10000,
+      collection: collection,
+      totalPulls: TOTAL_PULLS,
+      loginDay: 10,
+      spending: [],
+      nickname: "ゆかりん",
+      bestScores: bestScores,
+      playCounts: playCounts,
+      lastLoginDate: "2026-03-26",
+      loginStreak: 5,
+      weeklyScores: weeklyScores,
+      totalGiftValue: 4860100000,
+      giftsSentToday: 0,
+      lastGiftDate: null,
+      uraObtained: [],
+      uraUnlocked: false,
+      lastSave: Date.now()
+    };
+
+    const json = JSON.stringify(saveData);
+    addLog('データサイズ: ' + json.length + ' bytes');
+
+    // Write to slot 1
+    localStorage.setItem('tgacha-s1', json);
+    addLog('スロット1に書き込み完了');
+
+    // Write nickname
+    localStorage.setItem('tgacha-nickname', 'ゆかりん');
+    addLog('ニックネーム書き込み完了');
+
+    // Verify
+    const readBack = localStorage.getItem('tgacha-s1');
+    if (readBack) {
+      const parsed = JSON.parse(readBack);
+      if (parsed.lastSave === saveData.lastSave) {
+        addLog('検証OK: データ一致確認');
+        result.innerHTML = '<div class="ok"><strong>復旧完了!</strong><br>ゲームページ (<a href="https://takemoritoshihiko-png.github.io/monster-gacha/" style="color:#2ecc71">こちら</a>) を開いて、スロット1からロードしてください。</div>';
+        btn.disabled = true;
+        btn.textContent = '復旧済み';
+      } else {
+        addLog('検証NG: lastSave不一致');
+        result.innerHTML = '<div class="warn">検証に失敗しました。再度お試しください。</div>';
+      }
+    } else {
+      addLog('検証NG: 読み返し失敗');
+      result.innerHTML = '<div class="warn">書き込みに失敗しました。ブラウザの設定を確認してください。</div>';
+    }
+  } catch(e) {
+    addLog('エラー: ' + e.message);
+    result.innerHTML = '<div class="warn">エラー: ' + e.message + '</div>';
+  }
+}
+</script>
+
+</body>
+</html>
