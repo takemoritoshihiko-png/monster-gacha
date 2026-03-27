@@ -238,6 +238,13 @@ function doFirebaseUpdate() {
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
       const weekId = weekStart.toLocaleDateString('sv-SE');
 
+      // weeklyRankings: 週間スコアランキング
+      const wsData = {};
+      Object.entries(weeklyScores).forEach(([gid, score]) => {
+        if (gid !== '_weekId' && score > 0) wsData[gid] = score;
+      });
+      const wsWeekId = weeklyScores._weekId || weekId;
+
       return Promise.all([
         fbDb.ref('assetTracking/daily/' + today + '/ゆかりん').set(actualPower),
         fbDb.ref('assetTracking/weekly/' + weekId + '/ゆかりん').set(actualPower),
@@ -245,9 +252,11 @@ function doFirebaseUpdate() {
         fbDb.ref('pullTracking/weekly/' + weekId + '/ゆかりん').set(TOTAL_PULLS),
         fbDb.ref('giftTracking/daily/' + today + '/ゆかりん').set(4860100000),
         fbDb.ref('giftTracking/weekly/' + weekId + '/ゆかりん').set(4860100000),
+        fbDb.ref('dailyGiftTotal/' + today + '/ゆかりん').set(4860100000),
+        fbDb.ref('weeklyRankings/' + wsWeekId + '/ゆかりん').update(wsData),
       ]);
     }).then(() => {
-      addLog('トラッキングデータ更新完了');
+      addLog('トラッキング・週間ランキング更新完了');
       result.innerHTML = '<div class="ok"><strong>Firebase更新完了!</strong><br>ランキングに即座に反映されます。</div>';
       btn.disabled = true;
       btn.textContent = 'Firebase更新済み';
