@@ -1595,8 +1595,8 @@ function MonsterGacha() {
         const ci = CONGRATS_TIERS[0];
         loadedCol['cg1_12'] = { name: ci.name, icon: ci.icon, desc: ci.desc, typeId: 'congrats', typeName: '展示室報酬', typeEmoji: ci.icon, typeColor: ci.tierColor, rank: 12, rarity: nr, count: 1 };
       }
-      // ゆかりんデータ復旧: 資産2,300億・ガチャ30,000回転
-      if (d.nickname === 'ゆかりん' && !localStorage.getItem('_restoreYukarin_v2')) {
+      // ゆかりんデータ復旧: 資産2,300億・ガチャ31,000回転
+      if (d.nickname === 'ゆかりん' && !localStorage.getItem('_restoreYukarin_v3')) {
         const yukarinCol = {
           gem_1:20,gold_1:12,relic_1:12,art_1:12,space_1:12,kingdom_1:12,
           gem_2:10,gold_2:10,relic_2:8,art_2:8,space_2:8,kingdom_2:8,
@@ -1610,14 +1610,23 @@ function MonsterGacha() {
           gem_10:2,gold_10:2,relic_10:2,art_10:2,space_10:2,kingdom_10:2,
           gem_11:1,gold_11:1,relic_11:1,art_11:1
         };
-        Object.assign(loadedCol, decompressCol(yukarinCol));
+        // コレクションを復旧値で完全置換
+        const restored = decompressCol(yukarinCol);
+        for (const k of Object.keys(loadedCol)) { if (!restored[k]) delete loadedCol[k]; }
+        Object.assign(loadedCol, restored);
         d.totalPulls = 31000;
-        d.bestScores = {batting:1438,chainBurst:2377,coinRunner:1519,gem:466,juggler:2484,kuku:624,mathEasy:648,mathHardAdd:900,mathHardMult:360,mathMid:720,memory:640,pinball:1135,quickdraw:444,shooting:622,tap:867,timing:720,tower:894};
-        d.playCounts = {batting:2,chainBurst:42,coinRunner:1,gem:4,juggler:3,kuku:6,mathEasy:1,mathHardAdd:1,mathHardMult:1,mathMid:1,memory:11,pinball:2,quickdraw:2,shooting:4,tap:92,timing:9,tower:5};
+        // スコア・プレイ回数は復旧値と現在値の大きい方を採用
+        const restoreBS = {batting:1438,chainBurst:2377,coinRunner:1519,gem:466,juggler:2484,kuku:624,mathEasy:648,mathHardAdd:900,mathHardMult:360,mathMid:720,memory:640,pinball:1135,quickdraw:444,shooting:622,tap:867,timing:720,tower:894};
+        const restorePC = {batting:2,chainBurst:42,coinRunner:1,gem:4,juggler:3,kuku:6,mathEasy:1,mathHardAdd:1,mathHardMult:1,mathMid:1,memory:11,pinball:2,quickdraw:2,shooting:4,tap:92,timing:9,tower:5};
+        const curBS = d.bestScores || {};
+        const curPC = d.playCounts || {};
+        d.bestScores = {}; d.playCounts = {};
+        for (const g of new Set([...Object.keys(restoreBS), ...Object.keys(curBS)])) d.bestScores[g] = Math.max(restoreBS[g] || 0, curBS[g] || 0);
+        for (const g of new Set([...Object.keys(restorePC), ...Object.keys(curPC)])) d.playCounts[g] = Math.max(restorePC[g] || 0, curPC[g] || 0);
         d.weeklyScores = {_weekId:"2026-03-23",batting:1438,chainBurst:2377,coinRunner:1519,gem:466,juggler:2484,kuku:624,mathEasy:648,mathHardAdd:900,mathHardMult:360,mathMid:720,memory:640,pinball:1135,quickdraw:444,shooting:622,tap:867,timing:720,tower:894};
-        d.totalGiftValue = 4860100000;
+        d.totalGiftValue = Math.max(d.totalGiftValue || 0, 4860100000);
         d.coins = Math.max(d.coins || 0, 10000);
-        localStorage.setItem('_restoreYukarin_v2', '1');
+        localStorage.setItem('_restoreYukarin_v3', '1');
       }
       setCollection(loadedCol);
       setTotalPulls(d.totalPulls ?? 0);
