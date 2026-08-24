@@ -616,7 +616,7 @@ function formatYen(n) {
 }
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
-const GACHA_COST_20 = 400;
+const GACHA_COST_30 = 600;
 
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
@@ -2251,7 +2251,7 @@ function MonsterGacha() {
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
 
   const pull = useCallback((n) => {
-    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_20;
+    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_30;
     if (coins < cost) return;
     bgm.stop(); stopMainBgm();
     setCoins(c => c - cost);
@@ -2561,7 +2561,7 @@ function MonsterGacha() {
         const nk = `${c.typeId}_${c.targetRank}`;
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + sc };
         else n[nk] = { ...nm, typeId: c.typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: c.targetRank, rarity: nr, count: sc };
-        if (c.targetRank >= 8) {
+        if (c.targetRank >= 9) {
           rareItems.push({ icon: nm.icon, name: nm.name, rank: c.targetRank, rarity: nr, count: sc, img: nm.img });
         }
       }
@@ -3831,13 +3831,13 @@ function MonsterGacha() {
                     <span style={{ fontSize: 18, fontWeight: 900, position: 'relative' }}>💎 10連</span>
                     <span style={{ fontSize: 11, opacity: 0.6, position: 'relative' }}>🪙 {GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" disabled={coins < GACHA_COST_20} onClick={() => pull(20)}
+                  <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(30)}
                     style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 8px',
                       background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
                       border: '1px solid rgba(139,92,246,0.25)',
                       boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 20連</span>
-                    <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_20}</span>
+                    <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 30連</span>
+                    <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_30}</span>
                   </button>
                 </div>
 
@@ -3872,6 +3872,17 @@ function MonsterGacha() {
             )}
             {gachaPhase === "chests" && (
               <div className="gs">
+                {/* Pull buttons pinned ABOVE the chests/results so their screen position never shifts between consecutive pulls */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }} disabled={!allOpened || coins < GACHA_COST_10} onClick={() => pull(10)}>
+                    <span style={{ fontWeight: 900 }}>💎 10連</span>
+                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_10}</span>
+                  </button>
+                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_30} onClick={() => pull(30)}>
+                    <span style={{ fontWeight: 900 }}>🔥 30連</span>
+                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_30}</span>
+                  </button>
+                </div>
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
                 {allOpened && <p style={{ fontSize: 16, fontWeight: 900 }}>🎉 結果</p>}
                 <div className="cr" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
@@ -3946,18 +3957,6 @@ function MonsterGacha() {
                     </div>
                   );
                 })()}
-                {allOpened && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }} disabled={coins < GACHA_COST_10} onClick={() => pull(10)}>
-                      <span style={{ fontWeight: 900 }}>💎 10連</span>
-                      <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_10}</span>
-                    </button>
-                    <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={coins < GACHA_COST_20} onClick={() => pull(20)}>
-                      <span style={{ fontWeight: 900 }}>🔥 20連</span>
-                      <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_20}</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -11449,7 +11448,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
 
       {/* Synth result animation */}
       {synthResult && (
-        synthResult.rank >= 8 && !synthResult.batch ? (
+        synthResult.rank >= 9 && !synthResult.batch ? (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             background: synthResult.rank >= 10
               ? 'radial-gradient(circle, rgba(80,40,0,0.92), rgba(0,0,0,0.97))'
