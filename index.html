@@ -7438,6 +7438,8 @@ const GA_SND = {
   sinBoom: [2.4, (s, ch) => { const boom = (Math.random() * 2 - 1) * Math.exp(-s * 2.2) * 0.7; const sub = Math.sin(2 * Math.PI * 38 * s) * Math.exp(-s * 1.4) * 0.6; const shine = Math.sin(2 * Math.PI * (6000 * Math.exp(-s * 5)) * s) * Math.exp(-s * 6) * 0.3; return (boom + sub + shine) * (ch === 0 ? 0.62 : 0.58); }],
   glass: [1.2, (s, ch) => { let v = 0; for (let i = 0; i < 18; i++) { const o = i * 0.045, f = 2600 + i * 430 + ch * 120; if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 13) * 0.09; } return (v + (Math.random() * 2 - 1) * Math.exp(-s * 6) * 0.25) * 0.9; }],
   thunder: [1.0, (s, ch) => { const crack = Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 14)) * s) * Math.exp(-s * 10) * 0.4; const boom = (Math.random() * 2 - 1) * Math.exp(-s * 3.2) * 0.55; const sub = Math.sin(2 * Math.PI * 45 * s * (1 + 0.25 * Math.random())) * Math.exp(-s * 2) * 0.45; return (crack + boom + sub) * (ch === 0 ? 0.6 : 0.55); }],
+  // P3: GODファンファーレ①地鳴り(D1=36.7Hzサブ+ノイズスウェル0.8秒)
+  godRumble: [0.85, (s, ch) => { const env = Math.min(s / 0.6, 1) * (s > 0.72 ? Math.max(0, 1 - (s - 0.72) / 0.13) : 1); const sub = Math.sin(2 * Math.PI * 36.7 * s) * 0.8 + Math.sin(2 * Math.PI * 73.4 * s) * 0.18; const nz = (Math.random() * 2 - 1) * 0.24 * Math.pow(Math.min(s / 0.7, 1), 2); return (sub + nz) * env * (ch === 0 ? 0.62 : 0.58); }],
   oneG: [0.8, (s, ch) => { const thunder = (Math.random() * 2 - 1) * Math.exp(-s * 3) * 0.7; const crack = Math.sin(2 * Math.PI * 80 * s) * Math.exp(-s * 5) * 0.5; const rumble = Math.sin(2 * Math.PI * 40 * s * (1 + Math.random() * 0.3)) * Math.exp(-s * 1.5) * 0.4; const zap = Math.sin(2 * Math.PI * (8000 * Math.exp(-s * 12)) * s) * Math.exp(-s * 8) * 0.3; return (thunder + crack + rumble + zap) * (ch === 0 ? 0.6 : 0.55); }],
 };
 function gaPlay(key, vol) {
@@ -7462,6 +7464,72 @@ function gaWarmup() {
     ric(step);
   };
   ric(step);
+}
+
+// --- P3: 勝利音の音色3種(オルガン / スーパーソウ / コーラス風)。オシレータ直演奏なので playing 中でも軽い ---
+let gaWave = null, gaWaveCtx = null;
+function gaOrganWave(a) {
+  if (!gaWave || gaWaveCtx !== a) {
+    gaWave = a.createPeriodicWave(new Float32Array([0, 1, .6, .4, .3, 0, .15, 0, .08]), new Float32Array(9));
+    gaWaveCtx = a;
+  }
+  return gaWave;
+}
+function gaEnv(g, t0, dur, vol, at, rel) {
+  const hold = Math.max(at + 0.005, dur - rel);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + at);
+  g.gain.setValueAtTime(vol, t0 + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+}
+// オルガン: createPeriodicWave(9倍音)
+function gaOrgan(f, st, dur, vol) {
+  const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
+  const o = a.createOscillator(), g = a.createGain();
+  o.setPeriodicWave(gaOrganWave(a)); o.frequency.value = f;
+  const t0 = a.currentTime + st;
+  gaEnv(g, t0, dur, vol, 0.03, Math.min(0.2, dur * 0.4));
+  o.connect(g); g.connect(gaGetBus() || a.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+// スーパーソウ: sawtooth 3本を ±7cent デチューン
+function gaSaw(f, st, dur, vol) {
+  const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
+  const g = a.createGain(), t0 = a.currentTime + st;
+  gaEnv(g, t0, dur, vol, 0.012, Math.min(0.14, dur * 0.4));
+  g.connect(gaGetBus() || a.destination);
+  for (let i = 0; i < 3; i++) {
+    const o = a.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+    o.detune.value = (i - 1) * 7; o.connect(g); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+}
+// コーラス風: sawtooth → bandpass(800/1150Hz,Q=8)2連 + LFOでフォルマント揺らし
+function gaChoir(f, st, dur, vol) {
+  const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
+  const t0 = a.currentTime + st;
+  const o = a.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+  const g = a.createGain();
+  gaEnv(g, t0, dur, vol, 0.16, Math.min(0.45, dur * 0.4));
+  const lfo = a.createOscillator(), lg = a.createGain();
+  lfo.type = 'sine'; lfo.frequency.value = 4.6; lg.gain.value = 55;
+  lfo.connect(lg);
+  [800, 1150].forEach(fc => {
+    const b = a.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fc; b.Q.value = 8;
+    lg.connect(b.frequency); o.connect(b); b.connect(g);
+  });
+  g.connect(gaGetBus() || a.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+}
+// P3: GODファンファーレ(ニ長調・約4秒)。①地鳴り→②静寂 は呼び出し側で先行させ、ここは③和音進行+④きらめき
+function gaGodFanfare() {
+  if (!audioCtx) return;
+  [[[146.83, 220, 293.66], 0], [[196, 246.94, 293.66], 0.7], [[220, 277.18, 329.63], 1.4]].forEach(c => {
+    c[0].forEach(f => gaOrgan(f, c[1], 0.72, 0.12));
+  });
+  [293.66, 369.99, 440, 587.33].forEach(f => gaOrgan(f, 2.1, 1.25, 0.125));  // 最終和音
+  gaSaw(293.66, 2.1, 1.25, 0.05); gaSaw(440, 2.1, 1.25, 0.045);              // スーパーソウを重ねる
+  gaChoir(587.33, 2.12, 1.3, 0.06);                                          // コーラスパッドを重ねる
+  [[1174.66, 3.15], [880, 3.30], [1174.66, 3.45]].forEach(k => gaOrgan(k[0], k[1], 0.16, 0.085)); // ④きらめき
 }
 
 // --- 検証済みSVG図柄(symbol-mock.html採用案)。<defs>は1回だけ定義し <use> で参照。id は ga- プレフィクス ---
@@ -7653,6 +7721,9 @@ function GodAnotherGame({ onScore, onClose }) {
   const subTxtRef = useRef(null);
   const ringRef = useRef(null);
   const crtBarRef = useRef(null);
+  const crtBarRRef = useRef(null);   // P8: 色収差(赤)
+  const crtBarCRef = useRef(null);   // P8: 色収差(シアン)
+  const crtScanRef = useRef(null);   // P8: 走査線
   const crtLineRef = useRef(null);
   const crtDotRef = useRef(null);
   const crtStartRef = useRef(0);
@@ -7678,6 +7749,12 @@ function GodAnotherGame({ onScore, onClose }) {
   const barRef = useRef([]);
   const barPrevRef = useRef('');
   const barCacheRef = useRef([-1, -1, -1, -1, -1, -1, -1, -1]);
+  const barLockRef = useRef(0);      // P6: ロック段階(0=なし / 1〜3=点灯数)
+  // P7: canvasパーティクル(particle-mock.html検証済み機構)
+  const cvRef = useRef(null);
+  const psRef = useRef([]);
+  const sprRef = useRef(null);
+  const pRafRef = useRef(null);
   // ref コールバックは identity を固定(再レンダーごとの detach/attach を避ける)
   const cbRef = useRef(null);
   if (!cbRef.current) {
@@ -7701,11 +7778,11 @@ function GodAnotherGame({ onScore, onClose }) {
     ['cpurple', 1],      // クラッシュ→紫7 1/32768
     ['god', 8],          // GOD揃い 8/32768 = 1/4096
     ['meio', 3],         // 冥王揃い 3/32768 = 1/10922.7
-    ['purple', 10],      // 紫7揃い 10/32768 = 1/3276.8
-    ['y7', 70],          // 中段黄7 70/32768 = 1/468.1
+    ['purple', 20],      // 紫7揃い 20/32768 = 1/1638.4(確率2倍・配点半分=期待値不変)
+    ['y7', 140],         // 中段黄7 140/32768 = 1/234.1(確率2倍・配点半分=期待値不変)
     ['gase', 328],       // ガセ前兆 328/32768 = 1/99.9
   ];
-  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
+  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 1750, y7: 600 };
 
   const SYMS = {
     y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
@@ -7728,13 +7805,17 @@ function GodAnotherGame({ onScore, onClose }) {
   const RV_FAST = 2.6, RV_SLOW = 0.55, RV_TENPAI = 0.5;
   const XLINK = 'http://www.w3.org/1999/xlink';
   // P10: 上部ランプ帯の色(当たり種別ごと)
-  const BAR_C = { y7: '255,210,74', y7hold: '255,200,60', y7win: '255,230,130', purple: '190,110,255', meio: '150,220,255', god: '255,215,0', amazing: '255,235,140', crash: '255,90,70', allspin: '120,180,255', sinwin: '255,190,60' };
+  const BAR_C = { y7: '255,210,74', y7hold: '255,200,60', y7win: '255,230,130', purple: '190,110,255', meio: '150,220,255', god: '255,215,0', amazing: '255,235,140', crash: '255,90,70', allspin: '120,180,255', sinwin: '255,190,60', lock: '150,220,255' };
+  const FRZ = 800;         // P6: レバーONフリーズ(完全無音・無反応)。locked中はタイマー停止なので収支不変
+  const MEIO_PRE = 1800;   // P6: 冥王ロック段階(ロック1→700→ロック2→700→ロック3→400→暗転)
+  const P_MAX = 120;       // P7: 同時パーティクル上限
   const barGrad = (m, i) => {
     if (m === 'off') return 'none';
     const c = m === 'sinwin' ? (i % 2 ? '210,120,255' : '255,190,60') : BAR_C[m];
     return `radial-gradient(circle at 50% 45%,rgba(255,255,255,0.95) 0%,rgba(${c},0.95) 30%,rgba(${c},0.34) 54%,rgba(${c},0) 74%)`;
   };
   const barVal = (m, i, e) => {
+    if (m === 'lock') return i < barLockRef.current ? 1 : 0.06;   // P6: ロック段階の点灯数
     if (m === 'y7' || m === 'y7hold' || m === 'y7win') { const k = Math.floor(e * 7) % 4; return (i === k || i === 7 - k) ? 1 : 0.1; }
     if (m === 'purple') return (i % 2 === (Math.floor(e * 6) % 2)) ? 1 : 0.08;
     if (m === 'meio') return 0.12 + 0.88 * (0.5 + 0.5 * Math.sin(e * 3 - i * 0.5));
@@ -7791,7 +7872,24 @@ function GodAnotherGame({ onScore, onClose }) {
   const sndGodGong = () => gaPlay('godGong', 1.0);
   const sndGodCoins = () => gaPlay('godCoins', 0.8);
   const sndMeioRumble = () => gaPlay('meioRumble', 0.95);
-  const sndMeioBell = () => { [220, 277, 330, 440, 554, 659].forEach((f, i) => jTone(f, i * 0.09, 1.4, 0.13, 'triangle')); jTone(110, 0, 2.0, 0.1, 'sine'); };
+  // P3: 冥王(約3秒)= 低音クラスタ C2/C#2/G2 をオルガンで2.5秒持続 + 「怒りの日」の鐘モチーフ D4→C#4→D4→B3 を長残響で
+  const sndMeioBell = () => {
+    [65.41, 69.30, 98].forEach(f => gaOrgan(f, 0, 2.5, 0.105));
+    [[293.66, 0], [277.18, 0.5], [293.66, 1.0], [246.94, 1.5]].forEach(k => {
+      jTone(k[0], k[1], 1.7, 0.15, 'triangle');
+      jTone(k[0] * 2, k[1] + 0.01, 0.9, 0.05, 'triangle');
+      jTone(k[0] * 2.76, k[1], 0.5, 0.028, 'sine');
+    });
+  };
+  // P3: 紫7(約2秒・疾走)= スーパーソウ上昇 + シンバルノイズ(既存thunderに重ねる)
+  const sndPurpleRun = () => {
+    [329.63, 369.99, 415.30, 493.88, 659.25].forEach((f, i) => gaSaw(f, i * 0.12, 0.22, 0.085));
+    synth(0.7, (s, ch) => ((Math.random() * 2 - 1) * Math.exp(-s * 4.6)) * (ch === 0 ? 0.42 : 0.38), 0.26);
+  };
+  // P6: ロック音(ガコッ)。段階が上がるほど高く強く。ガセのロック1止まりにも使う
+  const sndLock = (n) => synth(0.5, (s, ch) => { const f = 148 + n * 46; return (Math.sin(2 * Math.PI * f * s + Math.sin(2 * Math.PI * f * 2 * s) * 0.6) * Math.exp(-s * 26) + Math.sin(2 * Math.PI * 58 * s) * 0.5 * Math.exp(-s * 16) + (Math.random() * 2 - 1) * 0.3 * Math.exp(-s * 34)) * (ch === 0 ? 0.5 : 0.46); }, 0.34 + n * 0.13);
+  // P9: 触覚(存在チェック付き)
+  const vib = (p) => { try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
   const sndCrack = () => synth(0.35, (s) => (Math.sin(2 * Math.PI * (1400 * Math.exp(-s * 20)) * s) * Math.exp(-s * 14) * 0.5 + (Math.random() * 2 - 1) * Math.exp(-s * 18) * 0.55) * 0.9, 0.8);
   const sndGlass = () => gaPlay('glass', 0.75);
   const sndAllSpin = () => gaPlay('allSpin', 0.45);
@@ -7800,15 +7898,23 @@ function GodAnotherGame({ onScore, onClose }) {
 
   // アメイジング・グレイス (G長調 / 1拍=0.55秒)
   const AG_NOTES = [[293.66, 1], [392, 2], [493.88, 0.5], [392, 0.5], [493.88, 2], [440, 1], [392, 2], [329.63, 1], [293.66, 2], [293.66, 1], [392, 2], [493.88, 0.5], [392, 0.5], [493.88, 2], [440, 1], [587.33, 3]];
+  // P3: 音列・拍・発火条件は不変。音色のみ差し替え(主旋律=オルガン / ハモリ=音階内3度下のオルガン第2声 / 下にGメジャー系コーラスパッド)
+  const AG_H = { 293.66: 246.94, 392: 329.63, 493.88: 392, 440: 369.99, 329.63: 261.63, 587.33: 493.88 };
+  const AG_PAD = [[196, 293.66], [261.63, 392], [196, 293.66], [293.66, 440], [196, 293.66]];  // G→C→G→D→G(根音+5度)
   const playAmazingGrace = () => {
     const B = 0.55; let t = 0;
     AG_NOTES.forEach(n => {
       const f = n[0], d = n[1] * B;
-      jTone(f, t, d * 0.95, 0.17, 'sine');
-      jTone(f * 2, t + 0.01, d * 0.6, 0.05, 'sine');
-      jTone(f / 2, t, d * 0.95, 0.06, 'sine');
-      if (n[1] >= 2) jTone(f * 1.5, t + 0.06, d * 0.7, 0.035, 'sine');
+      gaOrgan(f, t, d * 0.96, 0.13);
+      const h = AG_H[f]; if (h) gaOrgan(h, t + 0.015, d * 0.9, 0.075);
+      gaOrgan(f / 2, t, d * 0.9, 0.045);
       t += d;
+    });
+    const bar = 3 * B;   // 3拍=1小節。フレーズ頭から小節ごとに和音を敷く
+    AG_PAD.forEach((ch, i) => {
+      const st = i * bar; if (st >= t) return;
+      const d = (i === AG_PAD.length - 1 ? Math.max(bar, t - st) : bar) * 0.98;
+      ch.forEach((f, k) => gaChoir(f, st, d, k ? 0.03 : 0.038));
     });
   };
 
@@ -7959,6 +8065,79 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => { if (boltRef.current) boltRef.current.style.opacity = '0'; }, 270);
   };
 
+  // --- P7: canvasパーティクル1枚(スプライト事前描画+プール+drawImageのみ+粒が尽きたらRAF停止) ---
+  const mkSprite = (draw, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); return c; };
+  const ensureSprites = () => {
+    if (sprRef.current) return sprRef.current;
+    try {
+      const coin = mkSprite((c, w, h) => {
+        const g = c.createRadialGradient(w * 0.4, h * 0.35, 2, w / 2, h / 2, w / 2);
+        g.addColorStop(0, '#fff6c0'); g.addColorStop(0.45, '#ffd84d'); g.addColorStop(0.8, '#c8860a'); g.addColorStop(1, '#8d5c00');
+        c.fillStyle = g; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 2, 0, 7); c.fill();
+        c.strokeStyle = '#6b4a06'; c.lineWidth = 3; c.stroke();
+        c.strokeStyle = 'rgba(255,246,192,0.9)'; c.lineWidth = 2; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 7, 0, 7); c.stroke();
+        c.fillStyle = '#8d5c00'; c.font = 'bold ' + (w * 0.5) + 'px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('G', w / 2, h / 2 + 2);
+      }, 44, 44);
+      const dust = mkSprite((c, w, h) => {
+        const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+        g.addColorStop(0, 'rgba(255,240,170,1)'); g.addColorStop(0.5, 'rgba(255,210,74,0.55)'); g.addColorStop(1, 'rgba(255,210,74,0)');
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+      }, 18, 18);
+      const shard = mkSprite((c, w, h) => {
+        c.fillStyle = 'rgba(200,230,255,0.85)'; c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1.5;
+        c.beginPath(); c.moveTo(w * 0.5, 0); c.lineTo(w, h * 0.7); c.lineTo(w * 0.3, h); c.closePath(); c.fill(); c.stroke();
+      }, 26, 34);
+      const spark = mkSprite((c, w, h) => {
+        const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,122,224,0.85)'); g.addColorStop(0.7, 'rgba(196,139,255,0.4)'); g.addColorStop(1, 'rgba(196,139,255,0)');
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+      }, 22, 22);
+      sprRef.current = { coin, dust, shard, spark };
+    } catch (e) { sprRef.current = null; }
+    return sprRef.current;
+  };
+  const pTick = () => {
+    const cv = cvRef.current, ps = psRef.current;
+    if (!cv || !aliveRef.current) { pRafRef.current = null; psRef.current = []; return; }
+    const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const p = ps[i];
+      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+      if (p.y > H + 80 || p.life <= 0) { ps.splice(i, 1); continue; }
+      ctx.save(); ctx.translate(p.x, p.y);
+      if (p.squash >= 0) { p.squash += 0.18; ctx.rotate(p.rot); ctx.scale(Math.abs(Math.cos(p.squash)) * 0.9 + 0.1, 1); }
+      else if (p.vr) { ctx.rotate(p.rot); }
+      ctx.globalAlpha = p.life < 30 ? p.life / 30 : 1;
+      ctx.drawImage(p.spr, -p.spr.width / 2, -p.spr.height / 2);
+      ctx.restore();
+    }
+    if (ps.length) pRafRef.current = requestAnimationFrame(pTick);
+    else { pRafRef.current = null; cv.style.display = 'none'; }
+  };
+  const pBurst = (type) => {
+    const cv = cvRef.current; if (!cv) return;
+    const sp = ensureSprites(); if (!sp) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round((cv.clientWidth || 360) * dpr)), h = Math.max(1, Math.round((cv.clientHeight || 480) * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    cv.style.display = 'block';
+    const W = w, H = h, k = H / 1120, ps = psRef.current;   // k: モック(高さ1120)基準の速度スケール
+    const add = (n, init) => { for (let i = 0; i < n && ps.length < P_MAX; i++) ps.push(init()); };
+    if (type === 'coins') {
+      // 調整指示: vy 2.5〜4 + 出現高さの分散を広げ、雨が約2.5秒続くようにする
+      add(40, () => ({ spr: sp.coin, x: Math.random() * W, y: -0.05 * H - Math.random() * 1.25 * H, vx: (Math.random() - 0.5) * 1.2 * k, vy: (2.5 + Math.random() * 1.5) * k, g: 0.25 * k, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 0.3, life: 999, squash: Math.random() * 7 }));
+      add(60, () => ({ spr: sp.dust, x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.8 * k, vy: (-0.6 - Math.random() * 1.2) * k, g: -0.005 * k, rot: 0, vr: 0, life: 90 + Math.random() * 60, squash: -1 }));
+    } else if (type === 'glass') {
+      add(30, () => { const a = Math.random() * 6.28, s = (6 + Math.random() * 9) * k;
+        return { spr: sp.shard, x: W / 2, y: H * 0.35, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 3 * k, g: 0.5 * k, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 0.5, life: 999, squash: -1 }; });
+    } else {
+      add(80, () => { const a = Math.random() * 6.28, s = (2 + Math.random() * 11) * k;
+        return { spr: sp.spark, x: W / 2, y: H * 0.45, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: 0.12 * k, rot: 0, vr: 0, life: 40 + Math.random() * 50, squash: -1 }; });
+    }
+    if (!pRafRef.current) pRafRef.current = requestAnimationFrame(pTick);
+  };
+
   const computeLamp = (h, s, l, p, a) => ({
     glow: `radial-gradient(circle,hsla(${h},${s}%,${l + 15}%,${a * 1.1}) 0%,hsla(${h},${s}%,${l + 5}%,${a * 0.5}) 30%,hsla(${h},${s * 0.7}%,${l - 10}%,${a * 0.08}) 65%,transparent 88%)`,
     textColor: `hsla(${h},${s}%,${l + 25}%,${0.9 + 0.1 * p})`,
@@ -7985,12 +8164,19 @@ function GodAnotherGame({ onScore, onClose }) {
       if (crtActiveRef.current) {
         const ce = performance.now() - crtStartRef.current;
         const cb = crtBarRef.current, cl = crtLineRef.current, cd = crtDotRef.current;
+        const cr = crtBarRRef.current, cc = crtBarCRef.current, cs = crtScanRef.current;
+        if (cs) { const sv = ce < 500 ? 'block' : 'none'; if (cs.style.display !== sv) cs.style.display = sv; }  // P8: 走査線は収縮中0.5秒
         if (cb && cl && cd) {
           if (ce < 160) {
             const p = ce / 160, h = 100 * (1 - p);
             cb.style.display = 'block'; cb.style.height = Math.max(h, 0.5) + '%'; cb.style.top = (50 - h / 2) + '%';
+            // P8: 色収差(赤/シアンを1pxずらした半透明バー)
+            if (cr) { cr.style.display = 'block'; cr.style.height = cb.style.height; cr.style.top = cb.style.top; }
+            if (cc) { cc.style.display = 'block'; cc.style.height = cb.style.height; cc.style.top = cb.style.top; }
             cl.style.display = 'none'; cd.style.display = 'none';
           } else if (ce < 280) {
+            if (cr) cr.style.display = 'none';
+            if (cc) cc.style.display = 'none';
             const p = (ce - 160) / 120;
             cb.style.display = 'none'; cd.style.display = 'none';
             cl.style.display = 'block'; cl.style.left = (50 * p) + '%'; cl.style.right = (50 * p) + '%'; cl.style.opacity = String(1 - p * 0.7);
@@ -8069,7 +8255,7 @@ function GodAnotherGame({ onScore, onClose }) {
       }
       // --- P10: 上部ランプ帯(色はモード切替時のみ・毎フレームは opacity だけ) ---
       if (barRef.current[0]) {
-        const bm = BAR_C[lt] ? lt : 'off';
+        const bm = barLockRef.current > 0 ? 'lock' : (BAR_C[lt] ? lt : 'off');
         if (bm !== barPrevRef.current) {
           barPrevRef.current = bm;
           for (let i = 0; i < 8; i++) { const el = barRef.current[i]; if (el) el.style.background = barGrad(bm, i); barCacheRef.current[i] = -1; }
@@ -8158,6 +8344,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const unlockAt = (ms) => T(() => {
     lockedRef.current = false; setLocked(false); resetLamp();
     setBigMsg(''); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
+    barLockRef.current = 0;
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
     reelReset(); rayOn(false);
     setReels(rnd3());
@@ -8169,7 +8356,7 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => {
       lampTypeRef.current = 'purple'; lampStartRef.current = null; setLampSubText('PURPLE 7');
       setTint('radial-gradient(circle at 50% 45%, rgba(165,60,255,0.4) 0%, rgba(70,0,140,0.55) 70%)');
-      sndThunder(0.9); flash(0.6, 110, '#c07bff'); shakeFor(520);
+      sndThunder(0.9); sndPurpleRun(); vib([30, 40, 80]); flash(0.6, 110, '#c07bff'); shakeFor(520);
       if (!c.noReels) reelDark(true);          // P5: 消灯
       boltFlash();                             // P5: 稲妻SVG
     }, t0);
@@ -8178,22 +8365,29 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => { setLampMainText('紫7'); setLampMainSize('min(24vw,96px)'); flash(0.45, 80, '#c07bff'); }, t0 + Math.round(pay * 0.55));
     T(() => award(type, '⚡ 紫7揃い', '#c48bff', () => setPurpleC(v => v + 1)), t0 + pay);
   };
+  const lockStage = (n) => { barLockRef.current = n; sndLock(n); vib(8 + n * 6); };
   const seqMeio = (t0, type, cfg) => {
     const c = cfg || {}, pay = c.pay != null ? c.pay : 2600;
+    const pre = c.noIntro ? 0 : MEIO_PRE;   // P6: ロック1→700ms→ロック2→ロック3→暗転→冥王降臨
     if (!c.noIntro) {
-      T(() => { setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); reelDark(true); }, t0);
-      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); reelRelight('meio', 120); }, t0 + 700);
-      landStagger(['meio', 'meio', 'meio'], t0 + 900, 200, false, 'rgba(150,220,255,0.5)');
+      T(() => { lockStage(1); setDim(0.34); }, t0);
+      T(() => { lockStage(2); setDim(0.52); shakeFor(220); }, t0 + 700);
+      T(() => { lockStage(3); setDim(0.72); shakeFor(320); }, t0 + 1400);
+      T(() => { barLockRef.current = 0; setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); reelDark(true); }, t0 + pre);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); reelRelight('meio', 120); }, t0 + pre + 700);
+      landStagger(['meio', 'meio', 'meio'], t0 + pre + 900, 200, false, 'rgba(150,220,255,0.5)');
     } else {
       T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); reelRelight('meio', 90); }, t0);
     }
-    T(() => { setLampMainText('冥王'); setLampMainSize('min(26vw,104px)'); sndMeioBell(); flash(0.6, 150, '#9fdcff'); shakeFor(900); }, t0 + Math.round(pay * 0.58));
-    T(() => award(type, '☠ 冥王 降臨', '#8fd8ff', () => setMeioC(v => v + 1)), t0 + pay);
+    T(() => { setLampMainText('冥王'); setLampMainSize('min(26vw,104px)'); sndMeioBell(); vib([30, 40, 80]); flash(0.6, 150, '#9fdcff'); shakeFor(900); }, t0 + pre + Math.round(pay * 0.58));
+    T(() => award(type, '☠ 冥王 降臨', '#8fd8ff', () => setMeioC(v => v + 1)), t0 + pre + pay);
   };
   const seqGod = (t0, type, amazing, cfg) => {
-    const c = cfg || {}, rise = c.rise != null ? c.rise : 850, pay = c.pay != null ? c.pay : 3200;
+    const c = cfg || {}, rise = c.rise != null ? c.rise : 1100, pay = c.pay != null ? c.pay : 3200;
     if (!c.noCrt) T(() => { crtStartRef.current = performance.now(); crtActiveRef.current = true; setCrtActive(true); sndPuchun(); }, t0);
     T(() => reelDark(true), t0);                                                    // P5: 消灯
+    // P3-①②: 地鳴り0.8秒 → 完全静寂0.3秒 → ③ゴングと同時にオルガン進行
+    if (rise >= 1100) T(() => gaPlay('godRumble', 1.0), t0 + rise - 1100);
     if (rise >= 400) T(() => { setReelGlow(2, 'rgba(255,215,0,0.5)'); sndTenpai(); }, t0 + rise - 320);   // 第3リール枠グロー(テンパイ相当)
     T(() => {
       crtActiveRef.current = false; setCrtActive(false); flash(0.75, 110, '#fff');
@@ -8202,8 +8396,10 @@ function GodAnotherGame({ onScore, onClose }) {
       setLampMainText('GOD'); setLampMainSize('min(30vw,126px)'); setLampSubText(amazing ? 'AMAZING GRACE' : 'JACKPOT');
       reelSpinRef.current = 0; setReels(['god', 'god', 'god']);
       setTint('radial-gradient(circle at 50% 45%, rgba(255,200,40,0.28) 0%, rgba(60,40,0,0.5) 75%)');
-      shakeFor(1400); sndGodGong();
+      shakeFor(1400); sndGodGong(); vib([0, 60, 50, 60, 50, 60, 250]); pBurst('coins');   // P7: 金コイン雨+金粉
+      // P3-③: amazing時はアメイジンググレイスが主役(G調)なのでニ長調ファンファーレは重ねない
       if (amazing) { playAmazingGrace(); setBigMsgColor('#ffe98a'); setBigMsg('AMAZING GOD!'); }
+      else gaGodFanfare();
     }, t0 + rise);
     T(() => flash(0.42, 80, '#ffd700'), t0 + rise + Math.round((pay - rise) * 0.35));
     T(() => flash(0.42, 80, '#ffd700'), t0 + rise + Math.round((pay - rise) * 0.7));
@@ -8212,6 +8408,13 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doGase = () => {
     startEffect();
+    // P6: 30%で「ロック1止まり」(ガコッ→1点灯→消灯。何も起きない)。期待度の谷を作る
+    if (Math.random() < 0.3) {
+      lockStage(1); setDim(0.3); shakeFor(180);
+      T(() => { barLockRef.current = 0; setDim(0); setReels(rnd3()); setMsgColor('#6b6b6b'); setMsg('…なんでもなかった'); }, 700);
+      unlockAt(1000);
+      return;
+    }
     spinReels(SPINPOOL);
     lampTypeRef.current = 'gase'; setLampSubText('ZAWA...'); setDim(0.32); shakeFor(760); sndZawa();
     T(() => setDim(0.58), 620);
@@ -8221,19 +8424,28 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doY7 = (win) => {
     startEffect();
+    const late = win && Math.random() < 0.2;   // P6: 黄7当選の20%は遅れ告知(全停止→400ms無音→点灯+当たり)
     spinReels(SPINPOOL);
     lampTypeRef.current = 'y7'; setLampSubText('CUT IN'); sndCutin(); flash(0.5, 90, '#ffd24a'); shakeFor(340);
     landStagger(['y7', 'y7', 'y7'], 420, 150);
+    const y7Win = () => {
+      lampTypeRef.current = 'y7win'; lampStartRef.current = null;
+      setLampMainText('V'); setLampMainSize('min(28vw,112px)'); setLampSubText('GET');
+      setTint('radial-gradient(circle at 50% 45%, rgba(255,200,60,0.28) 0%, rgba(50,35,0,0.45) 75%)');
+      sndVWin(); vib([30, 40, 80]); flash(0.75, 110, '#fff'); shakeFor(420);
+      award('y7', '★ 中段黄7', '#ffd24a', () => setY7C(v => v + 1));
+    };
+    if (late) {
+      T(() => { lampOff(); setLampSubText(''); }, 1000);   // リール全停止 → 400ms無音
+      T(y7Win, 1400);
+      unlockAt(1950);
+      return;
+    }
     T(() => { lampTypeRef.current = 'y7hold'; lampStartRef.current = null; setLampMainText('V ?'); setLampMainSize('min(18vw,72px)'); setLampSubText('CHANCE'); }, 950);
     [1050, 1400, 1700].forEach(t => T(sndHeart, t));
     T(() => {
-      if (win) {
-        lampTypeRef.current = 'y7win'; lampStartRef.current = null;
-        setLampMainText('V'); setLampMainSize('min(28vw,112px)'); setLampSubText('GET');
-        setTint('radial-gradient(circle at 50% 45%, rgba(255,200,60,0.28) 0%, rgba(50,35,0,0.45) 75%)');
-        sndVWin(); flash(0.75, 110, '#fff'); shakeFor(420);
-        award('y7', '★ 中段黄7', '#ffd24a', () => setY7C(v => v + 1));
-      } else {
+      if (win) y7Win();
+      else {
         lampOff(); setLampMainText(''); setDim(0.55); sndSinFade();
         setMsgColor('#6b6b6b'); setMsg('…ガセ');
         T(() => setDim(0), 400);
@@ -8244,27 +8456,30 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doCrash = (type, amazing) => {
     startEffect();
-    lampTypeRef.current = 'crash'; setLampSubText('CRASH');
-    sndCrack(); setCrackLv(1); flash(0.7, 120, '#fff'); shakeFor(1000); spinReels(SPINPOOL);
-    T(() => { setCrackLv(2); sndCrack(); flash(0.5, 90, '#fff'); }, 260);
-    T(() => { setCrackLv(3); sndGlass(); }, 520);
-    T(() => { setCrackLv(4); flash(0.9, 140, '#fff'); shakeFor(400); }, 900);
+    // P6: 頭に FRZ ミリ秒のレバーONフリーズ(完全無音・無反応。リールも始動しない)を挿入
+    T(() => {
+      lampTypeRef.current = 'crash'; setLampSubText('CRASH');
+      sndCrack(); setCrackLv(1); vib([30, 40, 80]); flash(0.7, 120, '#fff'); shakeFor(1000); spinReels(SPINPOOL);
+    }, FRZ);
+    T(() => { setCrackLv(2); sndCrack(); flash(0.5, 90, '#fff'); }, FRZ + 260);
+    T(() => { setCrackLv(3); sndGlass(); pBurst('glass'); }, FRZ + 520);   // P7: ガラス破片30(中央から放射)
+    T(() => { setCrackLv(4); flash(0.9, 140, '#fff'); shakeFor(400); }, FRZ + 900);
     // ブラックアウト
-    T(() => { lampOff(); setCrackLv(0); setDim(1); setLampMainText(''); reelSpinRef.current = 0; setTint('none'); reelDark(true); }, 1150);
+    T(() => { lampOff(); setCrackLv(0); setDim(1); setLampMainText(''); reelSpinRef.current = 0; setTint('none'); reelDark(true); }, FRZ + 1150);
     // 全回転(ゆっくり回る溜め 約2秒)
     T(() => {
       setDim(0.12); lampTypeRef.current = 'allspin'; lampStartRef.current = null; setLampSubText('ALL SPIN');
       reelSlowRef.current = true; spinReels(ALLPOOL); sndAllSpin(); reelDark(false);
-    }, 1600);
+    }, FRZ + 1600);
     const sym = type === 'cgod' ? 'god' : type === 'cmeio' ? 'meio' : 'p7';
-    T(() => { reelSlowRef.current = false; }, 3550);
-    landStagger([sym, sym, sym], 3600, 250, false, type === 'cgod' ? 'rgba(255,215,0,0.55)' : type === 'cmeio' ? 'rgba(150,220,255,0.5)' : 'rgba(190,110,255,0.5)');
+    T(() => { reelSlowRef.current = false; }, FRZ + 3550);
+    landStagger([sym, sym, sym], FRZ + 3600, 250, false, type === 'cgod' ? 'rgba(255,215,0,0.55)' : type === 'cmeio' ? 'rgba(150,220,255,0.5)' : 'rgba(190,110,255,0.5)');
     // 対応する揃い演出へ接続(6秒ロック内に収める圧縮版)
-    if (type === 'cgod') seqGod(4100, 'cgod', amazing, { noCrt: true, rise: 0, pay: 900 });
-    else if (type === 'cmeio') seqMeio(4100, 'cmeio', { noIntro: true, pay: 700 });
-    else seqPurple(4100, 'cpurple', { noReels: true, pay: 600 });
-    T(() => setCrashC(v => v + 1), 4200);
-    unlockAt(6000);
+    if (type === 'cgod') seqGod(FRZ + 4100, 'cgod', amazing, { noCrt: true, rise: 0, pay: 900 });
+    else if (type === 'cmeio') seqMeio(FRZ + 4100, 'cmeio', { noIntro: true, pay: 700 });
+    else seqPurple(FRZ + 4100, 'cpurple', { noReels: true, pay: 600 });
+    T(() => setCrashC(v => v + 1), FRZ + 4200);
+    unlockAt(FRZ + 6000);
   };
 
   const doSin = (win) => {
@@ -8279,7 +8494,7 @@ function GodAnotherGame({ onScore, onClose }) {
         lampTypeRef.current = 'sinwin'; lampStartRef.current = null; setDim(0); setSinPlus(false);
         setLampMainText('SIN'); setLampMainSize('min(28vw,116px)'); setLampSubText('JACKPOT');
         setTint('radial-gradient(circle at 50% 45%, rgba(255,215,0,0.35) 0%, rgba(140,40,255,0.5) 55%, rgba(20,0,40,0.7) 100%)');
-        flash(1.0, 170, '#fff'); shakeFor(1300); sndSinBoom();
+        flash(1.0, 170, '#fff'); shakeFor(1300); sndSinBoom(); vib([30, 40, 80]); pBurst('spark');   // P7: 紫金の火花80
         T(() => flash(0.55, 90, '#e0a0ff'), 260);
         T(() => flash(0.5, 90, '#ffd700'), 520);
         const earn = award('sin', '💥 SIN JACKPOT', '#ffcf3a', () => setSinC(v => v + 1));
@@ -8304,12 +8519,15 @@ function GodAnotherGame({ onScore, onClose }) {
     spinCountRef.current++; setSpinCount(spinCountRef.current);
     godGapRef.current++;
     coinsRef.current -= 1; setCoins(coinsRef.current);
-    sndTap(); setMsg('');
+    setMsg('');
     if (spinCountRef.current > 100 && jugRenRef.current > 0) { jugRenRef.current = 0; setJugRen(0); }
     // 1タップ = Math.random() 1回。排他レンジで判定
     const u = Math.random() * RU;
     let acc = 0, flag = null;
     for (const f of FLAGS) { acc += f[1]; if (u < acc) { flag = f[0]; break; } }
+    // P6: GOD/クラッシュはレバーONフリーズ(タップ音もバイブも出さない=完全無音・無反応)
+    const frz = (flag === 'god' || IS_CRASH[flag]) ? FRZ : 0;
+    if (!frz) { sndTap(); vib(8); }
     if (!flag) { setReels(rnd3()); return; }
     if (flag === 'gase') { doGase(); return; }
     if (flag === 'y7') { doY7(Math.random() < 0.75); return; }
@@ -8321,8 +8539,8 @@ function GodAnotherGame({ onScore, onClose }) {
       if (godCountRef.current >= 2 && godGapRef.current <= 100) amazing = true;
       godGapRef.current = 0;
     }
-    if (flag === 'god') { startEffect(); seqGod(0, 'god', amazing, null); unlockAt(5000); return; }
-    if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500); return; }
+    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); unlockAt(5000 + frz); return; }
+    if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500 + MEIO_PRE); return; }
     if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
     doCrash(flag, amazing);
   };
@@ -8340,17 +8558,21 @@ function GodAnotherGame({ onScore, onClose }) {
     startTimeRef.current = Date.now(); timeLeftRef.current = TOTAL; lastTsRef.current = null;
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
     setReels(rnd3()); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
+    barLockRef.current = 0; psRef.current = [];
     resetLamp();
     bgm.stop();
   };
 
   useEffect(() => {
     aliveRef.current = true;
-    gaWarmup(); // ready画面表示中に重量バッファ・IRを作っておく(playing中の一括生成を避ける)
+    gaWarmup();       // ready画面表示中に重量バッファ・IRを作っておく(playing中の一括生成を避ける)
+    ensureSprites();  // P7: パーティクルのスプライトも起動時に1回だけ描いておく
     return () => {
       aliveRef.current = false;
       timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = [];
       if (lampRef.current) cancelAnimationFrame(lampRef.current);
+      if (pRafRef.current) { cancelAnimationFrame(pRafRef.current); pRafRef.current = null; }
+      psRef.current = [];
     };
   }, []);
   useEffect(() => { if (phase === "done") { onScore(coinsRef.current); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);
@@ -8378,6 +8600,8 @@ function GodAnotherGame({ onScore, onClose }) {
         <polyline points="18,0 31,26 21,31 37,58 27,63 45,100" fill="none" stroke="#efe0ff" strokeWidth="2.4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         <polyline points="83,0 70,23 80,29 63,55 73,60 56,100" fill="none" stroke="#d3a8ff" strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
+      {/* P7: パーティクルcanvas 1枚(非演出時は display:none + RAF停止) */}
+      <canvas ref={cvRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 47, display: 'none' }} />
       {tint !== 'none' && <div style={{ position: 'absolute', inset: 0, background: tint, pointerEvents: 'none', zIndex: 2 }} />}
       {dim > 0 && <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: dim, pointerEvents: 'none', zIndex: 45, transition: 'opacity 0.25s linear' }} />}
       {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: flashColor, opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
@@ -8393,6 +8617,11 @@ function GodAnotherGame({ onScore, onClose }) {
       {crtActive && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' }}>
           <div ref={crtBarRef} style={{ position: 'absolute', left: 0, right: 0, height: '100%', top: '0%', background: '#fff' }} />
+          {/* P8: 色収差(赤/シアンを1pxずらした半透明バー) */}
+          <div ref={crtBarRRef} style={{ position: 'absolute', left: -1, right: 1, height: '100%', top: '0%', background: '#ff2b2b', opacity: 0.45, mixBlendMode: 'screen', display: 'none' }} />
+          <div ref={crtBarCRef} style={{ position: 'absolute', left: 1, right: -1, height: '100%', top: '0%', background: '#2bffff', opacity: 0.45, mixBlendMode: 'screen', display: 'none' }} />
+          {/* P8: 走査線(静的 repeating-linear-gradient) */}
+          <div ref={crtScanRef} style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,0.55) 2px 4px)', opacity: 0.75, pointerEvents: 'none' }} />
           <div ref={crtLineRef} style={{ position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: '0%', right: '0%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1, display: 'none' }} />
           <div ref={crtDotRef} style={{ position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1, boxShadow: '0 0 12px #fff', display: 'none' }} />
         </div>
