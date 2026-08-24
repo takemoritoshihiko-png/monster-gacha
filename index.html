@@ -2649,7 +2649,7 @@ function MonsterGacha() {
     if (!allOpened) gachaSavedRef.current = false;
   }, [allOpened, slotId, saveToSlot]);
 
-  const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', juggler: 'ジャグラー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
+  const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', juggler: 'ジャグラー', godAnother: 'ゴッドアナザー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
 
   // Load ranking crowns from Firebase (weekly + cumulative)
@@ -3986,6 +3986,7 @@ function MonsterGacha() {
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
                   { id: "juggler", icon: "🎰", name: "ジャグラー" },
+                  { id: "godAnother", icon: "⚡", name: "ゴッドアナザー" },
                   { id: "batting", icon: "⚾", name: "バッティングヒーロー" },
                   { id: "pinball", icon: "🎱", name: "ピンボール" },
                   { id: "chainBurst", icon: "💥", name: "チェインバースト" },
@@ -4034,6 +4035,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "tap" && <TapGame onScore={(c) => handleMiniGameScore('tap', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "coinRunner" && <CoinRunnerGame onScore={(c) => handleMiniGameScore('coinRunner', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "juggler" && <JugglerGame onScore={(c) => handleMiniGameScore('juggler', c)} onClose={handleMiniGameClose} />}
+        {screen === "minigame" && miniGame === "godAnother" && <GodAnotherGame onScore={(c) => handleMiniGameScore('godAnother', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "batting" && <BattingGame onScore={(c) => handleMiniGameScore('batting', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "pinball" && <PinballGame onScore={(c) => handleMiniGameScore('pinball', c)} onClose={handleMiniGameClose} />}
         {screen === "minigame" && miniGame === "chainBurst" && <ChainBurstGame onScore={(c) => handleMiniGameScore('chainBurst', c)} onClose={handleMiniGameClose} />}
@@ -7392,6 +7394,691 @@ function JugglerGame({ onScore, onClose }) {
 }
 
 // ============================================================
+// GOD ANOTHER GAME (ゴッドアナザー / 180秒・演出中はタイマー停止)
+// ============================================================
+function GodAnotherGame({ onScore, onClose }) {
+  const [phase, setPhase] = useState("ready");
+  const [gameN, setGameN] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(180);
+  const [coins, setCoins] = useState(0);
+  const [godC, setGodC] = useState(0);
+  const [meioC, setMeioC] = useState(0);
+  const [purpleC, setPurpleC] = useState(0);
+  const [y7C, setY7C] = useState(0);
+  const [crashC, setCrashC] = useState(0);
+  const [sinC, setSinC] = useState(0);
+  const [spinCount, setSpinCount] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [jugRen, setJugRen] = useState(0);
+  const [msg, setMsg] = useState('');
+  const [msgColor, setMsgColor] = useState('#c8a24a');
+  const [bigMsg, setBigMsg] = useState('');
+  const [bigMsgColor, setBigMsgColor] = useState('#ffd700');
+  const [locked, setLocked] = useState(false);
+  const [lampStyle, setLampStyle] = useState({});
+  const [shaking, setShaking] = useState(false);
+  const [crtActive, setCrtActive] = useState(false);
+  const [crtStart, setCrtStart] = useState(0);
+  const [, setCrtTick] = useState(0);
+  const [flashAlpha, setFlashAlpha] = useState(0);
+  const [flashColor, setFlashColor] = useState('#fff');
+  const [dim, setDim] = useState(0);
+  const [tint, setTint] = useState('none');
+  const [crackLv, setCrackLv] = useState(0);
+  const [screenGlow, setScreenGlow] = useState('none');
+  const [lampMainText, setLampMainText] = useState('');
+  const [lampMainSize, setLampMainSize] = useState('min(24vw,100px)');
+  const [lampSubText, setLampSubText] = useState('ANOTHER');
+  const [sinPlus, setSinPlus] = useState(false);
+  const [reels, setReels] = useState(['bell', 'cherry', 'replay']);
+
+  const lampRef = useRef(null);
+  const lampTypeRef = useRef('off');
+  const lampStartRef = useRef(null);
+  const lockedRef = useRef(false);
+  const phaseRef = useRef('ready');
+  const coinsRef = useRef(0);
+  const gameNRef = useRef(0);
+  const tapCountRef = useRef(0);
+  const spinCountRef = useRef(0);
+  const jugRenRef = useRef(0);
+  const godGapRef = useRef(0);
+  const godCountRef = useRef(0);
+  const startTimeRef = useRef(null);
+  const timeLeftRef = useRef(180);
+  const lastTsRef = useRef(null);
+  const reelSpinRef = useRef(0);
+  const reelSlowRef = useRef(false);
+  const reelTickRef = useRef(0);
+  const reelPoolRef = useRef(null);
+  const aliveRef = useRef(true);
+  const timeoutsRef = useRef([]);
+  const crtActiveRef = useRef(false);
+
+  const TOTAL = 180;
+  // 抽選単位 R = 1/32768。各フラグの重みは R の整数倍(仕様分母との誤差1%以内)
+  const RU = 32768;
+  const FLAGS = [
+    ['sin', 1],          // レアSIN 1/32768
+    ['cgod', 1],         // クラッシュ→GOD 1/32768
+    ['cmeio', 1],        // クラッシュ→冥王 1/32768
+    ['cpurple', 1],      // クラッシュ→紫7 1/32768
+    ['god', 8],          // GOD揃い 8/32768 = 1/4096
+    ['meio', 3],         // 冥王揃い 3/32768 = 1/10922.7
+    ['purple', 10],      // 紫7揃い 10/32768 = 1/3276.8
+    ['y7', 70],          // 中段黄7 70/32768 = 1/468.1
+    ['gase', 328],       // ガセ前兆 328/32768 = 1/99.9
+  ];
+  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
+
+  const SYMS = {
+    y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
+    p7: { t: '7', c: '#b06bff', g: 'rgba(176,107,255,0.55)' },
+    r7: { t: '7', c: '#ff4560', g: 'rgba(255,69,96,0.55)' },
+    god: { t: '神', c: '#fff0a8', g: 'rgba(255,215,0,0.75)' },
+    meio: { t: '冥', c: '#8fd8ff', g: 'rgba(143,216,255,0.6)' },
+    bar: { t: 'BAR', c: '#7fe0a0', g: 'rgba(127,224,160,0.3)', sm: 1 },
+    bell: { t: '🔔', c: '#ffcc55', g: 'rgba(255,204,85,0.25)' },
+    cherry: { t: '🍒', c: '#ff7799', g: 'rgba(255,119,153,0.25)' },
+    replay: { t: '▶', c: '#88aaff', g: 'rgba(136,170,255,0.25)' },
+  };
+  const BLANKS = ['bell', 'cherry', 'replay', 'bar'];
+  const SPINPOOL = ['bell', 'cherry', 'replay', 'bar', 'y7', 'p7', 'r7'];
+  const ALLPOOL = ['god', 'meio', 'p7', 'y7', 'r7', 'bar'];
+  const HTYPE = {
+    god: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.2)', bd: 'rgba(255,215,0,0.35)' },
+    cgod: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.28)', bd: 'rgba(255,255,255,0.55)' },
+    meio: { t: '冥', c: '#8fd8ff', bg: 'rgba(143,216,255,0.16)', bd: 'rgba(143,216,255,0.3)' },
+    cmeio: { t: '冥', c: '#8fd8ff', bg: 'rgba(143,216,255,0.24)', bd: 'rgba(255,255,255,0.55)' },
+    purple: { t: '紫', c: '#c48bff', bg: 'rgba(196,139,255,0.15)', bd: 'rgba(196,139,255,0.28)' },
+    cpurple: { t: '紫', c: '#c48bff', bg: 'rgba(196,139,255,0.24)', bd: 'rgba(255,255,255,0.55)' },
+    y7: { t: '黄', c: '#ffd24a', bg: 'rgba(255,210,74,0.12)', bd: 'rgba(255,210,74,0.22)' },
+    sin: { t: 'S', c: '#ff7ae0', bg: 'rgba(255,122,224,0.22)', bd: 'rgba(255,122,224,0.45)' },
+  };
+  const IS_CRASH = { cgod: 1, cmeio: 1, cpurple: 1 };
+  const CRACKS = [
+    { l: 48, t: 6, w: 44, r: 68 }, { l: 50, t: 40, w: 38, r: 172 }, { l: 46, t: 44, w: 34, r: -102 },
+    { l: 20, t: 14, w: 30, r: 34 }, { l: 74, t: 20, w: 28, r: 138 }, { l: 30, t: 70, w: 32, r: -38 },
+    { l: 62, t: 66, w: 30, r: 26 }, { l: 12, t: 50, w: 26, r: 82 }, { l: 82, t: 52, w: 24, r: -66 },
+    { l: 38, t: 24, w: 22, r: 118 }, { l: 56, t: 80, w: 26, r: -14 }, { l: 24, t: 34, w: 20, r: -128 },
+  ];
+
+  const T = (fn, ms) => { const id = setTimeout(() => { if (!aliveRef.current) return; fn(); }, ms); timeoutsRef.current.push(id); return id; };
+
+  const synth = (dur, fn, vol = 0.7) => {
+    const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
+    const sr = a.sampleRate, buf = a.createBuffer(2, sr * dur, sr);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = fn(i / sr, ch); }
+    const bs = a.createBufferSource(); bs.buffer = buf; const g = a.createGain(); g.gain.value = vol; bs.connect(g); g.connect(a.destination); bs.start(a.currentTime);
+  };
+  const jTone = (f, st, dur, vol = 0.25, type = 'sine') => {
+    const a = audioCtx; if (!a) return;
+    const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(vol, a.currentTime + st); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + st + dur);
+    o.connect(g); g.connect(a.destination); o.start(a.currentTime + st); o.stop(a.currentTime + st + dur);
+  };
+  const sndTap = () => synth(0.05, (s) => (Math.sin(2 * Math.PI * 3200 * s) * Math.exp(-s * 70) * 0.35 + Math.sin(2 * Math.PI * 900 * s) * Math.exp(-s * 50) * 0.2) * 0.6, 0.1);
+  const sndReelStop = () => synth(0.14, (s) => (Math.sin(2 * Math.PI * 180 * s) * Math.exp(-s * 30) * 0.6 + (Math.random() * 2 - 1) * Math.exp(-s * 45) * 0.3) * 0.8, 0.3);
+  const sndSoftStop = () => synth(0.1, (s) => (Math.sin(2 * Math.PI * 140 * s) * Math.exp(-s * 34) * 0.4) * 0.7, 0.12);
+  const sndGakonG = () => synth(0.8, (s, ch) => { const at = Math.exp(-s * 40) * 0.9; return (Math.sin(2 * Math.PI * 220 * s + Math.sin(2 * Math.PI * 440 * s) * 0.5) * at + (Math.sin(2 * Math.PI * 880 * s) * 0.2 + Math.sin(2 * Math.PI * 1320 * s) * 0.15) * Math.exp(-s * 8) + Math.sin(2 * Math.PI * 55 * s) * 0.6 * Math.exp(-s * 20) + (Math.random() * 2 - 1) * 0.35 * Math.exp(-s * 30)) * (ch === 0 ? 0.55 : 0.5); }, 0.85);
+  const sndZawa = () => synth(1.0, (s, ch) => { const env = Math.sin(Math.PI * Math.min(s, 1)); return ((Math.random() * 2 - 1) * 0.22 + Math.sin(2 * Math.PI * 68 * s) * 0.3) * env * (ch === 0 ? 0.5 : 0.45); }, 0.3);
+  const sndCutin = () => { synth(0.3, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 10) * 0.5, 0.45); [392, 523, 659, 880].forEach((f, i) => jTone(f, i * 0.05, 0.35, 0.18, 'square')); jTone(98, 0, 0.5, 0.14, 'sawtooth'); };
+  const sndHeart = () => { jTone(70, 0, 0.18, 0.3, 'sine'); jTone(70, 0.22, 0.22, 0.24, 'sine'); };
+  const sndVWin = () => { sndGakonG(); [659, 880, 1047, 1319, 1568, 2093].forEach((f, i) => jTone(f, 0.08 + i * 0.07, 0.45, 0.2)); jTone(131, 0.05, 0.9, 0.12); };
+  const sndThunder = (vol = 1.0) => synth(1.0, (s, ch) => { const crack = Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 14)) * s) * Math.exp(-s * 10) * 0.4; const boom = (Math.random() * 2 - 1) * Math.exp(-s * 3.2) * 0.55; const sub = Math.sin(2 * Math.PI * 45 * s * (1 + 0.25 * Math.random())) * Math.exp(-s * 2) * 0.45; return (crack + boom + sub) * (ch === 0 ? 0.6 : 0.55); }, vol);
+  const sndPuchun = () => synth(0.3, (s, ch) => (Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 16) + 150) * s) * 0.55 * Math.exp(-s * 7) + Math.sin(2 * Math.PI * 14000 * s) * 0.1 * Math.exp(-s * 35) + Math.sin(2 * Math.PI * 60 * s) * 0.5 * Math.exp(-s * 20) + (Math.random() * 2 - 1) * 0.4 * Math.exp(-s * 25)) * 0.85, 1.0);
+  const sndGodGong = () => synth(5.0, (s, ch) => { const f0 = 55; return (Math.sin(2 * Math.PI * f0 * s) * 0.5 * Math.exp(-s * 0.5) + Math.sin(2 * Math.PI * f0 * 2 * s) * 0.35 * Math.exp(-s * 0.7) + Math.sin(2 * Math.PI * f0 * 3 * s) * 0.2 * Math.exp(-s * 0.9) + Math.sin(2 * Math.PI * f0 * 4 * s) * 0.12 * Math.exp(-s * 1.1) + Math.sin(2 * Math.PI * f0 * 6 * s) * 0.06 * Math.exp(-s * 1.5) + Math.exp(-s * 6) * (Math.random() * 2 - 1) * 0.7 + Math.sin(2 * Math.PI * 27.5 * s) * 0.3 * Math.exp(-s * 0.8)) * (ch === 0 ? 0.65 : 0.6); }, 1.0);
+  const sndGodCoins = () => synth(2.5, (s, ch) => { let v = 0; for (let n = 0; n < 24; n++) { const o = n * 0.06, f = 1600 + n * 160 + (ch * 70); if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 3) * 0.07; } return v * 0.9; }, 0.8);
+  const sndMeioRumble = () => synth(3.0, (s, ch) => { const sub = Math.sin(2 * Math.PI * 32 * s * (1 + 0.02 * Math.sin(2 * Math.PI * 1.3 * s))) * 0.55 * Math.exp(-s * 0.5); const grind = (Math.random() * 2 - 1) * 0.16 * Math.exp(-s * 0.9); const drone = Math.sin(2 * Math.PI * 49 * s) * 0.25 * Math.exp(-s * 0.6); return (sub + grind + drone) * (ch === 0 ? 0.62 : 0.58); }, 0.95);
+  const sndMeioBell = () => { [220, 277, 330, 440, 554, 659].forEach((f, i) => jTone(f, i * 0.09, 1.4, 0.13, 'triangle')); jTone(110, 0, 2.0, 0.1, 'sine'); };
+  const sndCrack = () => synth(0.35, (s) => (Math.sin(2 * Math.PI * (1400 * Math.exp(-s * 20)) * s) * Math.exp(-s * 14) * 0.5 + (Math.random() * 2 - 1) * Math.exp(-s * 18) * 0.55) * 0.9, 0.8);
+  const sndGlass = () => synth(1.2, (s, ch) => { let v = 0; for (let i = 0; i < 18; i++) { const o = i * 0.045, f = 2600 + i * 430 + ch * 120; if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 13) * 0.09; } return (v + (Math.random() * 2 - 1) * Math.exp(-s * 6) * 0.25) * 0.9; }, 0.75);
+  const sndAllSpin = () => synth(2.2, (s, ch) => { const f = 90 + s * 95; return (Math.sin(2 * Math.PI * f * s) * 0.28 + Math.sin(2 * Math.PI * f * 2 * s) * 0.12 + (Math.random() * 2 - 1) * 0.05) * Math.min(s * 3, 1) * (ch === 0 ? 0.5 : 0.46); }, 0.45);
+  const sndSinBoom = () => { synth(2.4, (s, ch) => { const boom = (Math.random() * 2 - 1) * Math.exp(-s * 2.2) * 0.7; const sub = Math.sin(2 * Math.PI * 38 * s) * Math.exp(-s * 1.4) * 0.6; const shine = Math.sin(2 * Math.PI * (6000 * Math.exp(-s * 5)) * s) * Math.exp(-s * 6) * 0.3; return (boom + sub + shine) * (ch === 0 ? 0.62 : 0.58); }, 1.0); sndThunder(0.9); };
+  const sndSinFade = () => { jTone(196, 0, 1.2, 0.08, 'sine'); jTone(147, 0.15, 1.4, 0.06, 'sine'); };
+
+  // アメイジング・グレイス (G長調 / 1拍=0.55秒)
+  const AG_NOTES = [[293.66, 1], [392, 2], [493.88, 0.5], [392, 0.5], [493.88, 2], [440, 1], [392, 2], [329.63, 1], [293.66, 2], [293.66, 1], [392, 2], [493.88, 0.5], [392, 0.5], [493.88, 2], [440, 1], [587.33, 3]];
+  const playAmazingGrace = () => {
+    const B = 0.55; let t = 0;
+    AG_NOTES.forEach(n => {
+      const f = n[0], d = n[1] * B;
+      jTone(f, t, d * 0.95, 0.17, 'sine');
+      jTone(f * 2, t + 0.01, d * 0.6, 0.05, 'sine');
+      jTone(f / 2, t, d * 0.95, 0.06, 'sine');
+      if (n[1] >= 2) jTone(f * 1.5, t + 0.06, d * 0.7, 0.035, 'sine');
+      t += d;
+    });
+  };
+
+  const fmtT = (s) => { const m = Math.floor(s / 60); return m + ':' + (s % 60 < 10 ? '0' : '') + s % 60; };
+  const fmtP = (g, h) => h === 0 ? '1/ -' : '1/' + Math.round(g / h);
+  const rndB = () => BLANKS[Math.floor(Math.random() * BLANKS.length)];
+  const rnd3 = () => { let a, b, c; do { a = rndB(); b = rndB(); c = rndB(); } while (a === b && b === c); return [a, b, c]; };
+
+  const lampOff = () => { lampTypeRef.current = 'off'; lampStartRef.current = null; setLampStyle({}); setScreenGlow('none'); };
+  const resetLamp = () => {
+    lampOff(); setShaking(false);
+    setLampMainText(''); setLampMainSize('min(24vw,100px)'); setLampSubText('ANOTHER');
+  };
+  const flash = (a, ms, col) => { setFlashColor(col || '#fff'); setFlashAlpha(a); T(() => setFlashAlpha(0), ms); };
+  const shakeFor = (ms) => { setShaking(true); T(() => setShaking(false), ms); };
+  const stopReel = (i, sym, quiet) => {
+    reelSpinRef.current = reelSpinRef.current & ~(1 << i);
+    setReels(prev => { const n = prev.slice(); n[i] = sym; return n; });
+    if (quiet) sndSoftStop(); else sndReelStop();
+  };
+  const landStagger = (arr, t0, gap, quiet) => arr.forEach((s, i) => T(() => stopReel(i, s, quiet), t0 + i * gap));
+  const spinReels = (pool) => { reelPoolRef.current = pool; reelSpinRef.current = 7; };
+
+  const computeLamp = (h, s, l, p, a) => ({
+    glow: `radial-gradient(circle,hsla(${h},${s}%,${l + 15}%,${a * 1.1}) 0%,hsla(${h},${s}%,${l + 5}%,${a * 0.5}) 30%,hsla(${h},${s * 0.7}%,${l - 10}%,${a * 0.08}) 65%,transparent 88%)`,
+    textColor: `hsla(${h},${s}%,${l + 25}%,${0.9 + 0.1 * p})`,
+    textShadow: `0 0 15px hsla(${h},${s}%,${l + 10}%,${0.9 * p}),0 0 40px hsla(${h},${s}%,${l}%,${0.5 * p}),0 0 80px hsla(${h},${s * 0.8}%,${l - 5}%,${0.2 * p})`,
+    subColor: `hsla(${h},${s}%,${l + 10}%,${0.4 * p})`, subShadow: `0 0 8px hsla(${h},${s}%,${l}%,${0.3 * p})`,
+    border: `hsla(${h},${s}%,${l - 5}%,${0.3 + 0.5 * p})`, boxShadow: `0 0 25px hsla(${h},${s}%,${l - 5}%,${0.3 * p})`,
+    ringBorder: `hsla(${h},${s}%,${l - 5}%,${0.15 + 0.2 * p})`, bg: '#050406',
+    sg: `radial-gradient(circle at 50% 45%,hsla(${h},${s}%,${l - 10}%,${a * 0.1}) 0%,transparent 60%)`,
+  });
+
+  // Main loop: dt計測 → ロック中は startTimeRef を進めて残り時間を凍結 + リール + ランプ
+  useEffect(() => {
+    if (phase !== "playing" && phase !== "done") return;
+    let running = true;
+    lastTsRef.current = null;
+    const loop = (ts) => {
+      if (!running) return;
+      const prev = lastTsRef.current; lastTsRef.current = ts;
+      const dt = prev == null ? 0 : Math.min(ts - prev, 500);
+      // 演出ロック中はタイマー停止(開始時刻を dt 分だけ後ろにずらす)
+      if (lockedRef.current && startTimeRef.current) startTimeRef.current += dt;
+      // CRT(ぷちゅん)演出はレンダー時刻依存のため、表示中は毎フレーム再描画を起こす
+      if (crtActiveRef.current) setCrtTick(t => t + 1);
+      if (phaseRef.current === 'playing' && startTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const newTimeLeft = Math.max(0, TOTAL - elapsed);
+        if (newTimeLeft !== timeLeftRef.current) {
+          timeLeftRef.current = newTimeLeft; setTimeLeft(newTimeLeft);
+          if (newTimeLeft <= 0) { phaseRef.current = 'done'; setPhase("done"); setMsg('TIME UP'); setMsgColor('#666'); resetLamp(); }
+        }
+      }
+      if (reelSpinRef.current) {
+        const iv = reelSlowRef.current ? 240 : 55;
+        if (ts - reelTickRef.current > iv) {
+          reelTickRef.current = ts;
+          const pool = reelPoolRef.current || SPINPOOL, mask = reelSpinRef.current;
+          setReels(p => p.map((v, i) => (mask & (1 << i)) ? pool[(pool.indexOf(v) + 1 + pool.length) % pool.length] : v));
+        }
+      }
+      const lt = lampTypeRef.current;
+      if (lt !== 'off') {
+        if (!lampStartRef.current) lampStartRef.current = ts;
+        const e = (ts - lampStartRef.current) / 1000;
+        let st = {};
+        if (lt === 'gase') { const p = 0.25 + 0.2 * Math.sin(e * 24), a = 0.2 + 0.15 * p; st = computeLamp(45, 60, 28, p, a); }
+        else if (lt === 'y7') { const p = 0.7 + 0.3 * Math.sin(e * 9), a = 0.7 + 0.3 * p; st = computeLamp(48, 100, 52, p, a); }
+        else if (lt === 'y7hold') { const p = 0.5 + 0.5 * Math.sin(e * (4 + e * 5)), a = 0.45 + 0.4 * p; st = computeLamp(48, 100, 45, p, a); }
+        else if (lt === 'y7win') { const p = 0.75 + 0.25 * Math.sin(e * 16), a = 0.85 + 0.15 * p; st = computeLamp(50, 100, 58, p, a); }
+        else if (lt === 'purple') { const fl = Math.sin(e * 34) > 0.85 ? 1 : 0; const p = 0.7 + 0.3 * Math.sin(e * 13), a = (0.75 + 0.25 * p) * (1 + fl * 0.35); st = computeLamp(275, 100, 55 + fl * 12, p, a); }
+        else if (lt === 'meio') { const h = 195 + 38 * Math.sin(e * 1.6), p = 0.55 + 0.45 * Math.sin(e * 5.5), a = 0.7 + 0.3 * p; st = computeLamp(h, 90, 52, p, a); }
+        else if (lt === 'crash') { const on = Math.sin(e * 95) > 0; if (on) { const p = 0.8 + 0.2 * Math.sin(e * 30), a = 0.9; st = computeLamp(4, 95, 52, p, a); } else { const p = 0.9, a = 0.85; st = computeLamp(0, 0, 62, p, a); } }
+        else if (lt === 'allspin') { const p = 0.35 + 0.3 * Math.sin(e * 3), a = 0.3 + 0.25 * p; st = computeLamp(210, 60, 40, p, a); }
+        else if (lt === 'sin') { st = { glow: 'none', textColor: 'rgba(255,255,255,0.06)', textShadow: 'none', subColor: 'rgba(255,255,255,0.05)', subShadow: 'none', border: '#0b0a0c', boxShadow: 'none', ringBorder: 'transparent', bg: '#020203', sg: 'none' }; }
+        else if (lt === 'sinlose') { const a = Math.max(0, 0.28 - e * 0.13); st = computeLamp(300, 30, 26, 0.25, a); }
+        else if (lt === 'sinwin') { const h = Math.sin(e * 13) > 0 ? 45 : 288; const p = 0.8 + 0.2 * Math.sin(e * 20), a = 0.95; st = computeLamp(h, 100, 58, p, a); }
+        else if (lt === 'god') {
+          const fc = Math.floor(e * 60); const on = Math.sin(fc * 0.7) > 0, p = 0.7 + 0.3 * Math.sin(e * 14);
+          if (on) { const hue = (e * 150) % 50, a = 0.85 + 0.15 * p;
+            st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,hsla(${42 + hue},100%,58%,${a * 0.55}) 25%,transparent 80%)`, textColor: `rgba(255,${225 + 30 * p | 0},${115 + 40 * p | 0},1)`, textShadow: `0 0 25px rgba(255,215,0,1),0 0 60px rgba(255,180,0,0.7),0 0 100px rgba(255,255,255,0.4)`, subColor: `rgba(255,215,0,${0.7 * p})`, subShadow: 'none', border: `rgba(255,215,0,${0.6 + 0.35 * p})`, boxShadow: `0 0 40px rgba(255,215,0,0.5),0 0 80px rgba(255,180,0,0.2)`, ringBorder: `rgba(255,215,0,${0.4 + 0.4 * p})`, bg: `radial-gradient(circle,rgba(35,28,0,1) 0%,#040404 60%)`, sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.2 * p}) 0%,rgba(255,180,0,${0.08 * p}) 20%,transparent 65%)` };
+          } else { st = { glow: 'radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 50%)', textColor: 'rgba(255,215,0,0.2)', textShadow: '0 0 6px rgba(255,200,0,0.1)', subColor: 'rgba(255,215,0,0.1)', subShadow: 'none', border: 'rgba(255,215,0,0.12)', boxShadow: 'none', ringBorder: 'rgba(255,215,0,0.06)', bg: '#040404', sg: `radial-gradient(circle at 50% 45%,rgba(255,200,0,0.02) 0%,transparent 30%)` }; }
+        }
+        else if (lt === 'amazing') {
+          const h = (e * 120) % 360, p = 0.8 + 0.2 * Math.sin(e * 10), a = 0.9 + 0.1 * p;
+          st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,rgba(255,215,0,${a * 0.75}) 18%,hsla(${h},100%,60%,${a * 0.5}) 42%,hsla(${(h + 60) % 360},100%,55%,${a * 0.25}) 62%,transparent 88%)`, textColor: '#fffbe0', textShadow: `0 0 30px rgba(255,215,0,1),0 0 70px hsla(${h},100%,60%,0.8),0 0 120px rgba(255,255,255,0.5)`, subColor: `hsla(${h},100%,78%,${0.85 * p})`, subShadow: 'none', border: `hsla(${h},100%,60%,${0.7 + 0.3 * p})`, boxShadow: `0 0 50px rgba(255,215,0,0.6),0 0 100px hsla(${h},100%,55%,0.35)`, ringBorder: `hsla(${(h + 180) % 360},100%,60%,${0.5 + 0.4 * p})`, bg: 'radial-gradient(circle,rgba(45,36,0,1) 0%,#050403 62%)', sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.25 * p}) 0%,hsla(${h},100%,50%,${0.1 * p}) 25%,transparent 70%)` };
+        }
+        setLampStyle(st); setScreenGlow(st.sg || 'none');
+      }
+      lampRef.current = requestAnimationFrame(loop);
+    };
+    lampRef.current = requestAnimationFrame(loop);
+    return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); };
+  }, [phase]);
+
+  // ジャグ連の計算(支払いが発生したフラグのみ呼ぶ)
+  const computeJug = (type) => {
+    const hitAt = spinCountRef.current;
+    const newJugRen = hitAt <= 100 ? jugRenRef.current + 1 : 1;
+    jugRenRef.current = newJugRen; setJugRen(newJugRen);
+    const baseMult = 1 + (newJugRen - 1) * 0.1;
+    const is1G = hitAt === 1;
+    const mult = is1G ? baseMult + 1.0 : baseMult;
+    spinCountRef.current = 0; setSpinCount(0);
+    setHistory(prev => {
+      let streak1G = 0;
+      if (is1G) { streak1G = 1; for (const h of prev) { if (h.is1G) streak1G++; else break; } }
+      return [{ type, at: hitAt, jugRen: newJugRen, is1G, streak1G }].concat(prev).slice(0, 30);
+    });
+    if (is1G) {
+      synth(0.8, (s, ch) => {
+        const thunder = (Math.random() * 2 - 1) * Math.exp(-s * 3) * 0.7;
+        const crack = Math.sin(2 * Math.PI * 80 * s) * Math.exp(-s * 5) * 0.5;
+        const rumble = Math.sin(2 * Math.PI * 40 * s * (1 + Math.random() * 0.3)) * Math.exp(-s * 1.5) * 0.4;
+        const zap = Math.sin(2 * Math.PI * (8000 * Math.exp(-s * 12)) * s) * Math.exp(-s * 8) * 0.3;
+        return (thunder + crack + rumble + zap) * (ch === 0 ? 0.6 : 0.55);
+      }, 1.0);
+      [1568, 1976, 2349, 2793, 3136].forEach((f, i) => jTone(f, 0.05 + i * 0.03, 0.2, 0.15));
+      flash(0.8, 120, '#fff'); shakeFor(500);
+    }
+    if (newJugRen >= 2) {
+      const intensity = Math.min(newJugRen, 5);
+      const baseVol = 0.1 + intensity * 0.04;
+      const baseFreqs = [523, 659, 784, 988, 1175, 1397, 1568, 1760, 2093];
+      const noteCount = 3 + intensity * 2;
+      for (let i = 0; i < noteCount && i < baseFreqs.length; i++) jTone(baseFreqs[i], 0.05 + i * 0.04, 0.25 + intensity * 0.05, baseVol);
+      if (intensity >= 3) synth(0.15, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 18) * 0.4, 0.3 + intensity * 0.1);
+      if (intensity >= 4) jTone(65, 0, 0.5, 0.12 + intensity * 0.02, 'sawtooth');
+      if (intensity >= 5) { [2093, 2349, 2637, 3136].forEach((f, i) => jTone(f, 0.3 + i * 0.05, 0.3, 0.06)); synth(0.3, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 8) * 0.3, 0.4); }
+    }
+    return { mult, is1G, jugRen: newJugRen, label: (is1G ? ' 1G連!' : '') + (mult > 1 ? ' ジャグ連' + newJugRen + ' ×' + mult.toFixed(1) : '') };
+  };
+
+  const award = (type, prefix, color, cfn) => {
+    if (phaseRef.current !== 'playing' && phaseRef.current !== 'done') return 0;
+    const j = computeJug(type);
+    const earn = Math.round(BASE[type] * j.mult);
+    coinsRef.current += earn; setCoins(coinsRef.current);
+    if (cfn) cfn();
+    setMsgColor(color); setMsg(prefix + ' +' + earn.toLocaleString() + j.label);
+    return earn;
+  };
+
+  const startEffect = () => { setLocked(true); lockedRef.current = true; resetLamp(); setMsg(''); };
+  const unlockAt = (ms) => T(() => {
+    lockedRef.current = false; setLocked(false); resetLamp();
+    setBigMsg(''); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
+    reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
+    setReels(rnd3());
+  }, ms);
+
+  // --- 演出シーケンス（派手さ: ガセ < 黄7 < 紫7 < GOD < 冥王 < クラッシュ/レアSIN） ---
+  const seqPurple = (t0, type, cfg) => {
+    const c = cfg || {}, pay = c.pay != null ? c.pay : 1200;
+    T(() => {
+      lampTypeRef.current = 'purple'; lampStartRef.current = null; setLampSubText('PURPLE 7');
+      setTint('radial-gradient(circle at 50% 45%, rgba(165,60,255,0.4) 0%, rgba(70,0,140,0.55) 70%)');
+      sndThunder(0.9); flash(0.6, 110, '#c07bff'); shakeFor(520);
+    }, t0);
+    if (!c.noReels) landStagger(['p7', 'p7', 'p7'], t0 + 180, 180);
+    T(() => { setLampMainText('紫7'); setLampMainSize('min(24vw,96px)'); flash(0.45, 80, '#c07bff'); }, t0 + Math.round(pay * 0.55));
+    T(() => award(type, '⚡ 紫7揃い', '#c48bff', () => setPurpleC(v => v + 1)), t0 + pay);
+  };
+  const seqMeio = (t0, type, cfg) => {
+    const c = cfg || {}, pay = c.pay != null ? c.pay : 2600;
+    if (!c.noIntro) {
+      T(() => { setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); }, t0);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); }, t0 + 700);
+      landStagger(['meio', 'meio', 'meio'], t0 + 900, 200);
+    } else {
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); }, t0);
+    }
+    T(() => { setLampMainText('冥王'); setLampMainSize('min(26vw,104px)'); sndMeioBell(); flash(0.6, 150, '#9fdcff'); shakeFor(900); }, t0 + Math.round(pay * 0.58));
+    T(() => award(type, '☠ 冥王 降臨', '#8fd8ff', () => setMeioC(v => v + 1)), t0 + pay);
+  };
+  const seqGod = (t0, type, amazing, cfg) => {
+    const c = cfg || {}, rise = c.rise != null ? c.rise : 850, pay = c.pay != null ? c.pay : 3200;
+    if (!c.noCrt) T(() => { crtActiveRef.current = true; setCrtActive(true); setCrtStart(performance.now()); sndPuchun(); }, t0);
+    T(() => {
+      crtActiveRef.current = false; setCrtActive(false); flash(0.75, 110, '#fff');
+      lampTypeRef.current = amazing ? 'amazing' : 'god'; lampStartRef.current = null;
+      setLampMainText('GOD'); setLampMainSize('min(30vw,126px)'); setLampSubText(amazing ? 'AMAZING GRACE' : 'JACKPOT');
+      reelSpinRef.current = 0; setReels(['god', 'god', 'god']);
+      setTint('radial-gradient(circle at 50% 45%, rgba(255,200,40,0.28) 0%, rgba(60,40,0,0.5) 75%)');
+      shakeFor(1400); sndGodGong();
+      if (amazing) { playAmazingGrace(); setBigMsgColor('#ffe98a'); setBigMsg('AMAZING GOD!'); }
+    }, t0 + rise);
+    T(() => flash(0.42, 80, '#ffd700'), t0 + rise + Math.round((pay - rise) * 0.35));
+    T(() => flash(0.42, 80, '#ffd700'), t0 + rise + Math.round((pay - rise) * 0.7));
+    T(() => { sndGodCoins(); award(type, '👑 GOD', '#ffd700', () => setGodC(v => v + 1)); }, t0 + pay);
+  };
+
+  const doGase = () => {
+    startEffect();
+    spinReels(SPINPOOL);
+    lampTypeRef.current = 'gase'; setLampSubText('ZAWA...'); setDim(0.32); shakeFor(760); sndZawa();
+    T(() => setDim(0.58), 620);
+    T(() => { reelSpinRef.current = 0; setReels(rnd3()); sndReelStop(); setDim(0); setMsgColor('#6b6b6b'); setMsg('…なんでもなかった'); }, 900);
+    unlockAt(1200);
+  };
+
+  const doY7 = (win) => {
+    startEffect();
+    spinReels(SPINPOOL);
+    lampTypeRef.current = 'y7'; setLampSubText('CUT IN'); sndCutin(); flash(0.5, 90, '#ffd24a'); shakeFor(340);
+    landStagger(['y7', 'y7', 'y7'], 420, 150);
+    T(() => { lampTypeRef.current = 'y7hold'; lampStartRef.current = null; setLampMainText('V ?'); setLampMainSize('min(18vw,72px)'); setLampSubText('CHANCE'); }, 950);
+    [1050, 1400, 1700].forEach(t => T(sndHeart, t));
+    T(() => {
+      if (win) {
+        lampTypeRef.current = 'y7win'; lampStartRef.current = null;
+        setLampMainText('V'); setLampMainSize('min(28vw,112px)'); setLampSubText('GET');
+        setTint('radial-gradient(circle at 50% 45%, rgba(255,200,60,0.28) 0%, rgba(50,35,0,0.45) 75%)');
+        sndVWin(); flash(0.75, 110, '#fff'); shakeFor(420);
+        award('y7', '★ 中段黄7', '#ffd24a', () => setY7C(v => v + 1));
+      } else {
+        lampOff(); setLampMainText(''); setDim(0.55); sndSinFade();
+        setMsgColor('#6b6b6b'); setMsg('…ガセ');
+        T(() => setDim(0), 400);
+      }
+    }, 1950);
+    unlockAt(2500);
+  };
+
+  const doCrash = (type, amazing) => {
+    startEffect();
+    lampTypeRef.current = 'crash'; setLampSubText('CRASH');
+    sndCrack(); setCrackLv(1); flash(0.7, 120, '#fff'); shakeFor(1000); spinReels(SPINPOOL);
+    T(() => { setCrackLv(2); sndCrack(); flash(0.5, 90, '#fff'); }, 260);
+    T(() => { setCrackLv(3); sndGlass(); }, 520);
+    T(() => { setCrackLv(4); flash(0.9, 140, '#fff'); shakeFor(400); }, 900);
+    // ブラックアウト
+    T(() => { lampOff(); setCrackLv(0); setDim(1); setLampMainText(''); reelSpinRef.current = 0; setTint('none'); }, 1150);
+    // 全回転(ゆっくり回る溜め 約2秒)
+    T(() => {
+      setDim(0.12); lampTypeRef.current = 'allspin'; lampStartRef.current = null; setLampSubText('ALL SPIN');
+      reelSlowRef.current = true; spinReels(ALLPOOL); sndAllSpin();
+    }, 1600);
+    const sym = type === 'cgod' ? 'god' : type === 'cmeio' ? 'meio' : 'p7';
+    T(() => { reelSlowRef.current = false; }, 3550);
+    landStagger([sym, sym, sym], 3600, 250);
+    // 対応する揃い演出へ接続(6秒ロック内に収める圧縮版)
+    if (type === 'cgod') seqGod(4100, 'cgod', amazing, { noCrt: true, rise: 0, pay: 900 });
+    else if (type === 'cmeio') seqMeio(4100, 'cmeio', { noIntro: true, pay: 700 });
+    else seqPurple(4100, 'cpurple', { noReels: true, pay: 600 });
+    T(() => setCrashC(v => v + 1), 4200);
+    unlockAt(6000);
+  };
+
+  const doSin = (win) => {
+    startEffect();
+    lampTypeRef.current = 'sin'; setLampSubText('...'); setDim(0.45); reelSpinRef.current = 0;
+    landStagger(['r7', 'r7', 'god'], 200, 230, true);
+    T(() => { setSinPlus(true); jTone(880, 0, 0.12, 0.05); }, 950);
+    // 2秒の完全静寂
+    T(() => { lampOff(); setDim(0.8); }, 1100);
+    T(() => {
+      if (win) {
+        lampTypeRef.current = 'sinwin'; lampStartRef.current = null; setDim(0); setSinPlus(false);
+        setLampMainText('SIN'); setLampMainSize('min(28vw,116px)'); setLampSubText('JACKPOT');
+        setTint('radial-gradient(circle at 50% 45%, rgba(255,215,0,0.35) 0%, rgba(140,40,255,0.5) 55%, rgba(20,0,40,0.7) 100%)');
+        flash(1.0, 170, '#fff'); shakeFor(1300); sndSinBoom();
+        T(() => flash(0.55, 90, '#e0a0ff'), 260);
+        T(() => flash(0.5, 90, '#ffd700'), 520);
+        const earn = award('sin', '💥 SIN JACKPOT', '#ffcf3a', () => setSinC(v => v + 1));
+        setBigMsgColor('#ffd76a'); setBigMsg('+' + earn.toLocaleString());
+      } else {
+        lampTypeRef.current = 'sinlose'; lampStartRef.current = null;
+        setDim(0.6); setSinPlus(false); sndSinFade();
+        setLampMainText(''); setMsgColor('#6b6b6b'); setMsg('…SIN');
+        T(() => setDim(0.25), 800);
+        T(() => { lampOff(); setDim(0); }, 1500);
+      }
+    }, 3100);
+    unlockAt(5000);
+  };
+
+  const doSpin = () => {
+    if (lockedRef.current || phaseRef.current !== 'playing') return;
+    if (tapCountRef.current > 0) return;
+    tapCountRef.current = 1;
+    setTimeout(() => { tapCountRef.current = 0; }, 150);
+    gameNRef.current++; setGameN(gameNRef.current);
+    spinCountRef.current++; setSpinCount(spinCountRef.current);
+    godGapRef.current++;
+    coinsRef.current -= 1; setCoins(coinsRef.current);
+    sndTap(); setMsg('');
+    if (spinCountRef.current > 100 && jugRenRef.current > 0) { jugRenRef.current = 0; setJugRen(0); }
+    // 1タップ = Math.random() 1回。排他レンジで判定
+    const u = Math.random() * RU;
+    let acc = 0, flag = null;
+    for (const f of FLAGS) { acc += f[1]; if (u < acc) { flag = f[0]; break; } }
+    if (!flag) { setReels(rnd3()); return; }
+    if (flag === 'gase') { doGase(); return; }
+    if (flag === 'y7') { doY7(Math.random() < 0.75); return; }
+    if (flag === 'sin') { doSin(Math.random() < 0.5); return; }
+    // GOD成立: アメイジング・グレイス判定(100G以内 かつ 2回目以降)
+    let amazing = false;
+    if (flag === 'god' || flag === 'cgod') {
+      godCountRef.current++;
+      if (godCountRef.current >= 2 && godGapRef.current <= 100) amazing = true;
+      godGapRef.current = 0;
+    }
+    if (flag === 'god') { startEffect(); seqGod(0, 'god', amazing, null); unlockAt(5000); return; }
+    if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500); return; }
+    if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
+    doCrash(flag, amazing);
+  };
+
+  const startGame = () => {
+    setPhase("playing"); phaseRef.current = 'playing';
+    setGameN(0); setTimeLeft(TOTAL); setCoins(0);
+    setGodC(0); setMeioC(0); setPurpleC(0); setY7C(0); setCrashC(0); setSinC(0);
+    setMsg(''); setBigMsg(''); setLocked(false); lockedRef.current = false;
+    coinsRef.current = 0; gameNRef.current = 0; tapCountRef.current = 0;
+    spinCountRef.current = 0; setSpinCount(0);
+    setHistory([]); jugRenRef.current = 0; setJugRen(0);
+    godGapRef.current = 0; godCountRef.current = 0;
+    startTimeRef.current = Date.now(); timeLeftRef.current = TOTAL; lastTsRef.current = null;
+    reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
+    setReels(rnd3()); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
+    resetLamp();
+    bgm.stop();
+  };
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = [];
+      if (lampRef.current) cancelAnimationFrame(lampRef.current);
+    };
+  }, []);
+  useEffect(() => { if (phase === "done") { onScore(coinsRef.current); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);
+
+  const ls = lampStyle;
+  const totalC = godC + meioC + purpleC + y7C + sinC;
+
+  return (
+    <div style={{ textAlign: 'center', background: '#050406', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, background: screenGlow, pointerEvents: 'none', zIndex: 0 }} />
+      {tint !== 'none' && <div style={{ position: 'absolute', inset: 0, background: tint, pointerEvents: 'none', zIndex: 2 }} />}
+      {dim > 0 && <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: dim, pointerEvents: 'none', zIndex: 45, transition: 'opacity 0.25s linear' }} />}
+      {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: flashColor, opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
+      {crackLv > 0 && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 52, pointerEvents: 'none' }}>
+          {CRACKS.slice(0, crackLv * 3).map((c, i) => (
+            <div key={i} style={{ position: 'absolute', left: c.l + '%', top: c.t + '%', width: c.w + '%', height: 2,
+              background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.95),rgba(190,225,255,0.6),transparent)',
+              transform: `rotate(${c.r}deg)`, transformOrigin: 'left center', boxShadow: '0 0 8px rgba(255,255,255,0.85)' }} />
+          ))}
+        </div>
+      )}
+      {crtActive && (() => {
+        const elapsed = performance.now() - crtStart;
+        let content;
+        if (elapsed < 160) { const p = elapsed / 160; const h = 100 * (1 - p);
+          content = React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, height: Math.max(h, 0.5) + '%', top: (50 - h / 2) + '%', background: '#fff' } });
+        } else if (elapsed < 280) { const p = (elapsed - 160) / 120;
+          content = React.createElement('div', { style: { position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: (50 * p) + '%', right: (50 * p) + '%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1 - p * 0.7 } });
+        } else if (elapsed < 530) { const p = (elapsed - 280) / 250;
+          content = React.createElement('div', { style: { position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1 - p, boxShadow: '0 0 12px #fff' } });
+        } else { content = null; }
+        return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' } }, content);
+      })()}
+
+      {phase === "ready" && (
+        <div style={{ padding: '40px 20px' }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
+          <p style={{ fontSize: 11, opacity: 0.6, margin: '12px 0', lineHeight: 1.9, color: '#a89660' }}>
+            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
+          </p>
+          <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #8a6a00, #d4a017)' }}>START</button>
+        </div>
+      )}
+
+      {(phase === "playing" || phase === "done") && (
+        <>
+          {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none', overscrollBehavior: 'none' }}
+            onPointerDown={e => { e.preventDefault(); doSpin(); }}
+            onTouchMove={e => { e.preventDefault(); }}
+            onTouchStart={e => { e.preventDefault(); }} />}
+
+          <div style={{ background: '#08070a', borderBottom: '1px solid #2a2210', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                <span style={{ fontSize: 9, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>当たり間</span>
+                <span style={{ fontSize: 34, fontWeight: 800, color: spinCount >= 500 ? '#ff2222' : spinCount >= 200 ? '#ff9922' : '#ffd24a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: spinCount >= 500 ? '0 0 10px rgba(255,34,34,0.5)' : '0 0 10px rgba(255,210,74,0.5)' }}>{spinCount}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>GAME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: '#ffd24a' }}>{gameN}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>TIME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: locked ? '#66ccff' : timeLeft <= 10 ? '#ff2222' : '#ffd24a', textShadow: locked ? '0 0 8px rgba(102,204,255,0.6)' : 'none' }}>{fmtT(timeLeft)}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>COIN</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: coins < 0 ? '#ff7766' : '#eecc22' }}>{coins.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {[
+                { label: 'GOD', val: godC, prob: fmtP(gameN, godC), color: '#ffd700' },
+                { label: '冥王', val: meioC, prob: fmtP(gameN, meioC), color: '#8fd8ff' },
+                { label: '紫7', val: purpleC, prob: fmtP(gameN, purpleC), color: '#c48bff' },
+                { label: '合算', val: totalC, prob: fmtP(gameN, totalC), color: '#ffb347' },
+              ].map(s => (
+                <div key={s.label} style={{ flex: 1, background: '#0b0a0e', border: '1px solid #241d10', borderRadius: 5, padding: '4px 2px 3px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, fontFamily: "'Courier New',monospace", color: s.color, textShadow: `0 0 6px ${s.color}44`, marginBottom: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Courier New',monospace", lineHeight: 1, color: s.color, textShadow: `0 0 6px ${s.color}44` }}>{s.val}</div>
+                  <div style={{ fontSize: 9, fontFamily: "'Courier New',monospace", marginTop: 1, color: s.color, opacity: 0.5 }}>{s.prob}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1, padding: '16px 4px', pointerEvents: 'none' }}>
+            <div style={{ width: '92%', maxWidth: 380, aspectRatio: '16/10', borderRadius: 20, position: 'relative',
+              background: ls.bg || 'radial-gradient(circle at 50% 45%, #14110a 0%, #050406 70%)',
+              border: `3px solid ${ls.border || 'rgba(255,215,0,0.18)'}`, overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: ls.boxShadow || 'inset 0 0 30px rgba(0,0,0,0.9)',
+              animation: shaking ? 'shake 0.15s linear infinite' : 'none' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
+              <div style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
+              {/* 3リール */}
+              <div style={{ display: 'flex', gap: '3%', alignItems: 'center', justifyContent: 'center', width: '86%', zIndex: 2, position: 'relative' }}>
+                {reels.map((k, i) => {
+                  const s = SYMS[k] || SYMS.bell;
+                  return (
+                    <div key={i} style={{ flex: 1, aspectRatio: '3/4', borderRadius: 10,
+                      background: 'linear-gradient(180deg,#131117,#050406 55%,#0f0d13)',
+                      border: '2px solid rgba(255,215,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: `inset 0 0 18px rgba(0,0,0,0.9), 0 0 12px ${s.g}` }}>
+                      <span style={{ fontSize: s.sm ? 'min(6vw,26px)' : 'min(13vw,54px)', fontWeight: 900, fontStyle: 'italic',
+                        color: s.c, fontFamily: "'Courier New',monospace", lineHeight: 1,
+                        textShadow: `0 0 14px ${s.g}, 0 0 34px ${s.g}` }}>{s.t}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {sinPlus && <div style={{ position: 'absolute', right: '8%', top: '14%', fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.55)', zIndex: 6, fontFamily: "'Courier New',monospace" }}>+1</div>}
+              {lampMainText && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
+                  <span style={{ fontSize: lampMainSize, fontWeight: 900, letterSpacing: '0.08em', fontStyle: 'italic', lineHeight: 1,
+                    color: ls.textColor || '#ffd700', textShadow: ls.textShadow || 'none' }}>{lampMainText}</span>
+                </div>
+              )}
+              {bigMsg && (
+                <div style={{ position: 'absolute', bottom: '14%', left: 0, right: 0, zIndex: 7, pointerEvents: 'none' }}>
+                  <span style={{ fontSize: 'min(6.5vw,26px)', fontWeight: 900, letterSpacing: 2, color: bigMsgColor,
+                    textShadow: '0 0 12px rgba(255,215,0,0.9), 0 0 30px rgba(255,255,255,0.5)' }}>{bigMsg}</span>
+                </div>
+              )}
+              <div style={{ position: 'absolute', bottom: 'min(2.2vw,10px)', width: '100%', fontSize: 'min(3vw,12px)',
+                color: ls.subColor || 'rgba(255,215,0,0.18)', zIndex: 4, letterSpacing: 5, fontWeight: 700, textShadow: ls.subShadow || 'none' }}>{lampSubText}</div>
+              <div style={{ position: 'absolute', inset: -5, borderRadius: 25, border: `2px solid ${ls.ringBorder || 'transparent'}`, pointerEvents: 'none', zIndex: 8 }} />
+            </div>
+          </div>
+
+          {jugRen >= 2 && (
+            <div style={{ textAlign: 'center', pointerEvents: 'none', position: 'relative', zIndex: 41, marginBottom: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: '#ffb347', letterSpacing: 2, textShadow: '0 0 8px rgba(255,179,71,0.6)' }}>
+                🔥 連チャン {jugRen} ×{(1 + (jugRen - 1) * 0.1).toFixed(1)}
+              </span>
+            </div>
+          )}
+
+          {history.length > 0 && (
+            <div style={{ padding: '2px 8px', pointerEvents: 'none', position: 'relative', zIndex: 41 }}>
+              {[0, 10, 20].map(rowStart => {
+                const row = history.slice(rowStart, rowStart + 10);
+                if (row.length === 0) return null;
+                return (
+                  <div key={rowStart} style={{ display: 'flex', gap: 2, justifyContent: 'center', marginBottom: 2 }}>
+                    {row.map((h, i) => {
+                      const ht = HTYPE[h.type] || HTYPE.y7;
+                      return (
+                        <div key={rowStart + i} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, fontFamily: "'Courier New',monospace", fontWeight: 800, position: 'relative',
+                          background: h.is1G ? 'linear-gradient(135deg, rgba(255,107,107,0.25), rgba(255,209,61,0.25), rgba(107,255,107,0.25), rgba(107,197,255,0.25), rgba(208,107,255,0.25))' : ht.bg,
+                          color: h.is1G ? '#fff' : ht.c,
+                          textShadow: h.is1G ? '0 0 6px rgba(255,215,0,0.8)' : 'none',
+                          border: `1px solid ${h.is1G ? 'rgba(255,215,0,0.5)' : ht.bd}` }}>
+                          {ht.t}{h.at}
+                          {IS_CRASH[h.type] && <span style={{ color: '#fff' }}>💥</span>}
+                          {h.is1G && <span style={{ color: '#ffee00' }}>⚡</span>}
+                          {h.jugRen >= 2 && (
+                            <span style={{ position: 'absolute', top: -5, right: -4, fontSize: 7, fontWeight: 900, color: '#fff',
+                              background: h.is1G ? 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff)' : 'rgba(255,179,71,0.85)',
+                              borderRadius: 4, padding: '0 2px', lineHeight: 1.3, textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>×{h.jugRen}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ padding: '4px 12px', textAlign: 'center', pointerEvents: 'none', position: 'relative', zIndex: 41 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, minHeight: 18, marginBottom: 4, color: msgColor, letterSpacing: 1 }}>{msg}</div>
+            {phase === "playing" && <div style={{ fontSize: 9, color: '#5a4d2a', marginBottom: 4 }}>{locked ? '演出中（時間ストップ）' : 'どこでもタップでレバーON'}</div>}
+          </div>
+
+          {phase === "done" && (
+            <div style={{ margin: '4px 12px', padding: '8px 10px', background: 'rgba(10,9,14,0.95)', border: '1px solid #241d10', borderRadius: 8, textAlign: 'left', pointerEvents: 'none', position: 'relative', zIndex: 41 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2, textAlign: 'center', color: '#ffd700', letterSpacing: 2 }}>★ RESULT ★</div>
+              <div style={{ fontSize: 11, color: '#8a8070', lineHeight: 1.8 }}>
+                回転数：<b style={{ color: '#ddd' }}>{gameN}G</b><br/>
+                GOD：<b style={{ color: '#ddd' }}>{godC}回</b>（{fmtP(gameN, godC)}） ／ 冥王：<b style={{ color: '#ddd' }}>{meioC}回</b>（{fmtP(gameN, meioC)}）<br/>
+                紫7：<b style={{ color: '#ddd' }}>{purpleC}回</b>（{fmtP(gameN, purpleC)}） ／ 中段黄7：<b style={{ color: '#ddd' }}>{y7C}回</b><br/>
+                クラッシュ：<b style={{ color: '#ddd' }}>{crashC}回</b> ／ レアSIN：<b style={{ color: '#ddd' }}>{sinC}回</b><br/>
+                獲得コイン：<b style={{ color: '#ddd' }}>{coins.toLocaleString()}枚</b>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}`}</style>
+    </div>
+  );
+}
+
+// ============================================================
 // ============================================================
 // BATTING HERO GAME (70 seconds timing batting game)
 // ============================================================
@@ -10072,7 +10759,7 @@ function GameHistoryScreen() {
   const HISTORY_GAMES = {
     tap: '👊 連打バトル', shooting: '🎯 シューティング', gem: '💎 ジュエルキャッチ', timing: '⏱️ ルパンタイマー',
     tower: '🪙 コインタワー', memory: '🃏 神経衰弱', quickdraw: '🔫 早撃ちガンマン',
-    coinRunner: '🏃 コインランナー', juggler: '🎰 ジャグラー', batting: '⚾ バッティングヒーロー', pinball: '🎱 ピンボール', chainBurst: '💥 チェインバースト',
+    coinRunner: '🏃 コインランナー', juggler: '🎰 ジャグラー', godAnother: '⚡ ゴッドアナザー', batting: '⚾ バッティングヒーロー', pinball: '🎱 ピンボール', chainBurst: '💥 チェインバースト',
     mathEasy: '➕ 計算初級', kuku: '🔢 九九', mathMid: '📐 計算中級', mathHardAdd: '🧮 上級±', mathHardMult: '✖️ 上級×÷'
   };
 
@@ -10086,6 +10773,7 @@ function GameHistoryScreen() {
     { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
     { id: "juggler", icon: "🎰", name: "ジャグラー" },
+    { id: "godAnother", icon: "⚡", name: "ゴッド" },
     { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
@@ -10278,6 +10966,7 @@ function RankingScreen() {
     { id: "quickdraw", icon: "🔫", name: "早撃ち" },
     { id: "coinRunner", icon: "🏃", name: "ランナー" },
     { id: "juggler", icon: "🎰", name: "ジャグラー" },
+    { id: "godAnother", icon: "⚡", name: "ゴッド" },
     { id: "batting", icon: "⚾", name: "バッティング" },
     { id: "pinball", icon: "🎱", name: "ピンボール" },
     { id: "chainBurst", icon: "💥", name: "チェイン" },
