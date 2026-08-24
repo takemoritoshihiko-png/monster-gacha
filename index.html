@@ -7396,6 +7396,74 @@ function JugglerGame({ onScore, onClose }) {
 // ============================================================
 // GOD ANOTHER GAME (ゴッドアナザー / 180秒・演出中はタイマー停止)
 // ============================================================
+// --- 音の土台: sfxBus → compressor → sfxMaster / 並行 sfxBus → convolver(生成IR) → wet → compressor ---
+const gaBufs = {};
+let gaBus = null, gaComp = null, gaConv = null, gaWet = null, gaWarmStarted = false;
+function gaMakeBuf(dur, fn) {
+  const a = audioCtx; if (!a) return null;
+  const sr = a.sampleRate, buf = a.createBuffer(2, Math.max(1, Math.floor(sr * dur)), sr);
+  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = fn(i / sr, ch); }
+  return buf;
+}
+function gaGetBus() {
+  const a = audioCtx; if (!a) return null;
+  if (gaBus) return gaBus;
+  try {
+    gaBus = a.createGain(); gaBus.gain.value = 1;
+    gaComp = a.createDynamicsCompressor();
+    gaComp.threshold.value = -18; gaComp.knee.value = 12; gaComp.ratio.value = 5;
+    gaComp.attack.value = 0.003; gaComp.release.value = 0.25;
+    gaBus.connect(gaComp);
+    gaComp.connect(sfxMaster || a.destination);
+  } catch (e) { gaBus = null; }
+  return gaBus;
+}
+function gaEnsureReverb() {
+  const a = audioCtx; if (!a || gaConv) return;
+  const bus = gaGetBus(); if (!bus || !gaComp) return;
+  try {
+    const ir = gaMakeBuf(2.0, (s) => (Math.random() * 2 - 1) * Math.pow(Math.max(0, 1 - s / 2.0), 2.6) * Math.exp(-s * 1.1));
+    if (!ir) return;
+    gaConv = a.createConvolver(); gaConv.normalize = true; gaConv.buffer = ir;
+    gaWet = a.createGain(); gaWet.gain.value = 0.22;
+    bus.connect(gaConv); gaConv.connect(gaWet); gaWet.connect(gaComp);
+  } catch (e) { gaConv = null; }
+}
+// 重量バッファ(生成コストが高い音)の定義。startGame/ready表示時に事前生成してキャッシュする
+const GA_SND = {
+  godGong: [5.0, (s, ch) => { const f0 = 55; return (Math.sin(2 * Math.PI * f0 * s) * 0.5 * Math.exp(-s * 0.5) + Math.sin(2 * Math.PI * f0 * 2 * s) * 0.35 * Math.exp(-s * 0.7) + Math.sin(2 * Math.PI * f0 * 3 * s) * 0.2 * Math.exp(-s * 0.9) + Math.sin(2 * Math.PI * f0 * 4 * s) * 0.12 * Math.exp(-s * 1.1) + Math.sin(2 * Math.PI * f0 * 6 * s) * 0.06 * Math.exp(-s * 1.5) + Math.exp(-s * 6) * (Math.random() * 2 - 1) * 0.7 + Math.sin(2 * Math.PI * 27.5 * s) * 0.3 * Math.exp(-s * 0.8)) * (ch === 0 ? 0.65 : 0.6); }],
+  godCoins: [2.5, (s, ch) => { let v = 0; for (let n = 0; n < 24; n++) { const o = n * 0.06, f = 1600 + n * 160 + (ch * 70); if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 3) * 0.07; } return v * 0.9; }],
+  meioRumble: [3.0, (s, ch) => { const sub = Math.sin(2 * Math.PI * 32 * s * (1 + 0.02 * Math.sin(2 * Math.PI * 1.3 * s))) * 0.55 * Math.exp(-s * 0.5); const grind = (Math.random() * 2 - 1) * 0.16 * Math.exp(-s * 0.9); const drone = Math.sin(2 * Math.PI * 49 * s) * 0.25 * Math.exp(-s * 0.6); return (sub + grind + drone) * (ch === 0 ? 0.62 : 0.58); }],
+  allSpin: [2.2, (s, ch) => { const f = 90 + s * 95; return (Math.sin(2 * Math.PI * f * s) * 0.28 + Math.sin(2 * Math.PI * f * 2 * s) * 0.12 + (Math.random() * 2 - 1) * 0.05) * Math.min(s * 3, 1) * (ch === 0 ? 0.5 : 0.46); }],
+  sinBoom: [2.4, (s, ch) => { const boom = (Math.random() * 2 - 1) * Math.exp(-s * 2.2) * 0.7; const sub = Math.sin(2 * Math.PI * 38 * s) * Math.exp(-s * 1.4) * 0.6; const shine = Math.sin(2 * Math.PI * (6000 * Math.exp(-s * 5)) * s) * Math.exp(-s * 6) * 0.3; return (boom + sub + shine) * (ch === 0 ? 0.62 : 0.58); }],
+  glass: [1.2, (s, ch) => { let v = 0; for (let i = 0; i < 18; i++) { const o = i * 0.045, f = 2600 + i * 430 + ch * 120; if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 13) * 0.09; } return (v + (Math.random() * 2 - 1) * Math.exp(-s * 6) * 0.25) * 0.9; }],
+  thunder: [1.0, (s, ch) => { const crack = Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 14)) * s) * Math.exp(-s * 10) * 0.4; const boom = (Math.random() * 2 - 1) * Math.exp(-s * 3.2) * 0.55; const sub = Math.sin(2 * Math.PI * 45 * s * (1 + 0.25 * Math.random())) * Math.exp(-s * 2) * 0.45; return (crack + boom + sub) * (ch === 0 ? 0.6 : 0.55); }],
+  oneG: [0.8, (s, ch) => { const thunder = (Math.random() * 2 - 1) * Math.exp(-s * 3) * 0.7; const crack = Math.sin(2 * Math.PI * 80 * s) * Math.exp(-s * 5) * 0.5; const rumble = Math.sin(2 * Math.PI * 40 * s * (1 + Math.random() * 0.3)) * Math.exp(-s * 1.5) * 0.4; const zap = Math.sin(2 * Math.PI * (8000 * Math.exp(-s * 12)) * s) * Math.exp(-s * 8) * 0.3; return (thunder + crack + rumble + zap) * (ch === 0 ? 0.6 : 0.55); }],
+};
+function gaPlay(key, vol) {
+  const a = audioCtx; if (!a) return;
+  if (a.state === 'suspended') a.resume();
+  let b = gaBufs[key];
+  if (!b) { const g = GA_SND[key]; if (!g) return; b = gaBufs[key] = gaMakeBuf(g[0], g[1]); if (!b) return; }
+  const bs = a.createBufferSource(); bs.buffer = b;
+  const gn = a.createGain(); gn.gain.value = vol == null ? 1 : vol;
+  bs.connect(gn); gn.connect(gaGetBus() || a.destination); bs.start(a.currentTime);
+}
+// 事前生成はidle時に1件ずつ(ready画面表示時に開始。playing中の一括生成を避ける)
+function gaWarmup() {
+  if (!audioCtx || gaWarmStarted) return; gaWarmStarted = true;
+  const keys = ['__ir'].concat(Object.keys(GA_SND));
+  const ric = (typeof window !== 'undefined' && window.requestIdleCallback) ? (f) => window.requestIdleCallback(f, { timeout: 400 }) : (f) => setTimeout(f, 16);
+  let i = 0;
+  const step = () => {
+    if (i >= keys.length) return;
+    const k = keys[i++];
+    try { if (k === '__ir') gaEnsureReverb(); else if (!gaBufs[k]) gaBufs[k] = gaMakeBuf(GA_SND[k][0], GA_SND[k][1]); } catch (e) {}
+    ric(step);
+  };
+  ric(step);
+}
+
 function GodAnotherGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [gameN, setGameN] = useState(0);
@@ -7415,17 +7483,13 @@ function GodAnotherGame({ onScore, onClose }) {
   const [bigMsg, setBigMsg] = useState('');
   const [bigMsgColor, setBigMsgColor] = useState('#ffd700');
   const [locked, setLocked] = useState(false);
-  const [lampStyle, setLampStyle] = useState({});
   const [shaking, setShaking] = useState(false);
   const [crtActive, setCrtActive] = useState(false);
-  const [crtStart, setCrtStart] = useState(0);
-  const [, setCrtTick] = useState(0);
   const [flashAlpha, setFlashAlpha] = useState(0);
   const [flashColor, setFlashColor] = useState('#fff');
   const [dim, setDim] = useState(0);
   const [tint, setTint] = useState('none');
   const [crackLv, setCrackLv] = useState(0);
-  const [screenGlow, setScreenGlow] = useState('none');
   const [lampMainText, setLampMainText] = useState('');
   const [lampMainSize, setLampMainSize] = useState('min(24vw,100px)');
   const [lampSubText, setLampSubText] = useState('ANOTHER');
@@ -7454,6 +7518,21 @@ function GodAnotherGame({ onScore, onClose }) {
   const aliveRef = useRef(true);
   const timeoutsRef = useRef([]);
   const crtActiveRef = useRef(false);
+  // --- RAFからDOM直書きするための参照(setState毎フレームを廃止) ---
+  const sgRef = useRef(null);
+  const frameRef = useRef(null);
+  const frameGlowRef = useRef(null);
+  const glowRef = useRef(null);
+  const mainTxtRef = useRef(null);
+  const subTxtRef = useRef(null);
+  const ringRef = useRef(null);
+  const crtBarRef = useRef(null);
+  const crtLineRef = useRef(null);
+  const crtDotRef = useRef(null);
+  const crtStartRef = useRef(0);
+  const lsRef = useRef({});
+  const styCacheRef = useRef({});
+  const prevLtRef = useRef('off');
 
   const TOTAL = 180;
   // 抽選単位 R = 1/32768。各フラグの重みは R の整数倍(仕様分母との誤差1%以内)
@@ -7507,15 +7586,17 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const synth = (dur, fn, vol = 0.7) => {
     const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
-    const sr = a.sampleRate, buf = a.createBuffer(2, sr * dur, sr);
-    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = fn(i / sr, ch); }
-    const bs = a.createBufferSource(); bs.buffer = buf; const g = a.createGain(); g.gain.value = vol; bs.connect(g); g.connect(a.destination); bs.start(a.currentTime);
+    const buf = gaMakeBuf(dur, fn); if (!buf) return;
+    const bs = a.createBufferSource(); bs.buffer = buf; const g = a.createGain(); g.gain.value = vol; bs.connect(g); g.connect(gaGetBus() || a.destination); bs.start(a.currentTime);
   };
   const jTone = (f, st, dur, vol = 0.25, type = 'sine') => {
     const a = audioCtx; if (!a) return;
     const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = f;
-    g.gain.setValueAtTime(vol, a.currentTime + st); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + st + dur);
-    o.connect(g); g.connect(a.destination); o.start(a.currentTime + st); o.stop(a.currentTime + st + dur);
+    const t0 = a.currentTime + st, at = Math.min(0.008, dur * 0.4);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + at);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(gaGetBus() || a.destination); o.start(t0); o.stop(t0 + dur);
   };
   const sndTap = () => synth(0.05, (s) => (Math.sin(2 * Math.PI * 3200 * s) * Math.exp(-s * 70) * 0.35 + Math.sin(2 * Math.PI * 900 * s) * Math.exp(-s * 50) * 0.2) * 0.6, 0.1);
   const sndReelStop = () => synth(0.14, (s) => (Math.sin(2 * Math.PI * 180 * s) * Math.exp(-s * 30) * 0.6 + (Math.random() * 2 - 1) * Math.exp(-s * 45) * 0.3) * 0.8, 0.3);
@@ -7525,16 +7606,16 @@ function GodAnotherGame({ onScore, onClose }) {
   const sndCutin = () => { synth(0.3, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 10) * 0.5, 0.45); [392, 523, 659, 880].forEach((f, i) => jTone(f, i * 0.05, 0.35, 0.18, 'square')); jTone(98, 0, 0.5, 0.14, 'sawtooth'); };
   const sndHeart = () => { jTone(70, 0, 0.18, 0.3, 'sine'); jTone(70, 0.22, 0.22, 0.24, 'sine'); };
   const sndVWin = () => { sndGakonG(); [659, 880, 1047, 1319, 1568, 2093].forEach((f, i) => jTone(f, 0.08 + i * 0.07, 0.45, 0.2)); jTone(131, 0.05, 0.9, 0.12); };
-  const sndThunder = (vol = 1.0) => synth(1.0, (s, ch) => { const crack = Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 14)) * s) * Math.exp(-s * 10) * 0.4; const boom = (Math.random() * 2 - 1) * Math.exp(-s * 3.2) * 0.55; const sub = Math.sin(2 * Math.PI * 45 * s * (1 + 0.25 * Math.random())) * Math.exp(-s * 2) * 0.45; return (crack + boom + sub) * (ch === 0 ? 0.6 : 0.55); }, vol);
+  const sndThunder = (vol = 1.0) => gaPlay('thunder', vol);
   const sndPuchun = () => synth(0.3, (s, ch) => (Math.sin(2 * Math.PI * (9000 * Math.exp(-s * 16) + 150) * s) * 0.55 * Math.exp(-s * 7) + Math.sin(2 * Math.PI * 14000 * s) * 0.1 * Math.exp(-s * 35) + Math.sin(2 * Math.PI * 60 * s) * 0.5 * Math.exp(-s * 20) + (Math.random() * 2 - 1) * 0.4 * Math.exp(-s * 25)) * 0.85, 1.0);
-  const sndGodGong = () => synth(5.0, (s, ch) => { const f0 = 55; return (Math.sin(2 * Math.PI * f0 * s) * 0.5 * Math.exp(-s * 0.5) + Math.sin(2 * Math.PI * f0 * 2 * s) * 0.35 * Math.exp(-s * 0.7) + Math.sin(2 * Math.PI * f0 * 3 * s) * 0.2 * Math.exp(-s * 0.9) + Math.sin(2 * Math.PI * f0 * 4 * s) * 0.12 * Math.exp(-s * 1.1) + Math.sin(2 * Math.PI * f0 * 6 * s) * 0.06 * Math.exp(-s * 1.5) + Math.exp(-s * 6) * (Math.random() * 2 - 1) * 0.7 + Math.sin(2 * Math.PI * 27.5 * s) * 0.3 * Math.exp(-s * 0.8)) * (ch === 0 ? 0.65 : 0.6); }, 1.0);
-  const sndGodCoins = () => synth(2.5, (s, ch) => { let v = 0; for (let n = 0; n < 24; n++) { const o = n * 0.06, f = 1600 + n * 160 + (ch * 70); if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 3) * 0.07; } return v * 0.9; }, 0.8);
-  const sndMeioRumble = () => synth(3.0, (s, ch) => { const sub = Math.sin(2 * Math.PI * 32 * s * (1 + 0.02 * Math.sin(2 * Math.PI * 1.3 * s))) * 0.55 * Math.exp(-s * 0.5); const grind = (Math.random() * 2 - 1) * 0.16 * Math.exp(-s * 0.9); const drone = Math.sin(2 * Math.PI * 49 * s) * 0.25 * Math.exp(-s * 0.6); return (sub + grind + drone) * (ch === 0 ? 0.62 : 0.58); }, 0.95);
+  const sndGodGong = () => gaPlay('godGong', 1.0);
+  const sndGodCoins = () => gaPlay('godCoins', 0.8);
+  const sndMeioRumble = () => gaPlay('meioRumble', 0.95);
   const sndMeioBell = () => { [220, 277, 330, 440, 554, 659].forEach((f, i) => jTone(f, i * 0.09, 1.4, 0.13, 'triangle')); jTone(110, 0, 2.0, 0.1, 'sine'); };
   const sndCrack = () => synth(0.35, (s) => (Math.sin(2 * Math.PI * (1400 * Math.exp(-s * 20)) * s) * Math.exp(-s * 14) * 0.5 + (Math.random() * 2 - 1) * Math.exp(-s * 18) * 0.55) * 0.9, 0.8);
-  const sndGlass = () => synth(1.2, (s, ch) => { let v = 0; for (let i = 0; i < 18; i++) { const o = i * 0.045, f = 2600 + i * 430 + ch * 120; if (s > o) v += Math.sin(2 * Math.PI * f * (s - o)) * Math.exp(-(s - o) * 13) * 0.09; } return (v + (Math.random() * 2 - 1) * Math.exp(-s * 6) * 0.25) * 0.9; }, 0.75);
-  const sndAllSpin = () => synth(2.2, (s, ch) => { const f = 90 + s * 95; return (Math.sin(2 * Math.PI * f * s) * 0.28 + Math.sin(2 * Math.PI * f * 2 * s) * 0.12 + (Math.random() * 2 - 1) * 0.05) * Math.min(s * 3, 1) * (ch === 0 ? 0.5 : 0.46); }, 0.45);
-  const sndSinBoom = () => { synth(2.4, (s, ch) => { const boom = (Math.random() * 2 - 1) * Math.exp(-s * 2.2) * 0.7; const sub = Math.sin(2 * Math.PI * 38 * s) * Math.exp(-s * 1.4) * 0.6; const shine = Math.sin(2 * Math.PI * (6000 * Math.exp(-s * 5)) * s) * Math.exp(-s * 6) * 0.3; return (boom + sub + shine) * (ch === 0 ? 0.62 : 0.58); }, 1.0); sndThunder(0.9); };
+  const sndGlass = () => gaPlay('glass', 0.75);
+  const sndAllSpin = () => gaPlay('allSpin', 0.45);
+  const sndSinBoom = () => { gaPlay('sinBoom', 1.0); sndThunder(0.9); };
   const sndSinFade = () => { jTone(196, 0, 1.2, 0.08, 'sine'); jTone(147, 0.15, 1.4, 0.06, 'sine'); };
 
   // アメイジング・グレイス (G長調 / 1拍=0.55秒)
@@ -7556,7 +7637,39 @@ function GodAnotherGame({ onScore, onClose }) {
   const rndB = () => BLANKS[Math.floor(Math.random() * BLANKS.length)];
   const rnd3 = () => { let a, b, c; do { a = rndB(); b = rndB(); c = rndB(); } while (a === b && b === c); return [a, b, c]; };
 
-  const lampOff = () => { lampTypeRef.current = 'off'; lampStartRef.current = null; setLampStyle({}); setScreenGlow('none'); };
+  // ランプ盤の既定値(ls が空の時の見え方。JSXの `||` フォールバックと必ず一致させる)
+  const D_BG = 'radial-gradient(circle at 50% 45%, #14110a 0%, #050406 70%)';
+  const D_BORDER = 'rgba(255,215,0,0.18)';
+  const D_MAINC = '#ffd700';
+  const D_SUBC = 'rgba(255,215,0,0.18)';
+  // 枠の発光は box-shadow の毎フレーム書換えをやめ、プリブラーした radial-gradient div の opacity 変調で表現
+  const fgGrad = (h, s, l) => `radial-gradient(closest-side,hsla(${h},${s}%,${l}%,0.6) 0%,hsla(${h},${s}%,${l}%,0.25) 55%,hsla(${h},${s}%,${l}%,0) 100%)`;
+  const FG_GOLD = 'radial-gradient(closest-side,rgba(255,215,0,0.62) 0%,rgba(255,190,0,0.26) 55%,rgba(255,180,0,0) 100%)';
+  // 値が変わった時だけ style を書く(無駄なpaintと再parseを避ける)
+  const wsty = (el, key, prop, val) => {
+    const c0 = styCacheRef.current;
+    if (!el) { delete c0[key]; return; } // 未マウント時はキャッシュを捨てる(再マウント時の書き漏れ防止)
+    const c = c0;
+    if (c[key] === val) return;
+    c[key] = val; el.style[prop] = val;
+  };
+  const applyLamp = (st) => {
+    const s = st || {};
+    lsRef.current = s;
+    if (!st) styCacheRef.current = {};
+    wsty(sgRef.current, 'sg', 'background', s.sg || 'none');
+    wsty(frameRef.current, 'fbg', 'background', s.bg || D_BG);
+    wsty(frameRef.current, 'fbd', 'borderColor', s.border || D_BORDER);
+    wsty(glowRef.current, 'gl', 'background', s.glow || 'none');
+    wsty(frameGlowRef.current, 'fgb', 'background', s.fg || 'none');
+    wsty(frameGlowRef.current, 'fgo', 'opacity', String(s.fgo || 0));
+    wsty(mainTxtRef.current, 'mc', 'color', s.textColor || D_MAINC);
+    wsty(mainTxtRef.current, 'ms', 'textShadow', s.textShadow || 'none');
+    wsty(subTxtRef.current, 'sc', 'color', s.subColor || D_SUBC);
+    wsty(subTxtRef.current, 'ss', 'textShadow', s.subShadow || 'none');
+    wsty(ringRef.current, 'rb', 'borderColor', s.ringBorder || 'transparent');
+  };
+  const lampOff = () => { lampTypeRef.current = 'off'; lampStartRef.current = null; prevLtRef.current = 'off'; applyLamp(null); };
   const resetLamp = () => {
     lampOff(); setShaking(false);
     setLampMainText(''); setLampMainSize('min(24vw,100px)'); setLampSubText('ANOTHER');
@@ -7576,7 +7689,8 @@ function GodAnotherGame({ onScore, onClose }) {
     textColor: `hsla(${h},${s}%,${l + 25}%,${0.9 + 0.1 * p})`,
     textShadow: `0 0 15px hsla(${h},${s}%,${l + 10}%,${0.9 * p}),0 0 40px hsla(${h},${s}%,${l}%,${0.5 * p}),0 0 80px hsla(${h},${s * 0.8}%,${l - 5}%,${0.2 * p})`,
     subColor: `hsla(${h},${s}%,${l + 10}%,${0.4 * p})`, subShadow: `0 0 8px hsla(${h},${s}%,${l}%,${0.3 * p})`,
-    border: `hsla(${h},${s}%,${l - 5}%,${0.3 + 0.5 * p})`, boxShadow: `0 0 25px hsla(${h},${s}%,${l - 5}%,${0.3 * p})`,
+    border: `hsla(${h},${s}%,${l - 5}%,${0.3 + 0.5 * p})`,
+    fg: fgGrad(Math.round(h / 6) * 6, Math.round(s), Math.round(l - 5)), fgo: 0.3 * p,
     ringBorder: `hsla(${h},${s}%,${l - 5}%,${0.15 + 0.2 * p})`, bg: '#050406',
     sg: `radial-gradient(circle at 50% 45%,hsla(${h},${s}%,${l - 10}%,${a * 0.1}) 0%,transparent 60%)`,
   });
@@ -7592,8 +7706,28 @@ function GodAnotherGame({ onScore, onClose }) {
       const dt = prev == null ? 0 : Math.min(ts - prev, 500);
       // 演出ロック中はタイマー停止(開始時刻を dt 分だけ後ろにずらす)
       if (lockedRef.current && startTimeRef.current) startTimeRef.current += dt;
-      // CRT(ぷちゅん)演出はレンダー時刻依存のため、表示中は毎フレーム再描画を起こす
-      if (crtActiveRef.current) setCrtTick(t => t + 1);
+      // CRT(ぷちゅん): 固定div3枚を ref で持ち、座標とopacityだけRAFで更新(再レンダーなし)
+      if (crtActiveRef.current) {
+        const ce = performance.now() - crtStartRef.current;
+        const cb = crtBarRef.current, cl = crtLineRef.current, cd = crtDotRef.current;
+        if (cb && cl && cd) {
+          if (ce < 160) {
+            const p = ce / 160, h = 100 * (1 - p);
+            cb.style.display = 'block'; cb.style.height = Math.max(h, 0.5) + '%'; cb.style.top = (50 - h / 2) + '%';
+            cl.style.display = 'none'; cd.style.display = 'none';
+          } else if (ce < 280) {
+            const p = (ce - 160) / 120;
+            cb.style.display = 'none'; cd.style.display = 'none';
+            cl.style.display = 'block'; cl.style.left = (50 * p) + '%'; cl.style.right = (50 * p) + '%'; cl.style.opacity = String(1 - p * 0.7);
+          } else if (ce < 530) {
+            const p = (ce - 280) / 250;
+            cb.style.display = 'none'; cl.style.display = 'none';
+            cd.style.display = 'block'; cd.style.opacity = String(1 - p);
+          } else {
+            cb.style.display = 'none'; cl.style.display = 'none'; cd.style.display = 'none';
+          }
+        }
+      }
       if (phaseRef.current === 'playing' && startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         const newTimeLeft = Math.max(0, TOTAL - elapsed);
@@ -7611,6 +7745,7 @@ function GodAnotherGame({ onScore, onClose }) {
         }
       }
       const lt = lampTypeRef.current;
+      if (lt !== prevLtRef.current) { prevLtRef.current = lt; styCacheRef.current = {}; }
       if (lt !== 'off') {
         if (!lampStartRef.current) lampStartRef.current = ts;
         const e = (ts - lampStartRef.current) / 1000;
@@ -7623,20 +7758,20 @@ function GodAnotherGame({ onScore, onClose }) {
         else if (lt === 'meio') { const h = 195 + 38 * Math.sin(e * 1.6), p = 0.55 + 0.45 * Math.sin(e * 5.5), a = 0.7 + 0.3 * p; st = computeLamp(h, 90, 52, p, a); }
         else if (lt === 'crash') { const on = Math.sin(e * 95) > 0; if (on) { const p = 0.8 + 0.2 * Math.sin(e * 30), a = 0.9; st = computeLamp(4, 95, 52, p, a); } else { const p = 0.9, a = 0.85; st = computeLamp(0, 0, 62, p, a); } }
         else if (lt === 'allspin') { const p = 0.35 + 0.3 * Math.sin(e * 3), a = 0.3 + 0.25 * p; st = computeLamp(210, 60, 40, p, a); }
-        else if (lt === 'sin') { st = { glow: 'none', textColor: 'rgba(255,255,255,0.06)', textShadow: 'none', subColor: 'rgba(255,255,255,0.05)', subShadow: 'none', border: '#0b0a0c', boxShadow: 'none', ringBorder: 'transparent', bg: '#020203', sg: 'none' }; }
+        else if (lt === 'sin') { st = { glow: 'none', textColor: 'rgba(255,255,255,0.06)', textShadow: 'none', subColor: 'rgba(255,255,255,0.05)', subShadow: 'none', border: '#0b0a0c', fg: 'none', fgo: 0, ringBorder: 'transparent', bg: '#020203', sg: 'none' }; }
         else if (lt === 'sinlose') { const a = Math.max(0, 0.28 - e * 0.13); st = computeLamp(300, 30, 26, 0.25, a); }
         else if (lt === 'sinwin') { const h = Math.sin(e * 13) > 0 ? 45 : 288; const p = 0.8 + 0.2 * Math.sin(e * 20), a = 0.95; st = computeLamp(h, 100, 58, p, a); }
         else if (lt === 'god') {
           const fc = Math.floor(e * 60); const on = Math.sin(fc * 0.7) > 0, p = 0.7 + 0.3 * Math.sin(e * 14);
           if (on) { const hue = (e * 150) % 50, a = 0.85 + 0.15 * p;
-            st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,hsla(${42 + hue},100%,58%,${a * 0.55}) 25%,transparent 80%)`, textColor: `rgba(255,${225 + 30 * p | 0},${115 + 40 * p | 0},1)`, textShadow: `0 0 25px rgba(255,215,0,1),0 0 60px rgba(255,180,0,0.7),0 0 100px rgba(255,255,255,0.4)`, subColor: `rgba(255,215,0,${0.7 * p})`, subShadow: 'none', border: `rgba(255,215,0,${0.6 + 0.35 * p})`, boxShadow: `0 0 40px rgba(255,215,0,0.5),0 0 80px rgba(255,180,0,0.2)`, ringBorder: `rgba(255,215,0,${0.4 + 0.4 * p})`, bg: `radial-gradient(circle,rgba(35,28,0,1) 0%,#040404 60%)`, sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.2 * p}) 0%,rgba(255,180,0,${0.08 * p}) 20%,transparent 65%)` };
-          } else { st = { glow: 'radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 50%)', textColor: 'rgba(255,215,0,0.2)', textShadow: '0 0 6px rgba(255,200,0,0.1)', subColor: 'rgba(255,215,0,0.1)', subShadow: 'none', border: 'rgba(255,215,0,0.12)', boxShadow: 'none', ringBorder: 'rgba(255,215,0,0.06)', bg: '#040404', sg: `radial-gradient(circle at 50% 45%,rgba(255,200,0,0.02) 0%,transparent 30%)` }; }
+            st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,hsla(${42 + hue},100%,58%,${a * 0.55}) 25%,transparent 80%)`, textColor: `rgba(255,${225 + 30 * p | 0},${115 + 40 * p | 0},1)`, textShadow: `0 0 25px rgba(255,215,0,1),0 0 60px rgba(255,180,0,0.7),0 0 100px rgba(255,255,255,0.4)`, subColor: `rgba(255,215,0,${0.7 * p})`, subShadow: 'none', border: `rgba(255,215,0,${0.6 + 0.35 * p})`, fg: FG_GOLD, fgo: 0.5, ringBorder: `rgba(255,215,0,${0.4 + 0.4 * p})`, bg: `radial-gradient(circle,rgba(35,28,0,1) 0%,#040404 60%)`, sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.2 * p}) 0%,rgba(255,180,0,${0.08 * p}) 20%,transparent 65%)` };
+          } else { st = { glow: 'radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 50%)', textColor: 'rgba(255,215,0,0.2)', textShadow: '0 0 6px rgba(255,200,0,0.1)', subColor: 'rgba(255,215,0,0.1)', subShadow: 'none', border: 'rgba(255,215,0,0.12)', fg: FG_GOLD, fgo: 0, ringBorder: 'rgba(255,215,0,0.06)', bg: '#040404', sg: `radial-gradient(circle at 50% 45%,rgba(255,200,0,0.02) 0%,transparent 30%)` }; }
         }
         else if (lt === 'amazing') {
           const h = (e * 120) % 360, p = 0.8 + 0.2 * Math.sin(e * 10), a = 0.9 + 0.1 * p;
-          st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,rgba(255,215,0,${a * 0.75}) 18%,hsla(${h},100%,60%,${a * 0.5}) 42%,hsla(${(h + 60) % 360},100%,55%,${a * 0.25}) 62%,transparent 88%)`, textColor: '#fffbe0', textShadow: `0 0 30px rgba(255,215,0,1),0 0 70px hsla(${h},100%,60%,0.8),0 0 120px rgba(255,255,255,0.5)`, subColor: `hsla(${h},100%,78%,${0.85 * p})`, subShadow: 'none', border: `hsla(${h},100%,60%,${0.7 + 0.3 * p})`, boxShadow: `0 0 50px rgba(255,215,0,0.6),0 0 100px hsla(${h},100%,55%,0.35)`, ringBorder: `hsla(${(h + 180) % 360},100%,60%,${0.5 + 0.4 * p})`, bg: 'radial-gradient(circle,rgba(45,36,0,1) 0%,#050403 62%)', sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.25 * p}) 0%,hsla(${h},100%,50%,${0.1 * p}) 25%,transparent 70%)` };
+          st = { glow: `radial-gradient(circle,rgba(255,255,255,${a}) 0%,rgba(255,215,0,${a * 0.75}) 18%,hsla(${h},100%,60%,${a * 0.5}) 42%,hsla(${(h + 60) % 360},100%,55%,${a * 0.25}) 62%,transparent 88%)`, textColor: '#fffbe0', textShadow: `0 0 30px rgba(255,215,0,1),0 0 70px hsla(${h},100%,60%,0.8),0 0 120px rgba(255,255,255,0.5)`, subColor: `hsla(${h},100%,78%,${0.85 * p})`, subShadow: 'none', border: `hsla(${h},100%,60%,${0.7 + 0.3 * p})`, fg: FG_GOLD, fgo: 0.6, ringBorder: `hsla(${(h + 180) % 360},100%,60%,${0.5 + 0.4 * p})`, bg: 'radial-gradient(circle,rgba(45,36,0,1) 0%,#050403 62%)', sg: `radial-gradient(circle at 50% 45%,rgba(255,215,0,${0.25 * p}) 0%,hsla(${h},100%,50%,${0.1 * p}) 25%,transparent 70%)` };
         }
-        setLampStyle(st); setScreenGlow(st.sg || 'none');
+        applyLamp(st);
       }
       lampRef.current = requestAnimationFrame(loop);
     };
@@ -7659,13 +7794,7 @@ function GodAnotherGame({ onScore, onClose }) {
       return [{ type, at: hitAt, jugRen: newJugRen, is1G, streak1G }].concat(prev).slice(0, 30);
     });
     if (is1G) {
-      synth(0.8, (s, ch) => {
-        const thunder = (Math.random() * 2 - 1) * Math.exp(-s * 3) * 0.7;
-        const crack = Math.sin(2 * Math.PI * 80 * s) * Math.exp(-s * 5) * 0.5;
-        const rumble = Math.sin(2 * Math.PI * 40 * s * (1 + Math.random() * 0.3)) * Math.exp(-s * 1.5) * 0.4;
-        const zap = Math.sin(2 * Math.PI * (8000 * Math.exp(-s * 12)) * s) * Math.exp(-s * 8) * 0.3;
-        return (thunder + crack + rumble + zap) * (ch === 0 ? 0.6 : 0.55);
-      }, 1.0);
+      gaPlay('oneG', 1.0);
       [1568, 1976, 2349, 2793, 3136].forEach((f, i) => jTone(f, 0.05 + i * 0.03, 0.2, 0.15));
       flash(0.8, 120, '#fff'); shakeFor(500);
     }
@@ -7726,7 +7855,7 @@ function GodAnotherGame({ onScore, onClose }) {
   };
   const seqGod = (t0, type, amazing, cfg) => {
     const c = cfg || {}, rise = c.rise != null ? c.rise : 850, pay = c.pay != null ? c.pay : 3200;
-    if (!c.noCrt) T(() => { crtActiveRef.current = true; setCrtActive(true); setCrtStart(performance.now()); sndPuchun(); }, t0);
+    if (!c.noCrt) T(() => { crtStartRef.current = performance.now(); crtActiveRef.current = true; setCrtActive(true); sndPuchun(); }, t0);
     T(() => {
       crtActiveRef.current = false; setCrtActive(false); flash(0.75, 110, '#fff');
       lampTypeRef.current = amazing ? 'amazing' : 'god'; lampStartRef.current = null;
@@ -7859,6 +7988,7 @@ function GodAnotherGame({ onScore, onClose }) {
   };
 
   const startGame = () => {
+    gaWarmup(); // 重量バッファ・IRの事前生成(既に開始済みなら何もしない)
     setPhase("playing"); phaseRef.current = 'playing';
     setGameN(0); setTimeLeft(TOTAL); setCoins(0);
     setGodC(0); setMeioC(0); setPurpleC(0); setY7C(0); setCrashC(0); setSinC(0);
@@ -7876,6 +8006,7 @@ function GodAnotherGame({ onScore, onClose }) {
 
   useEffect(() => {
     aliveRef.current = true;
+    gaWarmup(); // ready画面表示中に重量バッファ・IRを作っておく(playing中の一括生成を避ける)
     return () => {
       aliveRef.current = false;
       timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = [];
@@ -7884,12 +8015,12 @@ function GodAnotherGame({ onScore, onClose }) {
   }, []);
   useEffect(() => { if (phase === "done") { onScore(coinsRef.current); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);
 
-  const ls = lampStyle;
+  const ls = lsRef.current;
   const totalC = godC + meioC + purpleC + y7C + sinC;
 
   return (
     <div style={{ textAlign: 'center', background: '#050406', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, background: screenGlow, pointerEvents: 'none', zIndex: 0 }} />
+      <div ref={sgRef} style={{ position: 'absolute', inset: 0, background: ls.sg || 'none', pointerEvents: 'none', zIndex: 0 }} />
       {tint !== 'none' && <div style={{ position: 'absolute', inset: 0, background: tint, pointerEvents: 'none', zIndex: 2 }} />}
       {dim > 0 && <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: dim, pointerEvents: 'none', zIndex: 45, transition: 'opacity 0.25s linear' }} />}
       {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: flashColor, opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
@@ -7902,18 +8033,13 @@ function GodAnotherGame({ onScore, onClose }) {
           ))}
         </div>
       )}
-      {crtActive && (() => {
-        const elapsed = performance.now() - crtStart;
-        let content;
-        if (elapsed < 160) { const p = elapsed / 160; const h = 100 * (1 - p);
-          content = React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, height: Math.max(h, 0.5) + '%', top: (50 - h / 2) + '%', background: '#fff' } });
-        } else if (elapsed < 280) { const p = (elapsed - 160) / 120;
-          content = React.createElement('div', { style: { position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: (50 * p) + '%', right: (50 * p) + '%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1 - p * 0.7 } });
-        } else if (elapsed < 530) { const p = (elapsed - 280) / 250;
-          content = React.createElement('div', { style: { position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1 - p, boxShadow: '0 0 12px #fff' } });
-        } else { content = null; }
-        return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' } }, content);
-      })()}
+      {crtActive && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' }}>
+          <div ref={crtBarRef} style={{ position: 'absolute', left: 0, right: 0, height: '100%', top: '0%', background: '#fff' }} />
+          <div ref={crtLineRef} style={{ position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: '0%', right: '0%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1, display: 'none' }} />
+          <div ref={crtDotRef} style={{ position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1, boxShadow: '0 0 12px #fff', display: 'none' }} />
+        </div>
+      )}
 
       {phase === "ready" && (
         <div style={{ padding: '40px 20px' }}>
@@ -7970,14 +8096,17 @@ function GodAnotherGame({ onScore, onClose }) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1, padding: '16px 4px', pointerEvents: 'none' }}>
-            <div style={{ width: '92%', maxWidth: 380, aspectRatio: '16/10', borderRadius: 20, position: 'relative',
+            <div style={{ position: 'relative', width: '92%', maxWidth: 380 }}>
+            {/* 枠の発光: プリブラー済みradial-gradient + opacity変調(box-shadowの毎フレーム書換えを廃止) */}
+            <div ref={frameGlowRef} style={{ position: 'absolute', inset: -16, borderRadius: 34, background: ls.fg || 'none', opacity: ls.fgo || 0, pointerEvents: 'none', zIndex: 0 }} />
+            <div ref={frameRef} style={{ width: '100%', aspectRatio: '16/10', borderRadius: 20, position: 'relative', zIndex: 1,
               background: ls.bg || 'radial-gradient(circle at 50% 45%, #14110a 0%, #050406 70%)',
               border: `3px solid ${ls.border || 'rgba(255,215,0,0.18)'}`, overflow: 'hidden',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: ls.boxShadow || 'inset 0 0 30px rgba(0,0,0,0.9)',
+              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.9)',
               animation: shaking ? 'shake 0.15s linear infinite' : 'none' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
-              <div style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
+              <div ref={glowRef} style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
               {/* 3リール */}
               <div style={{ display: 'flex', gap: '3%', alignItems: 'center', justifyContent: 'center', width: '86%', zIndex: 2, position: 'relative' }}>
                 {reels.map((k, i) => {
@@ -7997,7 +8126,7 @@ function GodAnotherGame({ onScore, onClose }) {
               {sinPlus && <div style={{ position: 'absolute', right: '8%', top: '14%', fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.55)', zIndex: 6, fontFamily: "'Courier New',monospace" }}>+1</div>}
               {lampMainText && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
-                  <span style={{ fontSize: lampMainSize, fontWeight: 900, letterSpacing: '0.08em', fontStyle: 'italic', lineHeight: 1,
+                  <span ref={mainTxtRef} style={{ fontSize: lampMainSize, fontWeight: 900, letterSpacing: '0.08em', fontStyle: 'italic', lineHeight: 1,
                     color: ls.textColor || '#ffd700', textShadow: ls.textShadow || 'none' }}>{lampMainText}</span>
                 </div>
               )}
@@ -8007,9 +8136,10 @@ function GodAnotherGame({ onScore, onClose }) {
                     textShadow: '0 0 12px rgba(255,215,0,0.9), 0 0 30px rgba(255,255,255,0.5)' }}>{bigMsg}</span>
                 </div>
               )}
-              <div style={{ position: 'absolute', bottom: 'min(2.2vw,10px)', width: '100%', fontSize: 'min(3vw,12px)',
+              <div ref={subTxtRef} style={{ position: 'absolute', bottom: 'min(2.2vw,10px)', width: '100%', fontSize: 'min(3vw,12px)',
                 color: ls.subColor || 'rgba(255,215,0,0.18)', zIndex: 4, letterSpacing: 5, fontWeight: 700, textShadow: ls.subShadow || 'none' }}>{lampSubText}</div>
-              <div style={{ position: 'absolute', inset: -5, borderRadius: 25, border: `2px solid ${ls.ringBorder || 'transparent'}`, pointerEvents: 'none', zIndex: 8 }} />
+              <div ref={ringRef} style={{ position: 'absolute', inset: -5, borderRadius: 25, border: `2px solid ${ls.ringBorder || 'transparent'}`, pointerEvents: 'none', zIndex: 8 }} />
+            </div>
             </div>
           </div>
 
