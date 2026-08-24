@@ -8916,12 +8916,12 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doSpin = (pointerId) => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
-    // 連打ガード: pointerId単位のスロットル。同じ指は50ms未満を無視／別の指なら「真に同時」でも受理。
-    // 多指の悪用防止に、50ms窓内で受理できるのは最大3回転まで(4本目以降は無視)
+    // 連打ガード: pointerId単位のスロットル。同じ指は5ms未満を無視(2026-08-24 応答速度向上で50ms→5ms)。
+    // 多指の悪用防止に、50ms窓内で受理できるのは最大5回転まで(グローバル上限は据え置き)
     const now = performance.now();
     const pid = (pointerId === undefined || pointerId === null) ? 'm' : pointerId;
     const g = tapGuardRef.current;
-    if (now - (g.lastByPointer.get(pid) || 0) < 50) return;
+    if (now - (g.lastByPointer.get(pid) || 0) < 5) return;
     g.recent = g.recent.filter(t => now - t < 50);
     if (g.recent.length >= 5) return;   // 同時タップ5本まで受理
     g.lastByPointer.set(pid, now);
