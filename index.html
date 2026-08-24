@@ -7711,12 +7711,13 @@ const GA_ASSETS = {
   bezel: { file: 'bezel.webp', slice: 0.18, width: 22 },
   pediment: { file: 'pediment.webp' },
   basestrip: { file: 'basestrip.webp' },
+  panel: { file: 'panel.webp' },       // 計器盤の装飾背景(青銅+金メアンダー帯)
   // 動画(preload="none"。初回GOD揃い後に load()、アメイジングGOD時のみ再生)
   movie: { file: 'god-movie.mp4' },
 };
 const GA_ASSET_IMGS = ['bg', 'logo', 'cutinGod', 'cutinMeio', 'cutinPurple', 'cutinSin',
   'symY7', 'symP7', 'symR7', 'symGod', 'symMeio', 'symBar', 'symBell', 'symCherry', 'symReplay',
-  'bezel', 'pediment', 'basestrip'];
+  'bezel', 'pediment', 'basestrip', 'panel'];
 const gaAssetState = {};       // key -> { loaded: bool }
 const gaAssetSubs = [];
 let gaAssetsStarted = false;
@@ -9018,6 +9019,7 @@ function GodAnotherGame({ onScore, onClose }) {
   } : null;
   const pedimentOn = gaAssetLoaded('pediment');
   const basestripOn = gaAssetLoaded('basestrip');
+  const panelOn = gaAssetLoaded('panel');
 
   return (
     <div className="gaDesktopZoom" ref={zoomFitRef} style={{
@@ -9104,8 +9106,10 @@ function GodAnotherGame({ onScore, onClose }) {
               ))}
             </div>
             {/* 主計器: 当たり間(主役)+ GAME/TIME/COIN。金の装飾罫と角飾りで「計器盤」に見せる */}
-            <div className="ga-panel" style={{ padding: '6px 11px 7px', marginBottom: 4 }}>
-              <GaCorners size={12} inset={2} />
+            {/* 計器盤: panel.webp がロードできたら青銅+金メアンダー帯の9スライス枠、無ければ従来のCSS+SVG角飾り */}
+            <div className="ga-panel" style={{ padding: panelOn ? '8px 14px 9px' : '6px 11px 7px', marginBottom: 4,
+              ...(panelOn ? { borderImage: `url(${gaAssetSrc('panel')}) 60 fill / 8px stretch`, borderWidth: 8, borderStyle: 'solid' } : {}) }}>
+              {!panelOn && <GaCorners size={12} inset={2} />}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div className="ga-mlbl" style={{ fontSize: 8, marginBottom: 3, lineHeight: 1 }}>当たり間</div>
