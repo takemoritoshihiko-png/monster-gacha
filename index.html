@@ -2086,35 +2086,28 @@ function MonsterGacha() {
     autoOpenRef.current.forEach(t => clearTimeout(t));
     // Calculate cumulative delays: higher rarity = slower open + dramatic pause
     const getOpenInterval = (rank) => {
-      if (rank >= 10) return 3000; // ★10 GOD: very dramatic pause
-      if (rank === 9) return 2160;  // ★9 Mythic: long pause
-      if (rank === 8) return 1560;  // ★8 Legend: significant pause
-      if (rank === 7) return 1080;  // ★7 Epic: noticeable pause
-      if (rank === 6) return 720;   // ★6 Ultra: slight pause
-      if (rank === 5) return 450;   // ★5 SSRare: small pause
-      if (rank === 4) return 220;   // ★4: 0.22秒
-      if (rank === 3) return 180;   // ★3: 0.18秒
-      return 250;                   // ★1-2: batch open
+      if (rank >= 10) return 3000; // ★10 GOD: very dramatic pause(虹箱=現行のまま)
+      if (rank === 9) return 2160;  // ★9 Mythic: long pause(虹箱=現行のまま)
+      if (rank === 8) return 1560;  // ★8 Legend: significant pause(虹箱=現行のまま)
+      if (rank === 7) return 540;   // ★7 Epic: 金箱は1個ずつ手短に(旧1080の半分)
+      if (rank === 6) return 360;   // ★6 Ultra: 金箱は1個ずつ手短に(旧720の半分)
+      if (rank === 5) return 225;   // ★5 SSRare: 金箱は1個ずつ手短に(旧450の半分)
+      return 0;                     // ★1-4(木箱・シルバー箱)は一括で即開封
     };
     // Build cumulative timing
-    // ★1-3: same rank opens simultaneously, ★4+: one by one
+    // ★1-4(木箱wood/シルバーsilver): 全部まとめて一気に開く
+    // ★5-7(ゴールド): 1個ずつ・短いテンポ / ★8+(レインボー): 現行演出のまま
     let cumTime = 250;
-    let prevRank = 0;
-    const timings = openOrder.map((o, seq) => {
-      if (o.rank <= 3) {
-        // ★1, ★2, ★3: same rank opens at the same time
-        if (o.rank !== prevRank) {
-          if (prevRank > 0) cumTime += 250; // 250ms gap between batches
-          prevRank = o.rank;
-        }
-        return { ...o, time: cumTime };
-      } else {
-        // ★4+: one by one with increasing delay
-        if (prevRank <= 3) cumTime += 250; // gap after ★3 batch
-        else cumTime += getOpenInterval(o.rank);
-        prevRank = o.rank;
+    let oneByOneStarted = false;
+    const timings = openOrder.map((o) => {
+      if (o.rank <= 4) {
+        // 木箱・シルバー箱: 種別に関わらず同時刻に一括開封
         return { ...o, time: cumTime };
       }
+      // ★5+: 1個ずつ。最初の1個は250msの間だけ(現行どおり)、2個目以降はランク別の間隔
+      cumTime += oneByOneStarted ? getOpenInterval(o.rank) : 250;
+      oneByOneStarted = true;
+      return { ...o, time: cumTime };
     });
     // Group timings by same time for batch opening
     const timeGroups = {};
@@ -2577,7 +2570,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const getDuration = (r) => r >= 11 ? 3800 : r === 10 ? 2800 : r === 9 ? 2300 : 1800;
+      const getDuration = (r) => r >= 11 ? 3800 : r === 10 ? 2700 : r === 9 ? 2200 : 1800;   // ★9・★10の披露時間を各-100ms
       let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
         const ms = elapsed;
@@ -7895,7 +7888,8 @@ function GodAnotherGame({ onScore, onClose }) {
   const phaseRef = useRef('ready');
   const coinsRef = useRef(0);
   const gameNRef = useRef(0);
-  const lastTapRef = useRef(0);
+  // 連打ガード: pointerId単位のスロットル(同一指は80ms間隔・別の指なら同時でも受理)+ 80ms窓内は最大2回転
+  const tapGuardRef = useRef({ lastByPointer: new Map(), recent: [] });
   const spinCountRef = useRef(0);
   const jugRenRef = useRef(0);
   const godGapRef = useRef(0);
@@ -8791,12 +8785,19 @@ function GodAnotherGame({ onScore, onClose }) {
     unlockAt(5000);
   };
 
-  const doSpin = () => {
+  const doSpin = (pointerId) => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
-    // 連打ガード: 前回タップから80ms未満は無視(2本指の交互タップでも80ms空けば両方受理)
+    // 連打ガード: pointerId単位のスロットル。同じ指は80ms未満を無視／別の指なら「真に同時」でも受理。
+    // 多指の悪用防止に、80ms窓内で受理できるのは最大2回転まで(3本目以降は無視)
     const now = performance.now();
-    if (now - lastTapRef.current < 80) return;
-    lastTapRef.current = now;
+    const pid = (pointerId === undefined || pointerId === null) ? 'm' : pointerId;
+    const g = tapGuardRef.current;
+    if (now - (g.lastByPointer.get(pid) || 0) < 80) return;
+    g.recent = g.recent.filter(t => now - t < 80);
+    if (g.recent.length >= 2) return;
+    g.lastByPointer.set(pid, now);
+    g.recent.push(now);
+    if (g.lastByPointer.size > 32) { g.lastByPointer.forEach((t, k) => { if (now - t > 1000) g.lastByPointer.delete(k); }); }
     gameNRef.current++; setGameN(gameNRef.current);
     spinCountRef.current++; setSpinCount(spinCountRef.current);
     godGapRef.current++;
@@ -8833,7 +8834,7 @@ function GodAnotherGame({ onScore, onClose }) {
     setGameN(0); setTimeLeft(TOTAL); setCoins(0);
     setGodC(0); setMeioC(0); setPurpleC(0); setY7C(0); setCrashC(0); setSinC(0);
     setMsg(''); setBigMsg(''); setLocked(false); lockedRef.current = false;
-    coinsRef.current = 0; gameNRef.current = 0; lastTapRef.current = 0;
+    coinsRef.current = 0; gameNRef.current = 0; tapGuardRef.current = { lastByPointer: new Map(), recent: [] };
     spinCountRef.current = 0; setSpinCount(0);
     setHistory([]); jugRenRef.current = 0; setJugRen(0);
     godGapRef.current = 0; godCountRef.current = 0;
@@ -8961,7 +8962,7 @@ function GodAnotherGame({ onScore, onClose }) {
       {(phase === "playing" || phase === "done") && (
         <>
           {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none', overscrollBehavior: 'none' }}
-            onPointerDown={e => { e.preventDefault(); doSpin(); }}
+            onPointerDown={e => { e.preventDefault(); doSpin(e.pointerId); }}
             onTouchMove={e => { e.preventDefault(); }}
             onTouchStart={e => { e.preventDefault(); }} />}
 
