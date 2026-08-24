@@ -6940,6 +6940,44 @@ function QuickDrawGame({ onScore, onClose }) {
 // ============================================================
 // JUGGLER GAME (300 seconds slot machine game)
 // ============================================================
+// 重量バッファ(生成コストが高い音)の定義とキャッシュ。startGame時にidleで1本ずつ事前生成する。
+// 未生成のまま呼ばれた場合は従来どおりその場で同期生成する(フォールバック)。音色・音量は synth 版と同一。
+const jugBufs = {};
+let jugWarmStarted = false;
+const JUG_SND = {
+  puchun: [0.3, (s,ch)=>{return(Math.sin(2*Math.PI*(9000*Math.exp(-s*16)+150)*s)*0.55*Math.exp(-s*7)+Math.sin(2*Math.PI*14000*s)*0.1*Math.exp(-s*35)+Math.sin(2*Math.PI*60*s)*0.5*Math.exp(-s*20)+(Math.random()*2-1)*0.4*Math.exp(-s*25))*0.85;}],
+  godGong: [5.0, (s,ch)=>{const f0=55;return(Math.sin(2*Math.PI*f0*s)*0.5*Math.exp(-s*0.5)+Math.sin(2*Math.PI*f0*2*s)*0.35*Math.exp(-s*0.7)+Math.sin(2*Math.PI*f0*3*s)*0.2*Math.exp(-s*0.9)+Math.sin(2*Math.PI*f0*4*s)*0.12*Math.exp(-s*1.1)+Math.sin(2*Math.PI*f0*6*s)*0.06*Math.exp(-s*1.5)+Math.sin(2*Math.PI*f0*8*s*(1+0.003*Math.sin(2*Math.PI*2.5*s)))*0.04*Math.exp(-s*0.5)+Math.exp(-s*6)*(Math.random()*2-1)*0.7+Math.sin(2*Math.PI*27.5*s)*0.3*Math.exp(-s*0.8))*(ch===0?0.65:0.6);}],
+  godCoins: [2.5, (s,ch)=>{let v=0;for(let n=0;n<24;n++){const o=n*0.06,f=1600+n*160+(ch*70);if(s>o)v+=Math.sin(2*Math.PI*f*(s-o))*Math.exp(-(s-o)*3)*0.07;}return v*0.9;}],
+};
+function jugMakeBuf(dur, fn) {
+  const a = audioCtx; if (!a) return null;
+  const sr = a.sampleRate, buf = a.createBuffer(2, Math.max(1, Math.floor(sr * dur)), sr);
+  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = fn(i / sr, ch); }
+  return buf;
+}
+function jugPlay(key, vol) {
+  const a = audioCtx; if (!a) return;
+  if (a.state === 'suspended') a.resume();
+  let b = jugBufs[key];
+  if (!b) { const g = JUG_SND[key]; if (!g) return; b = jugBufs[key] = jugMakeBuf(g[0], g[1]); if (!b) return; }
+  const bs = a.createBufferSource(); bs.buffer = b;
+  const gn = a.createGain(); gn.gain.value = vol == null ? 1 : vol;
+  bs.connect(gn); gn.connect(a.destination); bs.start(a.currentTime);
+}
+// 事前生成はidle時に1件ずつ(playing中の一括生成を避ける)
+function jugWarmup() {
+  if (!audioCtx || jugWarmStarted) return; jugWarmStarted = true;
+  const keys = Object.keys(JUG_SND);
+  const ric = (typeof window !== 'undefined' && window.requestIdleCallback) ? (f) => window.requestIdleCallback(f, { timeout: 400 }) : (f) => setTimeout(f, 16);
+  let i = 0;
+  const step = () => {
+    if (i >= keys.length) return;
+    const k = keys[i++];
+    try { if (!jugBufs[k]) jugBufs[k] = jugMakeBuf(JUG_SND[k][0], JUG_SND[k][1]); } catch (e) {}
+    ric(step);
+  };
+  ric(step);
+}
 function JugglerGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [gameN, setGameN] = useState(0);
@@ -7021,9 +7059,10 @@ function JugglerGame({ onScore, onClose }) {
   };
   const bigKakuteiSounds = [sndBigKakutei1, sndBigKakutei2, sndBigKakutei3];
   const sndCoinsJ = (n=10) => synth(1.4,(s,ch)=>{let v=0;for(let i=0;i<n;i++){const off=i*(1.0/n),f=2000+i*220+(ch*100);if(s>off)v+=Math.sin(2*Math.PI*f*(s-off))*Math.exp(-(s-off)*5)*0.1;}return v*0.85;},0.65);
-  const sndPuchun = () => synth(0.3,(s,ch)=>{return(Math.sin(2*Math.PI*(9000*Math.exp(-s*16)+150)*s)*0.55*Math.exp(-s*7)+Math.sin(2*Math.PI*14000*s)*0.1*Math.exp(-s*35)+Math.sin(2*Math.PI*60*s)*0.5*Math.exp(-s*20)+(Math.random()*2-1)*0.4*Math.exp(-s*25))*0.85;},1.0);
-  const sndGodGong = () => synth(5.0,(s,ch)=>{const f0=55;return(Math.sin(2*Math.PI*f0*s)*0.5*Math.exp(-s*0.5)+Math.sin(2*Math.PI*f0*2*s)*0.35*Math.exp(-s*0.7)+Math.sin(2*Math.PI*f0*3*s)*0.2*Math.exp(-s*0.9)+Math.sin(2*Math.PI*f0*4*s)*0.12*Math.exp(-s*1.1)+Math.sin(2*Math.PI*f0*6*s)*0.06*Math.exp(-s*1.5)+Math.sin(2*Math.PI*f0*8*s*(1+0.003*Math.sin(2*Math.PI*2.5*s)))*0.04*Math.exp(-s*0.5)+Math.exp(-s*6)*(Math.random()*2-1)*0.7+Math.sin(2*Math.PI*27.5*s)*0.3*Math.exp(-s*0.8))*(ch===0?0.65:0.6);},1.0);
-  const sndGodCoins = () => synth(2.5,(s,ch)=>{let v=0;for(let n=0;n<24;n++){const o=n*0.06,f=1600+n*160+(ch*70);if(s>o)v+=Math.sin(2*Math.PI*f*(s-o))*Math.exp(-(s-o)*3)*0.07;}return v*0.9;},0.8);
+  // 重量音は jugBufs のキャッシュから再生(未生成ならjugPlay内でその場生成)
+  const sndPuchun = () => jugPlay('puchun', 1.0);
+  const sndGodGong = () => jugPlay('godGong', 1.0);
+  const sndGodCoins = () => jugPlay('godCoins', 0.8);
 
   const fmtT = (s) => { const m=Math.floor(s/60); return m+':'+(s%60<10?'0':'')+s%60; };
   const fmtP = (g,h) => h===0?'1/ -':'1/'+Math.round(g/h);
@@ -7129,6 +7168,7 @@ function JugglerGame({ onScore, onClose }) {
   const timeLeftRef = useRef(TOTAL);
 
   const startGame = () => {
+    jugWarmup(); // 重量バッファの事前生成(既に開始済みなら何もしない)
     setPhase("playing"); phaseRef.current = 'playing';
     setGameN(0); setTimeLeft(TOTAL); setCoins(0); setBigC(0); setBarC(0); setGodC(0);
     setMsg(''); setLocked(false); lockedRef.current = false;
@@ -7288,8 +7328,8 @@ function JugglerGame({ onScore, onClose }) {
         <>
           {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none', overscrollBehavior: 'none' }}
             onPointerDown={e => { e.preventDefault(); doSpin(); }}
-            onTouchMove={e => { e.preventDefault(); }}
-            onTouchStart={e => { e.preventDefault(); }} />}
+            onTouchMove={e => { /* React18はtouch系をpassive登録するためpreventDefaultは無効(警告が出るだけ)。スクロール抑止は touchAction:'none' が担当 */ }}
+            onTouchStart={e => { }} />}
 
           <div style={{ background: '#060806', borderBottom: '1px solid #1a2a1a', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
@@ -9030,8 +9070,8 @@ function GodAnotherGame({ onScore, onClose }) {
         <>
           {phase === "playing" && <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 40, touchAction: 'none', overscrollBehavior: 'none' }}
             onPointerDown={e => { e.preventDefault(); doSpin(e.pointerId); }}
-            onTouchMove={e => { e.preventDefault(); }}
-            onTouchStart={e => { e.preventDefault(); }} />}
+            onTouchMove={e => { /* React18はtouch系をpassive登録するためpreventDefaultは無効(警告が出るだけ)。スクロール抑止は touchAction:'none' が担当 */ }}
+            onTouchStart={e => { }} />}
 
           <div style={{ background: '#08070a', borderBottom: '1px solid #2a2210', padding: '4px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
             {/* P10: 上部ランプ帯(プリブラーgradient・opacity切替のみ) */}
