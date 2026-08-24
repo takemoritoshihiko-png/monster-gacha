@@ -616,7 +616,7 @@ function formatYen(n) {
 }
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
-const GACHA_COST_30 = 600;
+const GACHA_COST_30 = 800;
 
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
@@ -2095,16 +2095,13 @@ function MonsterGacha() {
       return 0;                     // ★1-4(木箱・シルバー箱)は一括で即開封
     };
     // Build cumulative timing
-    // ★1-4(木箱wood/シルバーsilver): 全部まとめて一気に開く
-    // ★5-7(ゴールド): 1個ずつ・短いテンポ / ★8+(レインボー): 現行演出のまま
+    // ★1-4(木箱/シルバー): 1回目に全部一括 / ★5-7(ゴールド): 2回目に全部一括 / ★8+(レインボー): 1個ずつ現行演出
     let cumTime = 250;
     let oneByOneStarted = false;
     const timings = openOrder.map((o) => {
-      if (o.rank <= 4) {
-        // 木箱・シルバー箱: 種別に関わらず同時刻に一括開封
-        return { ...o, time: cumTime };
-      }
-      // ★5+: 1個ずつ。最初の1個は250msの間だけ(現行どおり)、2個目以降はランク別の間隔
+      if (o.rank <= 4) return { ...o, time: 250 };            // 木・銀: 1回目一括
+      if (o.rank <= 7) { cumTime = 700; return { ...o, time: 700 }; }  // 金: 2回目一括
+      // ★8+: 1個ずつ。最初の1個は250msの間だけ、2個目以降はランク別の間隔
       cumTime += oneByOneStarted ? getOpenInterval(o.rank) : 250;
       oneByOneStarted = true;
       return { ...o, time: cumTime };
@@ -3824,12 +3821,12 @@ function MonsterGacha() {
                     <span style={{ fontSize: 18, fontWeight: 900, position: 'relative' }}>💎 10連</span>
                     <span style={{ fontSize: 11, opacity: 0.6, position: 'relative' }}>🪙 {GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(30)}
+                  <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(40)}
                     style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 8px',
                       background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
                       border: '1px solid rgba(139,92,246,0.25)',
                       boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 30連</span>
+                    <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 40連</span>
                     <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_30}</span>
                   </button>
                 </div>
@@ -3871,8 +3868,8 @@ function MonsterGacha() {
                     <span style={{ fontWeight: 900 }}>💎 10連</span>
                     <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_30} onClick={() => pull(30)}>
-                    <span style={{ fontWeight: 900 }}>🔥 30連</span>
+                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_30} onClick={() => pull(40)}>
+                    <span style={{ fontWeight: 900 }}>🔥 40連</span>
                     <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_30}</span>
                   </button>
                 </div>
@@ -8792,9 +8789,9 @@ function GodAnotherGame({ onScore, onClose }) {
     const now = performance.now();
     const pid = (pointerId === undefined || pointerId === null) ? 'm' : pointerId;
     const g = tapGuardRef.current;
-    if (now - (g.lastByPointer.get(pid) || 0) < 80) return;
-    g.recent = g.recent.filter(t => now - t < 80);
-    if (g.recent.length >= 2) return;
+    if (now - (g.lastByPointer.get(pid) || 0) < 50) return;
+    g.recent = g.recent.filter(t => now - t < 50);
+    if (g.recent.length >= 3) return;
     g.lastByPointer.set(pid, now);
     g.recent.push(now);
     if (g.lastByPointer.size > 32) { g.lastByPointer.forEach((t, k) => { if (now - t > 1000) g.lastByPointer.delete(k); }); }
