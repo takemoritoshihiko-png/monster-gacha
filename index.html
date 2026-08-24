@@ -7873,7 +7873,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const phaseRef = useRef('ready');
   const coinsRef = useRef(0);
   const gameNRef = useRef(0);
-  const tapCountRef = useRef(0);
+  const lastTapRef = useRef(0);
   const spinCountRef = useRef(0);
   const jugRenRef = useRef(0);
   const godGapRef = useRef(0);
@@ -7958,11 +7958,11 @@ function GodAnotherGame({ onScore, onClose }) {
     ['cpurple', 1],      // クラッシュ→紫7 1/32768
     ['god', 8],          // GOD揃い 8/32768 = 1/4096
     ['meio', 3],         // 冥王揃い 3/32768 = 1/10922.7
-    ['purple', 20],      // 紫7揃い 20/32768 = 1/1638.4(確率2倍・配点半分=期待値不変)
-    ['y7', 140],         // 中段黄7 140/32768 = 1/234.1(確率2倍・配点半分=期待値不変)
+    ['purple', 40],      // 紫7揃い 40/32768 = 1/819.2(確率2倍・配点2倍)
+    ['y7', 280],         // 中段黄7 280/32768 = 1/117.0(確率2倍・配点2倍)
     ['gase', 328],       // ガセ前兆 328/32768 = 1/99.9
   ];
-  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 1750, y7: 600 };
+  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
 
   const SYMS = {
     y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
@@ -8750,9 +8750,10 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doSpin = () => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
-    if (tapCountRef.current > 0) return;
-    tapCountRef.current = 1;
-    setTimeout(() => { tapCountRef.current = 0; }, 150);
+    // 連打ガード: 前回タップから80ms未満は無視(2本指の交互タップでも80ms空けば両方受理)
+    const now = performance.now();
+    if (now - lastTapRef.current < 80) return;
+    lastTapRef.current = now;
     gameNRef.current++; setGameN(gameNRef.current);
     spinCountRef.current++; setSpinCount(spinCountRef.current);
     godGapRef.current++;
@@ -8789,7 +8790,7 @@ function GodAnotherGame({ onScore, onClose }) {
     setGameN(0); setTimeLeft(TOTAL); setCoins(0);
     setGodC(0); setMeioC(0); setPurpleC(0); setY7C(0); setCrashC(0); setSinC(0);
     setMsg(''); setBigMsg(''); setLocked(false); lockedRef.current = false;
-    coinsRef.current = 0; gameNRef.current = 0; tapCountRef.current = 0;
+    coinsRef.current = 0; gameNRef.current = 0; lastTapRef.current = 0;
     spinCountRef.current = 0; setSpinCount(0);
     setHistory([]); jugRenRef.current = 0; setJugRen(0);
     godGapRef.current = 0; godCountRef.current = 0;
