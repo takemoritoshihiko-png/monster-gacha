@@ -6945,7 +6945,11 @@ function JugglerGame({ onScore, onClose }) {
   const [lampStyle, setLampStyle] = useState({});
   const [shaking, setShaking] = useState(false);
   const [crtActive, setCrtActive] = useState(false);
-  const [crtStart, setCrtStart] = useState(0);
+  const crtActiveRef = useRef(false);
+  const crtStartRef = useRef(0);
+  const crtBarRef = useRef(null);
+  const crtLineRef = useRef(null);
+  const crtDotRef = useRef(null);
   const [flashAlpha, setFlashAlpha] = useState(0);
   const [screenGlow, setScreenGlow] = useState('none');
   const [lampMainText, setLampMainText] = useState('GOGO!');
@@ -7034,6 +7038,28 @@ function JugglerGame({ onScore, onClose }) {
     let lastTimerUpdate = 0;
     const loop = (ts) => {
       if (!running) return;
+      // CRT(ぷちゅん): 固定div3枚を ref で持ち、座標とopacityだけRAFで更新(再レンダーなし)
+      if (crtActiveRef.current) {
+        const ce = performance.now() - crtStartRef.current;
+        const cb = crtBarRef.current, cl = crtLineRef.current, cd = crtDotRef.current;
+        if (cb && cl && cd) {
+          if (ce < 160) {
+            const p = ce / 160, h = 100 * (1 - p);
+            cb.style.display = 'block'; cb.style.height = Math.max(h, 0.5) + '%'; cb.style.top = (50 - h / 2) + '%';
+            cl.style.display = 'none'; cd.style.display = 'none';
+          } else if (ce < 280) {
+            const p = (ce - 160) / 120;
+            cb.style.display = 'none'; cd.style.display = 'none';
+            cl.style.display = 'block'; cl.style.left = (50 * p) + '%'; cl.style.right = (50 * p) + '%'; cl.style.opacity = String(1 - p * 0.7);
+          } else if (ce < 530) {
+            const p = (ce - 280) / 250;
+            cb.style.display = 'none'; cl.style.display = 'none';
+            cd.style.display = 'block'; cd.style.opacity = String(1 - p);
+          } else {
+            cb.style.display = 'none'; cl.style.display = 'none'; cd.style.display = 'none';
+          }
+        }
+      }
       // Timer update (every second)
       if (phaseRef.current === 'playing' && startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -7096,7 +7122,7 @@ function JugglerGame({ onScore, onClose }) {
     setHistory([]); jugRenRef.current = 0; setJugRen(0);
     startTimeRef.current = Date.now(); timeLeftRef.current = TOTAL;
     resetLamp();
-    bgm.stop(); stopMainBgm();
+    bgm.stop();
   };
 
   const onHit = (type) => {
@@ -7154,9 +7180,9 @@ function JugglerGame({ onScore, onClose }) {
     }
 
     if (type === 'god') {
-      setCrtActive(true); setCrtStart(performance.now()); sndPuchun();
+      crtStartRef.current = performance.now(); crtActiveRef.current = true; setCrtActive(true); sndPuchun();
       setTimeout(() => {
-        setCrtActive(false); setFlashAlpha(0.7);
+        crtActiveRef.current = false; setCrtActive(false); setFlashAlpha(0.7);
         lampTypeRef.current = 'god'; setLampMainText('GOD'); setLampMainSize('min(30vw,130px)'); setLampSubText('JACKPOT'); setShaking(true);
         sndGodGong();
         setTimeout(() => setFlashAlpha(0), 100);
@@ -7219,40 +7245,20 @@ function JugglerGame({ onScore, onClose }) {
   const ls = lampStyle;
   const totalC = bigC + barC + godC;
 
-  // CRT overlay rendering
-  const renderCRT = () => {
-    if (!G.crtActive) return null;
-    const elapsed = performance.now() - (G.crtStart || performance.now());
-    let content;
-    if (elapsed < 160) { const p = elapsed / 160; const h = 100 * (1 - p);
-      content = React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, height: Math.max(h, 0.5) + '%', top: (50 - h / 2) + '%', background: '#fff' } });
-    } else if (elapsed < 280) { const p = (elapsed - 160) / 120;
-      content = React.createElement('div', { style: { position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: (50 * p) + '%', right: (50 * p) + '%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1 - p * 0.7 } });
-    } else if (elapsed < 530) { const p = (elapsed - 280) / 250;
-      content = React.createElement('div', { style: { position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1 - p, boxShadow: '0 0 12px #fff' } });
-    } else { content = null; }
-    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' } }, content);
-  };
-
   return (
     <div style={{ textAlign: 'center', background: '#030305', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden' }}>
       {/* Screen glow */}
       <div style={{ position: 'absolute', inset: 0, background: screenGlow, pointerEvents: 'none', zIndex: 0 }} />
       {/* Screen flash */}
       {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
-      {/* CRT */}
-      {crtActive && (() => {
-        const elapsed = performance.now() - crtStart;
-        let content;
-        if (elapsed < 160) { const p = elapsed / 160; const h = 100 * (1 - p);
-          content = React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, height: Math.max(h, 0.5) + '%', top: (50 - h / 2) + '%', background: '#fff' } });
-        } else if (elapsed < 280) { const p = (elapsed - 160) / 120;
-          content = React.createElement('div', { style: { position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: (50 * p) + '%', right: (50 * p) + '%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1 - p * 0.7 } });
-        } else if (elapsed < 530) { const p = (elapsed - 280) / 250;
-          content = React.createElement('div', { style: { position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1 - p, boxShadow: '0 0 12px #fff' } });
-        } else { content = null; }
-        return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' } }, content);
-      })()}
+      {/* CRT(ぷちゅん): div3枚をrefで持ち、RAFループが毎フレーム座標とopacityを更新する */}
+      {crtActive && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', pointerEvents: 'none' }}>
+          <div ref={crtBarRef} style={{ position: 'absolute', left: 0, right: 0, height: '100%', top: '0%', background: '#fff' }} />
+          <div ref={crtLineRef} style={{ position: 'absolute', height: 2, top: '50%', transform: 'translateY(-50%)', left: '0%', right: '0%', background: '#fff', boxShadow: '0 0 20px #fff', opacity: 1, display: 'none' }} />
+          <div ref={crtDotRef} style={{ position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: '#fff', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', opacity: 1, boxShadow: '0 0 12px #fff', display: 'none' }} />
+        </div>
+      )}
 
       {phase === "ready" && (
         <div style={{ padding: '40px 20px' }}>
@@ -7922,6 +7928,8 @@ function GodAnotherGame({ onScore, onClose }) {
   const [lampMainSize, setLampMainSize] = useState('min(24vw,100px)');
   const [lampSubText, setLampSubText] = useState('ANOTHER');
   const [sinPlus, setSinPlus] = useState(false);
+  const [lastMult, setLastMult] = useState(1);       // 直近の当たりで実際に適用された倍率(1G連の+1.0込み)
+  const [cutinOn, setCutinOn] = useState(false);     // 画像カットイン表示中は巨大GOD文字を隠す
   const [reels, setReels] = useState(['bell', 'cherry', 'replay']);
 
   const lampRef = useRef(null);
@@ -7946,6 +7954,8 @@ function GodAnotherGame({ onScore, onClose }) {
   const aliveRef = useRef(true);
   const timeoutsRef = useRef([]);
   const crtActiveRef = useRef(false);
+  const lockFreezeRef = useRef(null);   // 演出ロック開始時刻(Date.now)。ロック中でない時は null
+  const cutinOnRef = useRef(false);
   // --- RAFからDOM直書きするための参照(setState毎フレームを廃止) ---
   const sgRef = useRef(null);
   const frameRef = useRef(null);
@@ -8209,7 +8219,10 @@ function GodAnotherGame({ onScore, onClose }) {
   const flash = (a, ms, col) => { setFlashColor(col || '#fff'); setFlashAlpha(a); T(() => setFlashAlpha(0), ms); };
   const shakeFor = (ms) => { setShaking(true); T(() => setShaking(false), ms); };
   // --- アセット: カットイン層。画像が未ロードなら完全に何もしない(既存タイムラインの時刻・音・ロック時間は不変) ---
-  const hideCutin = () => { const el = cutinRef.current; if (el && el.style.opacity !== '0') el.style.opacity = '0'; };
+  const hideCutin = () => {
+    const el = cutinRef.current; if (el && el.style.opacity !== '0') el.style.opacity = '0';
+    if (cutinOnRef.current) { cutinOnRef.current = false; setCutinOn(false); }   // 巨大GOD文字を戻す
+  };
   const showCutin = (key, durationMs) => {
     const el = cutinRef.current; if (!el) return;
     if (!gaAssetLoaded(key)) return;
@@ -8218,6 +8231,7 @@ function GodAnotherGame({ onScore, onClose }) {
     el.style.mixBlendMode = cfg.blend || 'screen';
     el.style.transition = 'opacity ' + fade + 'ms linear';
     el.style.opacity = '1';
+    if (!cutinOnRef.current) { cutinOnRef.current = true; setCutinOn(true); }   // 画像が実際に出る時だけ主文字を退避(未ロード時は上の return で来ない)
     T(hideCutin, Math.max(fade, durationMs || 0));   // 表示時間の終端でフェードアウト(ロック時間内)
   };
   // --- アセット: 動画。preload="none" のまま眠り、初回GOD揃いで load()、アメイジングGOD時だけ再生 ---
@@ -8445,7 +8459,7 @@ function GodAnotherGame({ onScore, onClose }) {
     sg: `radial-gradient(circle at 50% 45%,hsla(${h},${s}%,${l - 10}%,${a * 0.1}) 0%,transparent 60%)`,
   });
 
-  // Main loop: dt計測 → ロック中は startTimeRef を進めて残り時間を凍結 + リール + ランプ
+  // Main loop: dt計測 → ロック中は実時間(Date.now)ベースで残り時間を凍結 + リール + ランプ
   useEffect(() => {
     if (phase !== "playing" && phase !== "done") return;
     let running = true;
@@ -8454,8 +8468,8 @@ function GodAnotherGame({ onScore, onClose }) {
       if (!running) return;
       const prev = lastTsRef.current; lastTsRef.current = ts;
       const dt = prev == null ? 0 : Math.min(ts - prev, 500);
-      // 演出ロック中はタイマー停止(開始時刻を dt 分だけ後ろにずらす)
-      if (lockedRef.current && startTimeRef.current) startTimeRef.current += dt;
+      // 演出ロック中のタイマー停止は Date.now ベース(lockFreezeRef)で行う。
+      // フレームdtに依存しないので、タブを裏に回して RAF が止まっても離脱ぶんの実時間が正しく凍結される
       // CRT(ぷちゅん): 固定div3枚を ref で持ち、座標とopacityだけRAFで更新(再レンダーなし)
       if (crtActiveRef.current) {
         const ce = performance.now() - crtStartRef.current;
@@ -8486,7 +8500,8 @@ function GodAnotherGame({ onScore, onClose }) {
         }
       }
       if (phaseRef.current === 'playing' && startTimeRef.current) {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const frozen = lockFreezeRef.current != null ? (Date.now() - lockFreezeRef.current) : 0;   // 進行中のロックぶん(未確定)
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - frozen) / 1000);
         const newTimeLeft = Math.max(0, TOTAL - elapsed);
         if (newTimeLeft !== timeLeftRef.current) {
           timeLeftRef.current = newTimeLeft; setTimeLeft(newTimeLeft);
@@ -8606,12 +8621,9 @@ function GodAnotherGame({ onScore, onClose }) {
     const baseMult = 1 + (newJugRen - 1) * 0.1;
     const is1G = hitAt === 1;
     const mult = is1G ? baseMult + 1.0 : baseMult;
+    setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
     spinCountRef.current = 0; setSpinCount(0);
-    setHistory(prev => {
-      let streak1G = 0;
-      if (is1G) { streak1G = 1; for (const h of prev) { if (h.is1G) streak1G++; else break; } }
-      return [{ type, at: hitAt, jugRen: newJugRen, is1G, streak1G }].concat(prev).slice(0, 30);
-    });
+    setHistory(prev => [{ type, at: hitAt, jugRen: newJugRen, is1G }].concat(prev).slice(0, 30));
     if (is1G) {
       gaPlay('oneG', 1.0);
       [1568, 1976, 2349, 2793, 3136].forEach((f, i) => jTone(f, 0.05 + i * 0.03, 0.2, 0.15));
@@ -8640,8 +8652,16 @@ function GodAnotherGame({ onScore, onClose }) {
     return earn;
   };
 
-  const startEffect = () => { setLocked(true); lockedRef.current = true; resetLamp(); setMsg(''); };
+  const startEffect = () => {
+    if (lockFreezeRef.current == null) lockFreezeRef.current = Date.now();   // 凍結開始(実時間)。多重呼び出しでも最初の時刻を保持
+    setLocked(true); lockedRef.current = true; resetLamp(); setMsg('');
+  };
   const unlockAt = (ms) => T(() => {
+    // 凍結終了: ロック中に経過した実時間ぶんだけ開始時刻を後ろへずらす(タブ非表示中の離脱時間も含む)
+    if (lockFreezeRef.current != null) {
+      if (startTimeRef.current) startTimeRef.current += Date.now() - lockFreezeRef.current;
+      lockFreezeRef.current = null;
+    }
     lockedRef.current = false; setLocked(false); resetLamp();
     setBigMsg(''); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
     barLockRef.current = 0;
@@ -8867,8 +8887,9 @@ function GodAnotherGame({ onScore, onClose }) {
     setMsg(''); setBigMsg(''); setLocked(false); lockedRef.current = false;
     coinsRef.current = 0; gameNRef.current = 0; tapGuardRef.current = { lastByPointer: new Map(), recent: [] };
     spinCountRef.current = 0; setSpinCount(0);
-    setHistory([]); jugRenRef.current = 0; setJugRen(0);
+    setHistory([]); jugRenRef.current = 0; setJugRen(0); setLastMult(1);
     godGapRef.current = 0; godCountRef.current = 0;
+    lockFreezeRef.current = null; cutinOnRef.current = false; setCutinOn(false);
     startTimeRef.current = Date.now(); timeLeftRef.current = TOTAL; lastTsRef.current = null;
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
     setReels(rnd3()); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
@@ -9150,7 +9171,9 @@ function GodAnotherGame({ onScore, onClose }) {
                 transition: 'opacity 300ms linear' }} />
               {sinPlus && <div style={{ position: 'absolute', right: '8%', top: '14%', fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.55)', zIndex: 6, fontFamily: "'Courier New',monospace" }}>+1</div>}
               {lampMainText && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
+                /* カットイン画像の表示中は主文字を伏せる(重なり回避)。カットイン終了で戻る */
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none',
+                  opacity: cutinOn ? 0 : 1, transition: 'opacity 200ms linear' }}>
                   <span ref={mainTxtRef} style={{ fontSize: lampMainSize, fontWeight: 900, letterSpacing: '0.08em', fontStyle: 'italic', lineHeight: 1,
                     color: ls.textColor || '#ffd700', textShadow: ls.textShadow || 'none' }}>{lampMainText}</span>
                 </div>
@@ -9171,7 +9194,7 @@ function GodAnotherGame({ onScore, onClose }) {
           {jugRen >= 2 && (
             <div style={{ textAlign: 'center', pointerEvents: 'none', position: 'relative', zIndex: 41, marginBottom: 2 }}>
               <span style={{ fontSize: 13, fontWeight: 900, color: '#ffb347', letterSpacing: 2, textShadow: '0 0 8px rgba(255,179,71,0.6)' }}>
-                🔥 連チャン {jugRen} ×{(1 + (jugRen - 1) * 0.1).toFixed(1)}
+                🔥 連チャン {jugRen} ×{lastMult.toFixed(1)}
               </span>
             </div>
           )}
