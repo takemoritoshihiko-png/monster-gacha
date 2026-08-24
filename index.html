@@ -2037,13 +2037,29 @@ function MonsterGacha() {
 
   // Gacha
   const autoOpenRef = useRef([]);
+  // まだ走っていない「コレクションへの追加」。演出タイマーを取り消す時も獲得だけは捨てずに確定させる
+  const pendingRevealRef = useRef([]);
   const [cueEffect, setCueEffect] = useState(null);
+  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
+  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
+  const [gachaSaveReady, setGachaSaveReady] = useState(false);
 
   const startChestOpen = useCallback((res) => {
+    // 取り消しの前に、前回pullの未確定の獲得を先に確定させる(捨てるのは演出だけ)
+    const pending = pendingRevealRef.current;
+    pendingRevealRef.current = [];
+    pending.forEach(fn => { try { fn(); } catch (e) {} });
+    // 前回pullの残タイマー(ura遅延/グループ/宝箱音/reveal/rareEffect解除)を全て取り消してから開始する
+    autoOpenRef.current.forEach(t => clearTimeout(t));
+    autoOpenRef.current = [];
+    setGachaSaveReady(false);
     setGachaResults(res);
     setGachaChests(res.map(r => getChestType(r.rank)));
     setOpened(new Set());
     setGachaPhase("chests");
+    // 解除タイマーごと取り消したので、前回の演出はここで確実に消す
+    // (メインBGMが一瞬鳴り出さないよう、必ず gachaPhase="chests" の後に置く)
+    setRareEffect(null);
 
     // Ura item lottery FIRST (before chest animation)
     let uraDelay = 0;
@@ -2070,20 +2086,19 @@ function MonsterGacha() {
         // Show ura item FIRST with 3.5s total (1.5s animation + 2s viewing)
         setRareEffect({ type: 'uraItem', uraItem: uraWin });
         sfx('reveal10');
-        setTimeout(() => setRareEffect(null), 3500);
+        autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 3500));
         uraDelay = 3800; // chest animation starts after ura effect clears
       }
     }
 
     // Start chest animation (delayed if ura item was shown)
-    setTimeout(() => {
+    autoOpenRef.current.push(setTimeout(() => {
     const openOrder = res.map((r, i) => ({ i, rank: r.rank }));
     openOrder.sort((a, b) => {
       // ★1 first, then ★2, then ★3+ by rank ascending, ★10 last
       if (a.rank !== b.rank) return a.rank - b.rank;
       return a.i - b.i;
     });
-    autoOpenRef.current.forEach(t => clearTimeout(t));
     // Calculate cumulative delays: higher rarity = slower open + dramatic pause
     const getOpenInterval = (rank) => {
       if (rank >= 10) return 3000; // ★10 GOD: very dramatic pause(虹箱=現行のまま)
@@ -2113,7 +2128,16 @@ function MonsterGacha() {
       if (!timeGroups[t]) timeGroups[t] = [];
       timeGroups[t].push(o);
     });
-    autoOpenRef.current = Object.entries(timeGroups).map(([time, group]) => setTimeout(() => {
+    // reveal(=addToCollection)が最後に走るグループを先に確定し、そこで保存トリガーを立てる
+    const getRevealDelay = (rank) => rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
+    const groupEntries = Object.entries(timeGroups).map(([time, group]) => {
+      const maxGroupRank = Math.max(...group.map(o => o.rank));
+      return { time: Number(time), group, maxGroupRank, revealDelay: getRevealDelay(maxGroupRank) };
+    });
+    let lastEnd = -1, lastIdx = 0;
+    groupEntries.forEach((g, gi) => { const end = g.time + g.revealDelay; if (end >= lastEnd) { lastEnd = end; lastIdx = gi; } });
+    groupEntries.forEach(({ time, group, maxGroupRank, revealDelay }, gIdx) => autoOpenRef.current.push(setTimeout(() => {
+      const isLastGroup = gIdx === lastIdx;
       // Open all cards in this time group at once
       const indices = group.map(o => o.i);
       setOpened(prev => {
@@ -2122,7 +2146,6 @@ function MonsterGacha() {
         return next;
       });
       // Use the highest rank in this group for effects
-      const maxGroupRank = Math.max(...group.map(o => o.rank));
       const rank = maxGroupRank;
       const i = group.find(o => o.rank === maxGroupRank).i;
       // Pre-open tension sound for rare items
@@ -2161,15 +2184,23 @@ function MonsterGacha() {
       }
       // Chest open sound (delayed for rank 5+)
       const chestSoundDelay = rank >= 10 ? 600 : rank === 9 ? 420 : rank === 8 ? 300 : rank === 7 ? 180 : rank === 6 ? 100 : rank === 5 ? 50 : 0;
-      setTimeout(() => {
+      autoOpenRef.current.push(setTimeout(() => {
         const ct = getChestType(rank);
         sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
-      }, chestSoundDelay);
+      }, chestSoundDelay));
       // Reveal sound + collection add + rare effects
-      const revealDelay = rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
-      setTimeout(() => {
-        // Add all cards in this group to collection
+      // 獲得の確定(コレクション追加＋最終グループなら保存トリガー)は取り消し時にも必ず走らせる
+      const commit = () => {
         indices.forEach(idx => addToCollection(res[idx]));
+        // 全アイテムがコレクションに入り切った直後にだけ保存を許可する
+        if (isLastGroup) setGachaSaveReady(true);
+      };
+      pendingRevealRef.current.push(commit);
+      autoOpenRef.current.push(setTimeout(() => {
+        const ci = pendingRevealRef.current.indexOf(commit);
+        if (ci < 0) return;                       // 新pullの割り込みで確定済み → 二重加算しない
+        pendingRevealRef.current.splice(ci, 1);
+        commit();
         const r = res[i];
         const revealSound = r.rank >= 10 ? 'reveal10' : r.rank === 9 ? 'reveal9' : r.rank === 8 ? 'reveal8'
           : r.rank === 7 ? 'reveal7' : r.rank >= 5 ? 'reveal5' : r.rank >= 3 ? 'reveal3' : 'reveal1';
@@ -2184,7 +2215,7 @@ function MonsterGacha() {
           playChord([1047, 1319, 1568, 2093], 1.2, 'sine', 0.07, 0.6);
           playChord([1319, 1568, 2093], 0.8, 'triangle', 0.04, 0.8);
           [2093, 2349, 2637, 3136].forEach((f, i) => playNote(f, 0.2, 'sine', 0.03, 1.0 + i * 0.1));
-          setTimeout(() => setRareEffect(null), 3500);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 3500));
         } else if (r.rank === 9) {
           setRareEffect({ type: 'mythic', rank: 9 });
           // 神秘的ミシカルファンファーレ: スウィープ → 6音アルペジオ → 和音ブルーム → きらめき
@@ -2194,7 +2225,7 @@ function MonsterGacha() {
           playChord([831, 1047, 1319], 0.7, 'sine', 0.07, 0.5);
           playChord([1047, 1319, 1568], 0.5, 'triangle', 0.04, 0.65);
           [1568, 1760, 2093].forEach((f, i) => playNote(f, 0.15, 'sine', 0.03, 0.8 + i * 0.07));
-          setTimeout(() => setRareEffect(null), 2500);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 2500));
         } else if (r.rank === 8) {
           setRareEffect({ type: 'legend', rank: 8 });
           // レジェンド: メタルクリック → 5音上昇 → 輝く和音
@@ -2203,7 +2234,7 @@ function MonsterGacha() {
           [494, 587, 698, 880, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.06 + i * 0.06));
           playChord([880, 1047, 1319], 0.5, 'sine', 0.06, 0.4);
           playNote(1319, 0.3, 'triangle', 0.04, 0.5);
-          setTimeout(() => setRareEffect(null), 1500);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 1500));
         } else if (r.rank === 7) {
           setRareEffect({ type: 'epic', rank: 7 });
           // エピック: スパーク → 4音上昇 → シマー和音
@@ -2211,19 +2242,19 @@ function MonsterGacha() {
           [523, 659, 831, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, 0.04 + i * 0.06));
           playChord([831, 1047, 1319], 0.35, 'sine', 0.05, 0.3);
           playNote(1319, 0.2, 'triangle', 0.03, 0.38);
-          setTimeout(() => setRareEffect(null), 1000);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 1000));
         } else if (r.rank === 6) {
           setRareEffect({ type: 'ultra', rank: 6 });
           // ウルトラ: 明るい3音チャイム + 余韻
           playSweep(400, 700, 0.1, 'sine', 0.04);
           [523, 659, 831].forEach((f, i) => playNote(f, 0.15, 'sine', 0.09, i * 0.05));
           playNote(1047, 0.2, 'sine', 0.04, 0.2);
-          setTimeout(() => setRareEffect(null), 700);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 700));
         } else if (r.rank === 5) {
           setRareEffect({ type: 'ssrare', rank: 5 });
           // SSレア: きらめく3音
           [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.07, i * 0.04));
-          setTimeout(() => setRareEffect(null), 400);
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 400));
         }
         // Notify family of rare pull + history for ALL ★8+ in this group
         indices.forEach(idx => {
@@ -2235,9 +2266,9 @@ function MonsterGacha() {
             }).catch(() => {});
           }
         });
-      }, revealDelay);
-    }, Number(time)));
-    }, uraDelay); // Delay chest animation if ura item was shown
+      }, revealDelay));
+    }, time)));
+    }, uraDelay)); // Delay chest animation if ura item was shown
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
 
   const pull = useCallback((n) => {
@@ -2631,17 +2662,19 @@ function MonsterGacha() {
   }, [screen, miniGame, gachaPhase, synthResult, showClear, rareEffect, loaded, slotId, volMain]);
   const allOpened = gachaResults.length > 0 && opened.size === gachaResults.length;
 
-  // Auto-save when all gacha chests are opened (prevent reload exploit)
+  // Auto-save when the gacha results are fully in the collection (prevent reload exploit)
+  // トリガーは「箱が開いた瞬間(allOpened)」ではなく「最終グループの addToCollection 完了後」。
+  // 箱が開いた時点ではコインだけ減ってアイテムが未追加のため、その瞬間の保存はコインを失うだけになる
   const gachaSavedRef = useRef(false);
   useEffect(() => {
-    if (allOpened && !gachaSavedRef.current && slotId !== null) {
+    if (gachaSaveReady && !gachaSavedRef.current && slotId !== null) {
       gachaSavedRef.current = true;
       lastAutoSave.current = Date.now();
       addLog("ガチャ結果セーブ");
       saveToSlot(slotId, true);
     }
-    if (!allOpened) gachaSavedRef.current = false;
-  }, [allOpened, slotId, saveToSlot]);
+    if (!gachaSaveReady) gachaSavedRef.current = false;
+  }, [gachaSaveReady, slotId, saveToSlot]);
 
   const GAME_NAMES = { tap: '連打バトル', shooting: 'シューティング', gem: 'ジュエルキャッチ', timing: 'ルパンタイマー', tower: 'コインタワー', memory: '神経衰弱', quickdraw: '早撃ちガンマン', coinRunner: 'コインランナー', juggler: 'ジャグラー', godAnother: 'ゴッドアナザー', batting: 'バッティングヒーロー', pinball: 'ピンボール', chainBurst: 'チェインバースト', mathEasy: '計算初級', kuku: '九九', mathMid: '計算中級', mathHardAdd: '上級±', mathHardMult: '上級×÷' };
   const GAME_IDS = Object.keys(GAME_NAMES);
@@ -7392,6 +7425,20 @@ function JugglerGame({ onScore, onClose }) {
 // --- 音の土台: sfxBus → compressor → sfxMaster / 並行 sfxBus → convolver(生成IR) → wet → compressor ---
 const gaBufs = {};
 let gaBus = null, gaComp = null, gaConv = null, gaWet = null, gaWarmStarted = false;
+// 予約済み音源の登録簿。start() で未来の時刻に予約したノードは、画面を閉じても予約通りに鳴ってしまう。
+// gaTrack で登録し、gaStopScheduled() でまとめて止める(自然終了した分は onended で自動的に外れる)。
+let gaSched = [];
+function gaTrack(n) {
+  try {
+    gaSched.push(n);
+    n.onended = () => { const i = gaSched.indexOf(n); if (i >= 0) gaSched.splice(i, 1); };
+  } catch (e) {}
+  return n;
+}
+function gaStopScheduled() {
+  const list = gaSched; gaSched = [];
+  list.forEach(n => { try { n.stop(0); } catch (e) {} });
+}
 function gaMakeBuf(dur, fn) {
   const a = audioCtx; if (!a) return null;
   const sr = a.sampleRate, buf = a.createBuffer(2, Math.max(1, Math.floor(sr * dur)), sr);
@@ -7434,6 +7481,25 @@ const GA_SND = {
   // P3: GODファンファーレ①地鳴り(D1=36.7Hzサブ+ノイズスウェル0.8秒)
   godRumble: [0.85, (s, ch) => { const env = Math.min(s / 0.6, 1) * (s > 0.72 ? Math.max(0, 1 - (s - 0.72) / 0.13) : 1); const sub = Math.sin(2 * Math.PI * 36.7 * s) * 0.8 + Math.sin(2 * Math.PI * 73.4 * s) * 0.18; const nz = (Math.random() * 2 - 1) * 0.24 * Math.pow(Math.min(s / 0.7, 1), 2); return (sub + nz) * env * (ch === 0 ? 0.62 : 0.58); }],
   oneG: [0.8, (s, ch) => { const thunder = (Math.random() * 2 - 1) * Math.exp(-s * 3) * 0.7; const crack = Math.sin(2 * Math.PI * 80 * s) * Math.exp(-s * 5) * 0.5; const rumble = Math.sin(2 * Math.PI * 40 * s * (1 + Math.random() * 0.3)) * Math.exp(-s * 1.5) * 0.4; const zap = Math.sin(2 * Math.PI * (8000 * Math.exp(-s * 12)) * s) * Math.exp(-s * 8) * 0.3; return (thunder + crack + rumble + zap) * (ch === 0 ? 0.6 : 0.55); }],
+  // 連打で毎回鳴る操作音。波形は固定なので合成式はそのまま1回だけ焼き、以後はキャッシュ再生する
+  // (以前は1タップごとにバッファを作り直していたため、50ms連打では毎秒最大60回の生成が走っていた)
+  // レバーON「ガコッ」: ①低域トランジェント(レバーが落ちる衝撃) ②金属クリック(非整数倍音) ③極短ノイズのアタック
+  // 主操作=連打なので音圧は抑えめ。バスのコンプ(-18dB/5:1)で頭を潰して耳の疲れを避ける
+  tap: [0.16, (s, ch) => {
+    const thud = (Math.sin(2 * Math.PI * 116 * s) * 0.85 + Math.sin(2 * Math.PI * 58 * s) * 0.6) * Math.exp(-s * 34);
+    const clack = (Math.sin(2 * Math.PI * 1870 * s) * 0.3 + Math.sin(2 * Math.PI * 2630 * s) * 0.2 + Math.sin(2 * Math.PI * 3910 * s) * 0.11) * Math.exp(-s * 95);
+    const atk = (Math.random() * 2 - 1) * Math.exp(-s * 200) * 0.5;
+    return (thud + clack + atk) * (ch === 0 ? 0.3 : 0.28);
+  }],
+  // リール停止「ガシャッ」: 金属の当たり(低域クランク+非整数倍音)+ 擦れノイズ + サブの芯
+  reelStop: [0.2, (s, ch) => {
+    const clank = (Math.sin(2 * Math.PI * 168 * s) * 0.7 + Math.sin(2 * Math.PI * 252 * s) * 0.3) * Math.exp(-s * 28);
+    const metal = (Math.sin(2 * Math.PI * 1420 * s) * 0.24 + Math.sin(2 * Math.PI * 2180 * s) * 0.16 + Math.sin(2 * Math.PI * 3260 * s) * 0.1) * Math.exp(-s * 46);
+    const shhh = (Math.random() * 2 - 1) * Math.exp(-s * 70) * 0.4;
+    const sub = Math.sin(2 * Math.PI * 62 * s) * 0.45 * Math.exp(-s * 22);
+    return (clank + metal + shhh + sub) * (ch === 0 ? 0.5 : 0.46);
+  }],
+  softStop: [0.1, (s) => (Math.sin(2 * Math.PI * 140 * s) * Math.exp(-s * 34) * 0.4) * 0.7],
 };
 function gaPlay(key, vol) {
   const a = audioCtx; if (!a) return;
@@ -7442,7 +7508,7 @@ function gaPlay(key, vol) {
   if (!b) { const g = GA_SND[key]; if (!g) return; b = gaBufs[key] = gaMakeBuf(g[0], g[1]); if (!b) return; }
   const bs = a.createBufferSource(); bs.buffer = b;
   const gn = a.createGain(); gn.gain.value = vol == null ? 1 : vol;
-  bs.connect(gn); gn.connect(gaGetBus() || a.destination); bs.start(a.currentTime);
+  bs.connect(gn); gn.connect(gaGetBus() || a.destination); bs.start(a.currentTime); gaTrack(bs);
 }
 // 事前生成はidle時に1件ずつ(ready画面表示時に開始。playing中の一括生成を避ける)
 function gaWarmup() {
@@ -7535,7 +7601,7 @@ function gaOrgan(f, st, dur, vol) {
   const t0 = a.currentTime + st;
   gaEnv(g, t0, dur, vol, 0.03, Math.min(0.2, dur * 0.4));
   o.connect(g); g.connect(gaGetBus() || a.destination);
-  o.start(t0); o.stop(t0 + dur + 0.05);
+  o.start(t0); o.stop(t0 + dur + 0.05); gaTrack(o);
 }
 // スーパーソウ: sawtooth 3本を ±7cent デチューン
 function gaSaw(f, st, dur, vol) {
@@ -7545,7 +7611,7 @@ function gaSaw(f, st, dur, vol) {
   g.connect(gaGetBus() || a.destination);
   for (let i = 0; i < 3; i++) {
     const o = a.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
-    o.detune.value = (i - 1) * 7; o.connect(g); o.start(t0); o.stop(t0 + dur + 0.05);
+    o.detune.value = (i - 1) * 7; o.connect(g); o.start(t0); o.stop(t0 + dur + 0.05); gaTrack(o);
   }
 }
 // コーラス風: sawtooth → bandpass(800/1150Hz,Q=8)2連 + LFOでフォルマント揺らし
@@ -7563,7 +7629,8 @@ function gaChoir(f, st, dur, vol) {
     lg.connect(b.frequency); o.connect(b); b.connect(g);
   });
   g.connect(gaGetBus() || a.destination);
-  o.start(t0); o.stop(t0 + dur + 0.05); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+  o.start(t0); o.stop(t0 + dur + 0.05); gaTrack(o);
+  lfo.start(t0); lfo.stop(t0 + dur + 0.05); gaTrack(lfo);
 }
 // P3: GODファンファーレ(ニ長調・約4秒)。①地鳴り→②静寂 は呼び出し側で先行させ、ここは③和音進行+④きらめき
 function gaGodFanfare() {
@@ -8047,7 +8114,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const synth = (dur, fn, vol = 0.7) => {
     const a = audioCtx; if (!a) return; if (a.state === 'suspended') a.resume();
     const buf = gaMakeBuf(dur, fn); if (!buf) return;
-    const bs = a.createBufferSource(); bs.buffer = buf; const g = a.createGain(); g.gain.value = vol; bs.connect(g); g.connect(gaGetBus() || a.destination); bs.start(a.currentTime);
+    const bs = a.createBufferSource(); bs.buffer = buf; const g = a.createGain(); g.gain.value = vol; bs.connect(g); g.connect(gaGetBus() || a.destination); bs.start(a.currentTime); gaTrack(bs);
   };
   const jTone = (f, st, dur, vol = 0.25, type = 'sine') => {
     const a = audioCtx; if (!a) return;
@@ -8056,25 +8123,12 @@ function GodAnotherGame({ onScore, onClose }) {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.linearRampToValueAtTime(vol, t0 + at);
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    o.connect(g); g.connect(gaGetBus() || a.destination); o.start(t0); o.stop(t0 + dur);
+    o.connect(g); g.connect(gaGetBus() || a.destination); o.start(t0); o.stop(t0 + dur); gaTrack(o);
   };
-  // レバーON「ガコッ」: ①低域トランジェント(レバーが落ちる衝撃) ②金属クリック(非整数倍音) ③極短ノイズのアタック
-  // 主操作=連打なので音圧は抑えめ。バスのコンプ(-18dB/5:1)で頭を潰して耳の疲れを避ける
-  const sndTap = () => synth(0.16, (s, ch) => {
-    const thud = (Math.sin(2 * Math.PI * 116 * s) * 0.85 + Math.sin(2 * Math.PI * 58 * s) * 0.6) * Math.exp(-s * 34);
-    const clack = (Math.sin(2 * Math.PI * 1870 * s) * 0.3 + Math.sin(2 * Math.PI * 2630 * s) * 0.2 + Math.sin(2 * Math.PI * 3910 * s) * 0.11) * Math.exp(-s * 95);
-    const atk = (Math.random() * 2 - 1) * Math.exp(-s * 200) * 0.5;
-    return (thud + clack + atk) * (ch === 0 ? 0.3 : 0.28);
-  }, 0.24);
-  // リール停止「ガシャッ」: 金属の当たり(低域クランク+非整数倍音)+ 擦れノイズ + サブの芯
-  const sndReelStop = () => synth(0.2, (s, ch) => {
-    const clank = (Math.sin(2 * Math.PI * 168 * s) * 0.7 + Math.sin(2 * Math.PI * 252 * s) * 0.3) * Math.exp(-s * 28);
-    const metal = (Math.sin(2 * Math.PI * 1420 * s) * 0.24 + Math.sin(2 * Math.PI * 2180 * s) * 0.16 + Math.sin(2 * Math.PI * 3260 * s) * 0.1) * Math.exp(-s * 46);
-    const shhh = (Math.random() * 2 - 1) * Math.exp(-s * 70) * 0.4;
-    const sub = Math.sin(2 * Math.PI * 62 * s) * 0.45 * Math.exp(-s * 22);
-    return (clank + metal + shhh + sub) * (ch === 0 ? 0.5 : 0.46);
-  }, 0.3);
-  const sndSoftStop = () => synth(0.1, (s) => (Math.sin(2 * Math.PI * 140 * s) * Math.exp(-s * 34) * 0.4) * 0.7, 0.12);
+  // 連打で毎回鳴る3音は GA_SND に事前生成させ、キャッシュ再生する(音色・音量は現行のまま)
+  const sndTap = () => gaPlay('tap', 0.24);
+  const sndReelStop = () => gaPlay('reelStop', 0.3);
+  const sndSoftStop = () => gaPlay('softStop', 0.12);
   const sndGakonG = () => synth(0.8, (s, ch) => { const at = Math.exp(-s * 40) * 0.9; return (Math.sin(2 * Math.PI * 220 * s + Math.sin(2 * Math.PI * 440 * s) * 0.5) * at + (Math.sin(2 * Math.PI * 880 * s) * 0.2 + Math.sin(2 * Math.PI * 1320 * s) * 0.15) * Math.exp(-s * 8) + Math.sin(2 * Math.PI * 55 * s) * 0.6 * Math.exp(-s * 20) + (Math.random() * 2 - 1) * 0.35 * Math.exp(-s * 30)) * (ch === 0 ? 0.55 : 0.5); }, 0.85);
   const sndZawa = () => synth(1.0, (s, ch) => { const env = Math.sin(Math.PI * Math.min(s, 1)); return ((Math.random() * 2 - 1) * 0.22 + Math.sin(2 * Math.PI * 68 * s) * 0.3) * env * (ch === 0 ? 0.5 : 0.45); }, 0.3);
   const sndCutin = () => { synth(0.3, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 10) * 0.5, 0.45); [392, 523, 659, 880].forEach((f, i) => jTone(f, i * 0.05, 0.35, 0.18, 'square')); jTone(98, 0, 0.5, 0.14, 'sawtooth'); };
@@ -8863,7 +8917,8 @@ function GodAnotherGame({ onScore, onClose }) {
     return () => {
       aliveRef.current = false;
       document.removeEventListener('visibilitychange', onHide);
-      gaSpinLoopStop();   // アンマウント: 回転ループ音を確実に解放
+      gaSpinLoopStop();      // アンマウント: 回転ループ音を確実に解放
+      gaStopScheduled();     // アンマウント: 予約済みの勝利音・ファンファーレ等が鳴り続けるのを止める
       offAsset(); hideMovie();
       timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = [];
       if (lampRef.current) cancelAnimationFrame(lampRef.current);
