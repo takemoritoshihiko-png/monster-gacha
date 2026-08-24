@@ -7961,6 +7961,27 @@ function GodAnotherGame({ onScore, onClose }) {
   const [meioC, setMeioC] = useState(0);
   const [purpleC, setPurpleC] = useState(0);
   const [y7C, setY7C] = useState(0);
+  // PC(幅1000px以上・マウス環境): 画面にジャストフィットする表示倍率を実測で算出。スマホは等倍のまま
+  const zoomFitRef = useRef(null);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1000px) and (pointer: fine)');
+    const fit = () => {
+      const el = zoomFitRef.current; if (!el) return;
+      if (!mq.matches) { if (el.style.zoom) el.style.zoom = ''; return; }
+      el.style.zoom = 1;   // 等倍で自然なサイズを実測してから倍率を決める
+      const w = el.offsetWidth || 448;
+      const h = el.scrollHeight || 900;
+      const top = el.getBoundingClientRect().top + window.scrollY;             // ヘッダー+上余白の実測
+      const navH = (document.querySelector('.nav') || {}).offsetHeight || 70;  // 下ナビ(fixed)の実測
+      const z = Math.max(1, Math.min((window.innerWidth - 16) / w, (window.innerHeight - top - navH - 8) / h));
+      el.style.zoom = z;
+    };
+    fit();
+    // 画像(ベゼル等)のロード後に高さが伸びるため、遅れて再算出する
+    const t1 = setTimeout(fit, 350), t2 = setTimeout(fit, 1200);
+    window.addEventListener('resize', fit);
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', fit); };
+  }, [phase]);
   const [crashC, setCrashC] = useState(0);
   const [sinC, setSinC] = useState(0);
   const [spinCount, setSpinCount] = useState(0);
@@ -8674,7 +8695,9 @@ function GodAnotherGame({ onScore, onClose }) {
     jugRenRef.current = newJugRen; setJugRen(newJugRen);
     const baseMult = 1 + (newJugRen - 1) * 0.1;
     const is1G = hitAt === 1;
-    const mult = is1G ? baseMult + 1.0 : baseMult;
+    // ハマリプレミア: 1000超ハマりからの当たりは倍率アップ(1100で×1.2, 1200で×1.4, …+0.2/100G・上限なし)
+    const hamari = hitAt >= 1100 ? 1 + 0.2 * Math.floor((hitAt - 1000) / 100) : 1;
+    const mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
     setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
     spinCountRef.current = 0; setSpinCount(0);
     setHistory(prev => [{ type, at: hitAt, jugRen: newJugRen, is1G }].concat(prev).slice(0, 30));
@@ -8693,7 +8716,7 @@ function GodAnotherGame({ onScore, onClose }) {
       if (intensity >= 4) jTone(65, 0, 0.5, 0.12 + intensity * 0.02, 'sawtooth');
       if (intensity >= 5) { [2093, 2349, 2637, 3136].forEach((f, i) => jTone(f, 0.3 + i * 0.05, 0.3, 0.06)); synth(0.3, (s) => (Math.random() * 2 - 1) * Math.exp(-s * 8) * 0.3, 0.4); }
     }
-    return { mult, is1G, jugRen: newJugRen, label: (is1G ? ' 1G連!' : '') + (mult > 1 ? ' ジャグ連' + newJugRen + ' ×' + mult.toFixed(1) : '') };
+    return { mult, is1G, jugRen: newJugRen, label: (is1G ? ' 1G連!' : '') + (hamari > 1 ? ' ハマリプレミア' : newJugRen >= 2 ? ' ジャグ連' + newJugRen : '') + (mult > 1 ? ' ×' + mult.toFixed(1) : '') };
   };
 
   const award = (type, prefix, color, cfn) => {
@@ -8997,7 +9020,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const basestripOn = gaAssetLoaded('basestrip');
 
   return (
-    <div className="gaDesktopZoom" style={{
+    <div className="gaDesktopZoom" ref={zoomFitRef} style={{
       textAlign: 'center', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden',
       background: 'radial-gradient(ellipse 90% 34% at 50% -4%, rgba(90,60,140,0.5), transparent 70%),radial-gradient(ellipse 60% 26% at 18% 108%, rgba(180,120,20,0.16), transparent 70%),radial-gradient(ellipse 60% 26% at 82% 108%, rgba(180,120,20,0.16), transparent 70%),linear-gradient(180deg,#0d0a18 0%,#070510 46%,#0e0a14 100%)',
     }}>
@@ -9060,7 +9083,7 @@ function GodAnotherGame({ onScore, onClose }) {
             <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
           )}
           <p style={{ fontSize: 11, opacity: 0.6, margin: '12px 0', lineHeight: 1.9, color: '#a89660' }}>
-            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
+            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>1100超の大ハマリはハマリプレミアで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
           </p>
           <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #8a6a00, #d4a017)' }}>START</button>
         </div>
@@ -9087,6 +9110,11 @@ function GodAnotherGame({ onScore, onClose }) {
                 <div style={{ textAlign: 'left' }}>
                   <div className="ga-mlbl" style={{ fontSize: 8, marginBottom: 3, lineHeight: 1 }}>当たり間</div>
                   <div className="ga-mnum" style={{ fontSize: 42, lineHeight: 0.9, ...gaMV(spinCount >= 500 ? GA_MC.red : spinCount >= 200 ? GA_MC.amber : GA_MC.gold) }}>{spinCount}</div>
+                  {spinCount >= 1100 && (
+                    <div className="ga-mlbl" style={{ fontSize: 8.5, marginTop: 3, lineHeight: 1, color: '#ff6b8a', textShadow: '0 0 6px rgba(255,60,110,0.7)' }}>
+                      ハマリプレミア ×{(1 + 0.2 * Math.floor((spinCount - 1000) / 100)).toFixed(1)}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 11, alignItems: 'flex-end' }}>
                   <div style={{ textAlign: 'right' }}>
@@ -9314,7 +9342,11 @@ function GodAnotherGame({ onScore, onClose }) {
           background: '#000', zIndex: 9998, display: 'none', pointerEvents: 'none' }} />
 
       <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}
-@media (min-width: 1000px) and (pointer: fine) { .gaDesktopZoom { zoom: 2; } }   /* PCの広い画面ではゴッドアナザーを1.5倍表示(スマホは従来どおり) */
+/* PC: レイアウト幅は448px固定(親の480px制約を解放して潰れ防止)。倍率はJSが画面サイズから実測算出してジャストフィットさせる */
+@media (min-width: 1000px) and (pointer: fine) {
+  .G:has(.gaDesktopZoom) { max-width: none; }
+  .gaDesktopZoom { width: 448px; margin: 0 auto; }
+}
 .gaStrip{opacity:1;transition:opacity .18s linear}
 .gaStrip.gaSpin{opacity:.72}
 .gaGh{opacity:0;transition:opacity .18s linear}
