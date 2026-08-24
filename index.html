@@ -1372,9 +1372,13 @@ function generateDailyMissions(dateStr) {
   // ローンチ直後は累積=デイリーとして運用
   let seed = 0;
   for (let i = 0; i < dateStr.length; i++) seed += dateStr.charCodeAt(i) * (i + 1);
+  // typeの全文字ハッシュ(先頭1文字だけだとgacha/gift/godAnotherが衝突して偏る)
+  // 2026-08-24以前は旧ロジック維持(導入当日のミッション日中差替え=進捗リセットを防止)
+  const legacy = dateStr <= '2026-08-24';
+  const mix = (t) => { let h = 0; for (let j = 0; j < t.length; j++) h = (h * 31 + t.charCodeAt(j)) % 100003; return h; };
   const shuffled = [...DAILY_MISSION_POOL].sort((a, b) => {
-    const ha = (seed * 31 + a.type.charCodeAt(0)) % 100;
-    const hb = (seed * 31 + b.type.charCodeAt(0)) % 100;
+    const ha = (seed * 31 + (legacy ? a.type.charCodeAt(0) : mix(a.type))) % 100;
+    const hb = (seed * 31 + (legacy ? b.type.charCodeAt(0) : mix(b.type))) % 100;
     return ha - hb;
   });
   return shuffled.slice(0, 3).map((m, i) => {
