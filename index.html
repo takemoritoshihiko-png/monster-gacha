@@ -8953,7 +8953,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const basestripOn = gaAssetLoaded('basestrip');
 
   return (
-    <div style={{
+    <div className="gaDesktopZoom" style={{
       textAlign: 'center', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden',
       background: 'radial-gradient(ellipse 90% 34% at 50% -4%, rgba(90,60,140,0.5), transparent 70%),radial-gradient(ellipse 60% 26% at 18% 108%, rgba(180,120,20,0.16), transparent 70%),radial-gradient(ellipse 60% 26% at 82% 108%, rgba(180,120,20,0.16), transparent 70%),linear-gradient(180deg,#0d0a18 0%,#070510 46%,#0e0a14 100%)',
     }}>
@@ -9270,6 +9270,7 @@ function GodAnotherGame({ onScore, onClose }) {
           background: '#000', zIndex: 9998, display: 'none', pointerEvents: 'none' }} />
 
       <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}
+@media (min-width: 1000px) and (pointer: fine) { .gaDesktopZoom { zoom: 1.5; } }   /* PCの広い画面ではゴッドアナザーを1.5倍表示(スマホは従来どおり) */
 .gaStrip{opacity:1;transition:opacity .18s linear}
 .gaStrip.gaSpin{opacity:.72}
 .gaGh{opacity:0;transition:opacity .18s linear}
