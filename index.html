@@ -1363,6 +1363,8 @@ const DAILY_MISSION_POOL = [
   { type: 'gift', text: 'ギフトを全員で{n}円分送ろう', targets: [500000000, 1000000000, 2000000000], unit: '円' },
   { type: 'quickdraw', text: '早撃ちガンマンで全員合計{n}コイン', targets: [3000, 6000, 12000], unit: 'コイン' },
   { type: 'memory', text: '神経衰弱で全員合計{n}コイン', targets: [2000, 4000, 8000], unit: 'コイン' },
+  { type: 'godAnother', text: 'ゴッドアナザーで全員合計{n}コイン', targets: [30000, 60000, 120000], unit: 'コイン' },
+  { type: 'juggler', text: 'ジャグラーで全員合計{n}コイン', targets: [10000, 20000, 40000], unit: 'コイン' },
 ];
 
 function generateDailyMissions(dateStr) {
@@ -1708,27 +1710,32 @@ function MonsterGacha() {
         if (window.fbDb) {
           // restoreDataが存在する間はランキング上書きをスキップ（復旧データ保護）
           window.fbDb.ref('rankings/' + s.nickname + '/restoreData').once('value').then(snap => {
-            if (snap.val()) { addLog("復旧待ち: ランキング上書きスキップ"); return; }
-            window.fbDb.ref('rankings/' + s.nickname).update(rankBase);
+            if (snap.val()) {
+              addLog("復旧待ち: ランキング上書きスキップ");
+              // スキップ中でもnameだけは書く(未登録だとランキング一覧に一切出ないため)
+              window.fbDb.ref('rankings/' + s.nickname + '/name').set(s.nickname).catch(() => {});
+              return;
+            }
+            window.fbDb.ref('rankings/' + s.nickname).update(rankBase).catch(() => {});
             if (Object.keys(bs).length > 0) {
               Object.entries(bs).forEach(([gid, score]) => {
-                window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(current => Math.max(current || 0, score));
+                window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(current => Math.max(current || 0, score)).catch(() => {});
               });
             }
             if (s.playCounts && Object.keys(s.playCounts).length > 0) {
               // bestScoresと同様にMath.maxのtransactionで保護(絶対値updateはFirebase側の大きい値を潰す)
               Object.entries(s.playCounts).forEach(([gid, c]) => {
-                window.fbDb.ref('rankings/' + s.nickname + '/playCounts/' + gid).transaction(cur => Math.max(cur || 0, c));
+                window.fbDb.ref('rankings/' + s.nickname + '/playCounts/' + gid).transaction(cur => Math.max(cur || 0, c)).catch(() => {});
               });
             }
             const today = getLocalDate();
             const weekId = getWeekId();
-            window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower);
-            window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower);
-            window.fbDb.ref('pullTracking/daily/' + today + '/' + s.nickname).set(s.totalPulls || 0);
-            window.fbDb.ref('pullTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalPulls || 0);
-            window.fbDb.ref('giftTracking/daily/' + today + '/' + s.nickname).set(s.totalGiftValue || 0);
-            window.fbDb.ref('giftTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalGiftValue || 0);
+            window.fbDb.ref('assetTracking/daily/' + today + '/' + s.nickname).set(colPower).catch(() => {});
+            window.fbDb.ref('assetTracking/weekly/' + weekId + '/' + s.nickname).set(colPower).catch(() => {});
+            window.fbDb.ref('pullTracking/daily/' + today + '/' + s.nickname).set(s.totalPulls || 0).catch(() => {});
+            window.fbDb.ref('pullTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalPulls || 0).catch(() => {});
+            window.fbDb.ref('giftTracking/daily/' + today + '/' + s.nickname).set(s.totalGiftValue || 0).catch(() => {});
+            window.fbDb.ref('giftTracking/weekly/' + weekId + '/' + s.nickname).set(s.totalGiftValue || 0).catch(() => {});
           }).catch(() => {});
         }
       } catch(e) { addLog("RANK書込エラー: " + (e.message || "").slice(0, 40)); }
@@ -1810,6 +1817,19 @@ function MonsterGacha() {
     receivingRef.current = false;
   }, [pendingGifts, nickname]);
 
+  // デイリーミッションへの加算。呼び出し側(sendGift/pull/doSynthSingle/handleMiniGameScore)より
+  // 先に宣言する必要がある(依存配列は即時評価されるためTDZ回避)
+  const contributeMission = useCallback((missionType, amount) => {
+    if (!nickname || !window.fbDb) return;
+    const today = missionDate;   // 表示側(ミッション読込)と同じ日付stateを使う: 深夜0時直後の書込先ズレ防止
+    const missions = generateDailyMissions(today);
+    const mission = missions.find(m => m.type === missionType);
+    if (!mission) return;
+    const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
+    // 1人あたりの上限は撤廃(加算はtransactionでサーバ側集計のまま)
+    ref.transaction(current => (current || 0) + amount).catch(() => {});
+  }, [nickname, missionDate]);
+
   const sendGift = useCallback((itemKey, recipientName) => {
     const trimmedName = (recipientName || '').trim();
     if (!nickname || !trimmedName || !window.fbDb) return;
@@ -1846,14 +1866,14 @@ function MonsterGacha() {
       }).catch(() => {});
       histRef.orderByChild('timestamp').once('value').then(snap => {
         const keys = []; snap.forEach(child => keys.push(child.key));
-        if (keys.length > 20) keys.slice(0, keys.length - 20).forEach(k => histRef.child(k).remove());
+        if (keys.length > 20) keys.slice(0, keys.length - 20).forEach(k => histRef.child(k).remove().catch(() => {}));
       }).catch(() => {});
     }
     sfx('sell');
     setShowGiftModal(null);
     setSaveMsg('🎁 ' + trimmedName + 'に' + item.name + 'を送りました！');
     setTimeout(() => setSaveMsg(''), 3000);
-  }, [nickname, collection, giftsSentToday, lastGiftDate]);
+  }, [nickname, collection, giftsSentToday, lastGiftDate, contributeMission]);
 
   // Daily login bonus check - re-checks when missionDate changes (midnight)
   const loginCheckedDateRef = useRef(null);
@@ -1915,24 +1935,26 @@ function MonsterGacha() {
     if (!nickname || slotId === null || !window.fbDb || restoreAppliedRef.current) return;
     window.fbDb.ref('rankings/' + nickname + '/restoreData').once('value').then(snap => {
       const rd = snap.val();
-      if (!rd || !rd.collection) return;
+      if (!rd) return;
       restoreAppliedRef.current = true;
-      // コレクション適用
-      setCollection(decompressCol(rd.collection));
-      // ガチャ回数
-      if (rd.totalPulls) setTotalPulls(prev => Math.max(prev, rd.totalPulls));
-      // ベストスコア（大きい方を採用）
-      if (rd.bestScores) setBestScores(prev => {
-        const m = {...prev}; for (const g of Object.keys(rd.bestScores)) m[g] = Math.max(m[g] || 0, rd.bestScores[g]); return m;
-      });
-      // プレイ回数（大きい方を採用）
-      if (rd.playCounts) setPlayCounts(prev => {
-        const m = {...prev}; for (const g of Object.keys(rd.playCounts)) m[g] = Math.max(m[g] || 0, rd.playCounts[g]); return m;
-      });
-      if (rd.totalGiftValue) setTotalGiftValue(prev => Math.max(prev, rd.totalGiftValue));
-      if (rd.coins) setCoins(prev => Math.max(prev, rd.coins));
-      // 適用完了: Firebase側のrestoreDataを削除
-      window.fbDb.ref('rankings/' + nickname + '/restoreData').remove();
+      if (rd.collection) {
+        // コレクション適用
+        setCollection(decompressCol(rd.collection));
+        // ガチャ回数
+        if (rd.totalPulls) setTotalPulls(prev => Math.max(prev, rd.totalPulls));
+        // ベストスコア（大きい方を採用）
+        if (rd.bestScores) setBestScores(prev => {
+          const m = {...prev}; for (const g of Object.keys(rd.bestScores)) m[g] = Math.max(m[g] || 0, rd.bestScores[g]); return m;
+        });
+        // プレイ回数（大きい方を採用）
+        if (rd.playCounts) setPlayCounts(prev => {
+          const m = {...prev}; for (const g of Object.keys(rd.playCounts)) m[g] = Math.max(m[g] || 0, rd.playCounts[g]); return m;
+        });
+        if (rd.totalGiftValue) setTotalGiftValue(prev => Math.max(prev, rd.totalGiftValue));
+        if (rd.coins) setCoins(prev => Math.max(prev, rd.coins));
+      }
+      // 適用可否によらず必ず削除: 残存するとランキング書込が恒久停止するため
+      window.fbDb.ref('rankings/' + nickname + '/restoreData').remove().catch(() => {});
     }).catch(() => {});
   }, [nickname, slotId]);
 
@@ -2326,7 +2348,7 @@ function MonsterGacha() {
       setCueEffect(null);
       startChestOpen(res);
     }, cueDelay);
-  }, [coins, startChestOpen]);
+  }, [coins, startChestOpen, contributeMission]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
 
@@ -2482,7 +2504,7 @@ function MonsterGacha() {
     }
     const synthDuration = targetRank >= 11 ? 4100 : targetRank === 10 ? 3100 : targetRank === 9 ? 2600 : targetRank === 8 ? 2100 : 1600;
     synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, synthDuration)];
-  }, [collection]);
+  }, [collection, contributeMission]);
 
   const doSynthMaxRetry = useCallback(() => {
     if (!synthRetry) return;
@@ -2737,7 +2759,7 @@ function MonsterGacha() {
   // ONE-TIME: clear all existing item requests
   useEffect(() => {
     if (!window.fbDb || localStorage.getItem('_clearReqs_v1')) return;
-    window.fbDb.ref('notifications/itemRequests').remove();
+    window.fbDb.ref('notifications/itemRequests').remove().catch(() => {});
     localStorage.setItem('_clearReqs_v1', '1');
   }, []);
   // Item requests (wishlist) - realtime, max 2 per player shown
@@ -2810,21 +2832,6 @@ function MonsterGacha() {
     return () => ref.off('value', handler);
   }, [loaded, slotId, missionDate, nickname]);   // nicknameを依存に追加(未設定→設定後も全達成報酬が配られるように)
 
-  const contributeMission = useCallback((missionType, amount) => {
-    if (!nickname || !window.fbDb) return;
-    const today = getLocalDate();
-    const missions = generateDailyMissions(today);
-    const mission = missions.find(m => m.type === missionType);
-    if (!mission) return;
-    const maxPerPerson = Math.ceil(mission.target / 2);
-    const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
-    ref.transaction(current => {
-      const val = current || 0;
-      if (val >= maxPerPerson) return current;
-      return Math.min(val + amount, maxPerPerson);
-    });
-  }, [nickname]);
-
   // Phase 1: Called immediately when game ends - coins + scores recorded instantly
   const handleMiniGameScore = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
@@ -2841,7 +2848,7 @@ function MonsterGacha() {
       }
       const updated = isNewBest ? { ...prev, [gameId]: boosted } : prev;
       if (isNewBest && nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted);
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted).catch(() => {});
       }
       return updated;
     });
@@ -2849,7 +2856,7 @@ function MonsterGacha() {
       const updated = { ...prev, [gameId]: (prev[gameId] || 0) + 1 };
       if (nickname && window.fbDb) {
         // サーバ側加算(transaction)に変更: ローカル絶対値のsetだと端末間・リロードで巻き戻る(2026-08-24 RCA)
-        window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).transaction(cur => (cur || 0) + 1);
+        window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).transaction(cur => (cur || 0) + 1).catch(() => {});
       }
       return updated;
     });
@@ -2859,11 +2866,11 @@ function MonsterGacha() {
       const isNewWeekBest = boosted > (weekData[gameId] || 0);
       const updated = isNewWeekBest ? { ...weekData, [gameId]: boosted } : weekData;
       if (isNewWeekBest && nickname && window.fbDb) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted);
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted).catch(() => {});
       }
       const today = getLocalDate();
       if (nickname && window.fbDb) {
-        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, boosted));
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, boosted)).catch(() => {});
       }
       return updated;
     });
@@ -2873,7 +2880,9 @@ function MonsterGacha() {
     if (gameId === 'shooting') contributeMission('shooting', boosted);
     if (gameId === 'quickdraw') contributeMission('quickdraw', boosted);
     if (gameId === 'memory') contributeMission('memory', boosted);
-  }, [nickname]);
+    if (gameId === 'godAnother') contributeMission('godAnother', boosted);
+    if (gameId === 'juggler') contributeMission('juggler', boosted);
+  }, [nickname, contributeMission]);
   // Phase 2: Called after result screen delay - closes game and returns to menu
   const handleMiniGameClose = useCallback(() => {
     bgm.stop();
@@ -3628,7 +3637,7 @@ function MonsterGacha() {
                         {!isMyRequest && <span style={{ opacity: 0.4 }}>を求めています</span>}
                         {canSend && <span style={{ marginLeft: 'auto', fontSize: 12 }}>🎁</span>}
                         {isMyRequest && <span onClick={e => { e.stopPropagation();
-                          if (window.fbDb) window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove();
+                          if (window.fbDb) window.fbDb.ref('notifications/itemRequests/' + req.fbKey).remove().catch(() => {});
                           setSaveMsg('リクエストをキャンセルしました'); setTimeout(() => setSaveMsg(''), 2000);
                         }} style={{ marginLeft: 'auto', fontSize: 9, padding: '2px 8px', borderRadius: 6,
                           background: 'rgba(255,100,100,0.15)', border: '1px solid rgba(255,100,100,0.3)',
@@ -11963,19 +11972,19 @@ function GameHistoryScreen() {
 
   useEffect(() => {
     setLoading(true);
-    if (window.fbDb) {
-      window.fbDb.ref('rankings').once('value').then(snapshot => {
-        const entries = [];
-        snapshot.forEach(child => {
-          const d = child.val();
-          if (d && d.name) entries.push(d);
-        });
-        setRankings(entries);
-        setLoading(false);
-      }).catch(() => setLoading(false));
-    } else {
+    if (!window.fbDb) { setLoading(false); return; }
+    // 画面を開きっぱなしでも最新化されるようリアルタイム購読(アンマウントでoff)
+    const ref = window.fbDb.ref('rankings');
+    const handler = ref.on('value', snapshot => {
+      const entries = [];
+      snapshot.forEach(child => {
+        const d = child.val();
+        if (d && d.name) entries.push(d);
+      });
+      setRankings(entries);
       setLoading(false);
-    }
+    }, () => setLoading(false));
+    return () => ref.off('value', handler);
   }, []);
 
   const sorted = useMemo(() => {
@@ -12061,19 +12070,19 @@ function RankingScreen() {
 
   useEffect(() => {
     setLoading(true);
-    if (window.fbDb) {
-      window.fbDb.ref('rankings').once('value').then(snapshot => {
-        const entries = [];
-        snapshot.forEach(child => {
-          const d = child.val();
-          if (d && d.name) entries.push(d);
-        });
-        setRankings(entries);
-        setLoading(false);
-      }).catch(() => setLoading(false));
-    } else {
+    if (!window.fbDb) { setLoading(false); return; }
+    // 画面を開きっぱなしでも最新化されるようリアルタイム購読(アンマウントでoff)
+    const ref = window.fbDb.ref('rankings');
+    const handler = ref.on('value', snapshot => {
+      const entries = [];
+      snapshot.forEach(child => {
+        const d = child.val();
+        if (d && d.name) entries.push(d);
+      });
+      setRankings(entries);
       setLoading(false);
-    }
+    }, () => setLoading(false));
+    return () => ref.off('value', handler);
   }, []);
 
   // Load weekly/daily minigame ranking data
