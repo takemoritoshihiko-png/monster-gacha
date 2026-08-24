@@ -594,7 +594,7 @@ function formatYen(n) {
 }
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
-const GACHA_COST_30 = 800;
+const GACHA_COST_40 = 800;
 
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
@@ -2035,12 +2035,12 @@ function MonsterGacha() {
     let uraDelay = 0;
     if (uraUnlocked && uraPool.length > 0) {
       const localPool = [...uraPool];
-      let uraWin = null;
+      const uraWins = [];   // 複数当選を全て演出する(従来は最後の1個しか演出されず無言付与だった)
       for (let ui = 0; ui < res.length; ui++) {
         if (localPool.length === 0) break;
         const uraResult = rollUraItem(localPool);
         if (uraResult) {
-          uraWin = uraResult;
+          uraWins.push(uraResult);
           const idx2 = localPool.findIndex(u => u.id === uraResult.id);
           if (idx2 >= 0) localPool.splice(idx2, 1);
           setUraObtained(prev => prev.includes(uraResult.id) ? prev : [...prev, uraResult.id]);
@@ -2052,12 +2052,13 @@ function MonsterGacha() {
           }
         }
       }
-      if (uraWin) {
-        // Show ura item FIRST with 3.5s total (1.5s animation + 2s viewing)
-        setRareEffect({ type: 'uraItem', uraItem: uraWin });
-        sfx('reveal10');
-        autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 3500));
-        uraDelay = 3800; // chest animation starts after ura effect clears
+      if (uraWins.length > 0) {
+        // 当選した裏アイテムを1個ずつ順番に披露(各3.5秒)
+        uraWins.forEach((w, wi) => {
+          autoOpenRef.current.push(setTimeout(() => { setRareEffect({ type: 'uraItem', uraItem: w }); sfx('reveal10'); }, wi * 3800));
+          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), wi * 3800 + 3500));
+        });
+        uraDelay = uraWins.length * 3800; // chest animation starts after all ura effects clear
       }
     }
 
@@ -2242,7 +2243,7 @@ function MonsterGacha() {
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
 
   const pull = useCallback((n) => {
-    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_30;
+    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_40;
     if (coins < cost) return;
     if (window.__gPullBusy) return;   // 多重実行ガード(連打による二重課金+開封タイマー消失の防止)
     window.__gPullBusy = true;
@@ -2326,7 +2327,7 @@ function MonsterGacha() {
       setCueEffect(null);
       startChestOpen(res);
     }, cueDelay);
-  }, [coins, startChestOpen]);
+  }, [coins, startChestOpen, crownBonus, contributeMission]);
 
   useEffect(() => () => autoOpenRef.current.forEach(t => clearTimeout(t)), []);
 
@@ -3833,13 +3834,13 @@ function MonsterGacha() {
                     <span style={{ fontSize: 18, fontWeight: 900, position: 'relative' }}>💎 10連</span>
                     <span style={{ fontSize: 11, opacity: 0.6, position: 'relative' }}>🪙 {GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" disabled={coins < GACHA_COST_30} onClick={() => pull(40)}
+                  <button className="btn bp" disabled={coins < GACHA_COST_40} onClick={() => pull(40)}
                     style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 8px',
                       background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
                       border: '1px solid rgba(139,92,246,0.25)',
                       boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 40連</span>
-                    <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_30}</span>
+                    <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_40}</span>
                   </button>
                 </div>
 
@@ -3880,9 +3881,9 @@ function MonsterGacha() {
                     <span style={{ fontWeight: 900 }}>💎 10連</span>
                     <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_30} onClick={() => pull(40)}>
+                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_40} onClick={() => pull(40)}>
                     <span style={{ fontWeight: 900 }}>🔥 40連</span>
-                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_30}</span>
+                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_40}</span>
                   </button>
                 </div>
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
@@ -9095,7 +9096,7 @@ function GodAnotherGame({ onScore, onClose }) {
               boxShadow: 'inset 0 0 30px rgba(0,0,0,0.9)',
               animation: shaking ? 'shake 0.15s linear infinite' : 'none',
               ...(bezelSty || {}) }}>
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: bezelSty ? 0 : 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
               <div ref={glowRef} style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
               {/* P5: 回転レイ盤(conic-gradient 2枚・逆回転。GOD/amazing中のみ表示) */}
               <div ref={rayRef} className="gaRayWrap" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
