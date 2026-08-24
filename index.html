@@ -8023,7 +8023,7 @@ function GodAnotherGame({ onScore, onClose }) {
     ['meio', 3],         // 冥王揃い 3/32768 = 1/10922.7
     ['purple', 10],      // 紫7揃い 10/32768 = 1/3276.8(2026-08-24 1/4調整・配点据え置き)
     ['y7', 70],          // 中段黄7 70/32768 = 1/468.1(2026-08-24 1/4調整・配点据え置き)
-    ['gase', 328],       // ガセ前兆 328/32768 = 1/99.9
+    ['gase', 109],       // ガセ前兆 109/32768 = 1/300.6(2026-08-24 従来の1/3に減)
   ];
   const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
 
@@ -8825,7 +8825,7 @@ function GodAnotherGame({ onScore, onClose }) {
     const g = tapGuardRef.current;
     if (now - (g.lastByPointer.get(pid) || 0) < 50) return;
     g.recent = g.recent.filter(t => now - t < 50);
-    if (g.recent.length >= 3) return;
+    if (g.recent.length >= 5) return;   // 同時タップ5本まで受理
     g.lastByPointer.set(pid, now);
     g.recent.push(now);
     if (g.lastByPointer.size > 32) { g.lastByPointer.forEach((t, k) => { if (now - t > 1000) g.lastByPointer.delete(k); }); }
