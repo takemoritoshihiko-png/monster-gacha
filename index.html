@@ -19,30 +19,8 @@
       databaseURL: "https://toshi-game-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     window.fbDb = firebase.database();
-    // ONE-TIME: Reset juggler scores for all players
-    (function(){
-      if (localStorage.getItem('_resetJuggler_v1')) return;
-      window.fbDb.ref('rankings').once('value').then(snap => {
-        snap.forEach(child => {
-          const bs = child.val()?.bestScores;
-          if (bs && bs.juggler !== undefined) {
-            window.fbDb.ref('rankings/' + child.key + '/bestScores/juggler').remove();
-          }
-        });
-      });
-      localStorage.setItem('_resetJuggler_v1', '1');
-    })();
-    // Clean gift history: remove entries below ★7
-    (function(){
-      if (localStorage.getItem('_cleanGiftHist_v1')) return;
-      window.fbDb.ref('notifications/giftHistory').once('value').then(snap => {
-        snap.forEach(child => {
-          const d = child.val();
-          if (d && (d.rank || 0) < 7) child.ref.remove();
-        });
-      });
-      localStorage.setItem('_cleanGiftHist_v1', '1');
-    })();
+    // (2026-08-24) 一度きりの移行処理(jugglerスコア削除/ギフト履歴掃除)は撤去済み。
+    // localStorageフラグ管理だと新しい端末・ブラウザを開くたびに共有DBへの削除が再実行される事故構造のため、適用完了をもってコードごと削除した。
   </script>
 </head>
 <body>
@@ -1603,21 +1581,10 @@ function MonsterGacha() {
       setTotalPulls(d.totalPulls ?? 0);
       setLoginDay(d.loginDay ?? 1);
       setSpending(d.spending || []);
-      setNickname(d.nickname || "");
+      if (d.nickname) setNickname(d.nickname);   // スロットに名前が無くても既存のニックネームを空文字で潰さない(記録系の無言停止バグ根治)
       let bs = d.bestScores || {}; let pc = d.playCounts || {};
       let ws = d.weeklyScores || {};
-      // Score reset completed - no further resets needed
-      // ONE-TIME: clear juggler bestScore only
-      if (!localStorage.getItem('_resetJugglerLocal_v1')) {
-        delete bs.juggler; delete ws.juggler;
-        localStorage.setItem('_resetJugglerLocal_v1', '1');
-      }
-      // ONE-TIME: clear あいこ playCounts only (not bestScores)
-      if (d.nickname === 'あいこ' && !localStorage.getItem('_resetAikoPC_v1')) {
-        pc = {};
-        if (window.fbDb) window.fbDb.ref('rankings/あいこ/playCounts').set(null);
-        localStorage.setItem('_resetAikoPC_v1', '1');
-      }
+      // (2026-08-24) 一度きりのjuggler/あいこリセット移行はコードごと撤去(localStorageフラグ管理は新端末のたび再発火する事故構造のため)
       setBestScores(bs);
       setPlayCounts(pc);
       setLastLoginDate(d.lastLoginDate || null);
@@ -1749,7 +1716,10 @@ function MonsterGacha() {
               });
             }
             if (s.playCounts && Object.keys(s.playCounts).length > 0) {
-              window.fbDb.ref('rankings/' + s.nickname + '/playCounts').update(s.playCounts);
+              // bestScoresと同様にMath.maxのtransactionで保護(絶対値updateはFirebase側の大きい値を潰す)
+              Object.entries(s.playCounts).forEach(([gid, c]) => {
+                window.fbDb.ref('rankings/' + s.nickname + '/playCounts/' + gid).transaction(cur => Math.max(cur || 0, c));
+              });
             }
             const today = getLocalDate();
             const weekId = getWeekId();
@@ -2795,16 +2765,17 @@ function MonsterGacha() {
         const claimRef = window.fbDb.ref('dailyMissions/' + today + '/claimed/' + nickname);
         claimRef.once('value').then(snap => {
           if (!snap.val()) {
-            claimRef.set(true);
-            setCoins(c => c + 2000);
-            setSaveMsg('🎉 デイリーミッション全達成！ +🪙2,000');
-            setTimeout(() => setSaveMsg(''), 3000);
+            claimRef.set(true).then(() => {   // 書込成功後に付与(失敗時の翌回二重付与を防止)
+              setCoins(c => c + 2000);
+              setSaveMsg('🎉 デイリーミッション全達成！ +🪙2,000');
+              setTimeout(() => setSaveMsg(''), 3000);
+            }).catch(() => {});
           }
         });
       }
     });
     return () => ref.off('value', handler);
-  }, [loaded, slotId, missionDate]);
+  }, [loaded, slotId, missionDate, nickname]);   // nicknameを依存に追加(未設定→設定後も全達成報酬が配られるように)
 
   const contributeMission = useCallback((missionType, amount) => {
     if (!nickname || !window.fbDb) return;
@@ -2825,6 +2796,10 @@ function MonsterGacha() {
   const handleMiniGameScore = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
     setCoins(p => p + boosted);
+    if (!nickname) {   // 無言欠落の可視化: 記録されないことをその場で知らせる(2026-08-24 RCA)
+      setSaveMsg('⚠️ ニックネーム未設定のため、スコア・プレイ回数・デイリーミッションは記録されません');
+      setTimeout(() => setSaveMsg(''), 5000);
+    }
     setBestScores(prev => {
       const isNewBest = boosted > (prev[gameId] || 0);
       if (isNewBest) {
@@ -2840,7 +2815,8 @@ function MonsterGacha() {
     setPlayCounts(prev => {
       const updated = { ...prev, [gameId]: (prev[gameId] || 0) + 1 };
       if (nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).set(updated[gameId]);
+        // サーバ側加算(transaction)に変更: ローカル絶対値のsetだと端末間・リロードで巻き戻る(2026-08-24 RCA)
+        window.fbDb.ref('rankings/' + nickname + '/playCounts/' + gameId).transaction(cur => (cur || 0) + 1);
       }
       return updated;
     });
@@ -7888,7 +7864,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const phaseRef = useRef('ready');
   const coinsRef = useRef(0);
   const gameNRef = useRef(0);
-  // 連打ガード: pointerId単位のスロットル(同一指は80ms間隔・別の指なら同時でも受理)+ 80ms窓内は最大2回転
+  // 連打ガード: pointerId単位のスロットル(同一指は50ms間隔・別の指なら同時でも受理)+ 50ms窓内は最大3回転
   const tapGuardRef = useRef({ lastByPointer: new Map(), recent: [] });
   const spinCountRef = useRef(0);
   const jugRenRef = useRef(0);
@@ -8548,7 +8524,7 @@ function GodAnotherGame({ onScore, onClose }) {
     const mask = reelSpinRef.current;
     for (let i = 0; i < 3; i++) {
       const r = rObjRef.current[i];
-      if (r.sym === reels[i]) continue;
+      if (r.sym === reels[i] && r.mode !== 'spin' && !(mask & (1 << i))) continue;   // 回転中は同図柄でも必ず停止処理へ(コマ間固着の防止)
       if (r.mode === 'stopping' || r.mode === 'bounce') { r.sym = reels[i]; r.stopIdx = r.target; r.dirty = true; continue; }
       if (r.mode === 'spin' || (mask & (1 << i))) { beginStop(i, reels[i], true, true); continue; }
       const k = Math.round(r.pos);
@@ -8788,8 +8764,8 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doSpin = (pointerId) => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
-    // 連打ガード: pointerId単位のスロットル。同じ指は80ms未満を無視／別の指なら「真に同時」でも受理。
-    // 多指の悪用防止に、80ms窓内で受理できるのは最大2回転まで(3本目以降は無視)
+    // 連打ガード: pointerId単位のスロットル。同じ指は50ms未満を無視／別の指なら「真に同時」でも受理。
+    // 多指の悪用防止に、50ms窓内で受理できるのは最大3回転まで(4本目以降は無視)
     const now = performance.now();
     const pid = (pointerId === undefined || pointerId === null) ? 'm' : pointerId;
     const g = tapGuardRef.current;
@@ -9590,7 +9566,7 @@ function BattingGame({ onScore, onClose }) {
   }, [phase]);
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 2500); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 2500); return () => clearTimeout(t); } }, [phase]);   // scoreを依存から外す(done後のscore変動でonScore二重発火するのを防止)
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -9916,7 +9892,7 @@ function CoinRunnerGame({ onScore, onClose }) {
   const onUp = () => { heldRef.current = false; };
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);   // scoreを依存から外す(done後のscore変動でonScore二重発火するのを防止)
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -10254,7 +10230,7 @@ function ChainBurstGame({ onScore, onClose }) {
   };
 
   useEffect(() => () => { bgm.stop(); if(rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if(phase==="done"){onScore(score);const t=setTimeout(onClose,3000);return()=>clearTimeout(t);} }, [phase,score]);
+  useEffect(() => { if(phase==="done"){onScore(score);const t=setTimeout(onClose,3000);return()=>clearTimeout(t);} }, [phase]);
 
   return (
     <div style={{textAlign:'center'}}>
@@ -10552,7 +10528,7 @@ function PinballGame({ onScore, onClose }) {
   }, [phase]);
 
   useEffect(() => () => { bgm.stop(); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase, score]);
+  useEffect(() => { if (phase === "done") { onScore(score); const t = setTimeout(onClose, 3000); return () => clearTimeout(t); } }, [phase]);   // scoreを依存から外す(done後のscore変動でonScore二重発火するのを防止)
 
   return (
     <div style={{ textAlign: 'center' }}>
