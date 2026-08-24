@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TREASURE GACHA</title>
   <style>body { margin: 0; background: #06060f; }</style>
+  <!-- 計器盤(ゴッドアナザー)のタイポグラフィ: 数字=Orbitron / 見出し=Cinzel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -7466,6 +7470,58 @@ function gaWarmup() {
   ric(step);
 }
 
+// --- リール回転ループ音(実機のドラム回転を模した機械音) ---------------------------
+// 構成: ①帯域制限ノイズ=ドラムの摩擦 ②低いのこぎり波+ローパス=モーターのハム ③26Hzのこぎり波LFO=コマ通過のカチカチ
+// 生成ノードは gaSpinNodes 1組だけ(多重起動しない)。停止は gaSpinLoopSet(false) / gaSpinLoopStop() のどちらでも必ず解放される。
+let gaSpinNodes = null;
+function gaSpinLoopStart() {
+  const a = audioCtx; if (!a || gaSpinNodes) return;
+  const bus = gaGetBus() || a.destination; if (!bus) return;
+  if (a.state === 'suspended') a.resume();
+  try {
+    let nb = gaBufs.__spinNoise;
+    if (!nb) nb = gaBufs.__spinNoise = gaMakeBuf(1.0, () => Math.random() * 2 - 1);
+    if (!nb) return;
+    const t0 = a.currentTime;
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.linearRampToValueAtTime(1, t0 + 0.06);   // 立ち上がりは短いフェードイン(プチッを防ぐ)
+    out.connect(bus);
+    // ① 摩擦ノイズ
+    const ns = a.createBufferSource(); ns.buffer = nb; ns.loop = true;
+    const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 950; bp.Q.value = 0.85;
+    const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+    const ng = a.createGain(); ng.gain.value = 0.048;
+    ns.connect(bp); bp.connect(lp); lp.connect(ng); ng.connect(out);
+    // ② モーターのハム
+    const mo = a.createOscillator(); mo.type = 'sawtooth'; mo.frequency.value = 58;
+    const ml = a.createBiquadFilter(); ml.type = 'lowpass'; ml.frequency.value = 210; ml.Q.value = 3.5;
+    const mg = a.createGain(); mg.gain.value = 0.05;
+    mo.connect(ml); ml.connect(mg); mg.connect(out);
+    // ③ コマ通過のカチカチ(ノイズ側の振幅だけを叩く。全体を叩くとうねって耳障りになる)
+    const lfo = a.createOscillator(); lfo.type = 'sawtooth'; lfo.frequency.value = 26;
+    const lg = a.createGain(); lg.gain.value = 0.03;
+    lfo.connect(lg); lg.connect(ng.gain);
+    ns.start(t0); mo.start(t0); lfo.start(t0);
+    gaSpinNodes = { out, srcs: [ns, mo, lfo] };
+  } catch (e) { gaSpinNodes = null; }
+}
+function gaSpinLoopStop() {
+  const n = gaSpinNodes; if (!n) return;
+  gaSpinNodes = null;                     // 先に参照を落とす(再入しても二重停止しない)
+  const a = audioCtx;
+  try {
+    const t0 = a ? a.currentTime : 0;
+    n.out.gain.cancelScheduledValues(t0);
+    n.out.gain.setValueAtTime(Math.max(0.0001, n.out.gain.value), t0);
+    n.out.gain.linearRampToValueAtTime(0.0001, t0 + 0.07);
+    n.srcs.forEach(s => { try { s.stop(t0 + 0.1); } catch (e) {} });
+  } catch (e) { n.srcs.forEach(s => { try { s.stop(); } catch (e2) {} }); }
+  setTimeout(() => { try { n.out.disconnect(); } catch (e) {} }, 400);
+}
+// 冪等スイッチ。RAFから毎フレーム呼んで回転マスクと同期させる(どの経路で回転が終わっても次フレームで必ず止まる)
+function gaSpinLoopSet(on) { if (on) gaSpinLoopStart(); else gaSpinLoopStop(); }
+
 // --- P3: 勝利音の音色3種(オルガン / スーパーソウ / コーラス風)。オシレータ直演奏なので playing 中でも軽い ---
 let gaWave = null, gaWaveCtx = null;
 function gaOrganWave(a) {
@@ -7530,6 +7586,58 @@ function gaGodFanfare() {
   gaSaw(293.66, 2.1, 1.25, 0.05); gaSaw(440, 2.1, 1.25, 0.045);              // スーパーソウを重ねる
   gaChoir(587.33, 2.12, 1.3, 0.06);                                          // コーラスパッドを重ねる
   [[1174.66, 3.15], [880, 3.30], [1174.66, 3.45]].forEach(k => gaOrgan(k[0], k[1], 0.16, 0.085)); // ④きらめき
+}
+
+// ============================================================
+// アセット(画像/動画)の受け皿。**ファイルが1つも無い状態でも従来どおり動く**のが前提。
+// ロードできたものだけが有効になり、失敗したものは黙って無効(現行のSVG/CSS演出が床)。
+// 追加・差し替えはこの GA_ASSETS だけを編集すればよい。
+// ============================================================
+const GA_ASSETS = {
+  base: 'assets/god-another/',
+  // 画像(プリロード対象)
+  bg: { file: 'bg.webp', opacity: 0.35 },                            // 常時・最下層に敷く背景
+  logo: { file: 'logo.webp', maxWidth: 'min(78%,300px)' },           // ready画面のタイトル
+  cutinGod: { file: 'cutin-god.webp', blend: 'screen', fade: 300 },
+  cutinMeio: { file: 'cutin-meio.webp', blend: 'screen', fade: 300 },
+  cutinPurple: { file: 'cutin-purple.webp', blend: 'screen', fade: 300 },
+  cutinSin: { file: 'cutin-sin.webp', blend: 'screen', fade: 300 },
+  // 動画(preload="none"。初回GOD揃い後に load()、アメイジングGOD時のみ再生)
+  movie: { file: 'god-movie.mp4' },
+};
+const GA_ASSET_IMGS = ['bg', 'logo', 'cutinGod', 'cutinMeio', 'cutinPurple', 'cutinSin'];
+const gaAssetState = {};       // key -> { loaded: bool }
+const gaAssetSubs = [];
+let gaAssetsStarted = false;
+const gaAssetSrc = (k) => { const c = GA_ASSETS[k]; return c && c.file ? GA_ASSETS.base + c.file : ''; };
+const gaAssetLoaded = (k) => { const s = gaAssetState[k]; return !!(s && s.loaded); };
+function gaOnAsset(fn) {
+  gaAssetSubs.push(fn);
+  return () => { const i = gaAssetSubs.indexOf(fn); if (i >= 0) gaAssetSubs.splice(i, 1); };
+}
+function gaMarkLoaded(k) {
+  const s = gaAssetState[k]; if (!s || s.loaded) return;
+  s.loaded = true;
+  gaAssetSubs.slice().forEach(f => { try { f(k); } catch (e) {} });
+}
+// ゲームマウント時に1回だけ。decode() 完了まで loaded にしない(初回表示のジャンク防止)。
+// 404・デコード失敗は握りつぶす(自前のconsole出力は一切しない)。
+function gaPreloadAssets() {
+  if (gaAssetsStarted || typeof window === 'undefined') return;
+  gaAssetsStarted = true;
+  GA_ASSET_IMGS.forEach(k => {
+    const src = gaAssetSrc(k); if (!src) return;
+    gaAssetState[k] = { loaded: false };
+    try {
+      const img = new Image();
+      img.onerror = () => {};
+      img.onload = () => {
+        if (img.decode) { try { img.decode().then(() => gaMarkLoaded(k), () => {}); } catch (e) {} }
+        else gaMarkLoaded(k);
+      };
+      img.src = src;
+    } catch (e) {}
+  });
 }
 
 // --- 検証済みSVG図柄(symbol-mock.html採用案)。<defs>は1回だけ定義し <use> で参照。id は ga- プレフィクス ---
@@ -7659,6 +7767,73 @@ function GaDefs() {
   );
 }
 
+// ============================================================
+// 計器盤(GAME/TIME/COIN・当たり間・カウンタ)のタイポグラフィ
+// 数字=Orbitron / ラベル=Cinzel(<head>のGoogle Fontsで読み込み。未達時は従来のCourier/serifに落ちる)
+// 色はCSS変数 --gc(明) / --gc2(陰) / --gg(発光) をインラインで差し替える。
+// → 毎秒・毎タップ書き換わる要素でも「クラスは静的」のまま色だけ変えられ、styleの再parseが起きない。
+// ============================================================
+const GA_METER_CSS = `
+.ga-mnum{
+  font-family:'Orbitron','Courier New',monospace;
+  font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:.02em;
+  background-image:linear-gradient(180deg,#fffdf2 0%,var(--gc,#ffd24a) 32%,var(--gc2,#8a5f06) 56%,var(--gc,#ffd24a) 76%,#fff7d6 100%);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; color:transparent;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.9)) drop-shadow(0 0 6px var(--gg,rgba(255,210,74,.4)));
+}
+/* background-clip:text 非対応環境では文字が消えてしまうので、べた塗り+発光に落とす */
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){
+  .ga-mnum{ background-image:none; -webkit-text-fill-color:var(--gc,#ffd24a); color:var(--gc,#ffd24a); }
+}
+.ga-mlbl{
+  font-family:'Cinzel','Times New Roman','Yu Mincho','Hiragino Mincho ProN',serif;
+  font-weight:700; letter-spacing:.16em;
+  color:var(--gc,#b3902f);
+  text-shadow:0 1px 0 #000,0 0 6px rgba(255,200,60,.22);
+}
+.ga-panel{
+  position:relative;
+  background:linear-gradient(180deg,#15120c 0%,#0a0809 55%,#110d0a 100%);
+  border:1px solid rgba(201,162,39,.34); border-radius:6px;
+  box-shadow:inset 0 0 14px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,222,140,.09);
+}
+.ga-panel::before{
+  content:'';position:absolute;left:10px;right:10px;top:3px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,214,110,.5),transparent);
+}
+.ga-panel::after{
+  content:'';position:absolute;left:10px;right:10px;bottom:3px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,214,110,.32),transparent);
+}
+`;
+function GaMeterStyles() { return <style>{GA_METER_CSS}</style>; }
+// 数字の金属色プリセット [明部, 陰, 発光]。gaMV() でCSS変数に展開する
+const GA_MC = {
+  gold: ['#ffd24a', '#8a5f06', 'rgba(255,210,74,.45)'],
+  amber: ['#ff9922', '#8a4a04', 'rgba(255,153,34,.5)'],
+  red: ['#ff5544', '#8a0d0d', 'rgba(255,60,40,.55)'],
+  ice: ['#9fdcff', '#1f5f8a', 'rgba(102,204,255,.6)'],
+  coin: ['#ffdc55', '#8a6a05', 'rgba(238,204,34,.45)'],
+  loss: ['#ff8878', '#8a2a1c', 'rgba(255,119,102,.5)'],
+};
+const gaMV = (c) => ({ '--gc': c[0], '--gc2': c[1], '--gg': c[2] });
+
+// 角飾り(神殿モチーフの二重ブラケット)。装飾専用でイベントは通さない
+const GA_CNR_D = 'M1 14 L1 1 L14 1 L14 3.2 L3.2 3.2 L3.2 14 Z M6 11 L6 6 L11 6 L11 7.6 L7.6 7.6 L7.6 11 Z';
+const GA_CNR_POS = [[0, 0, '1,1'], [1, 0, '-1,1'], [0, 1, '1,-1'], [1, 1, '-1,-1']];
+function GaCorners({ size = 12, inset = 2, color = '#c9a227', op = 0.72 }) {
+  return (
+    <React.Fragment>
+      {GA_CNR_POS.map((p, i) => {
+        const st = { position: 'absolute', transform: `scale(${p[2]})`, pointerEvents: 'none', opacity: op };
+        st[p[0] ? 'right' : 'left'] = inset; st[p[1] ? 'bottom' : 'top'] = inset;
+        return <svg key={i} viewBox="0 0 15 15" width={size} height={size} aria-hidden="true" style={st}><path d={GA_CNR_D} fill={color} /></svg>;
+      })}
+    </React.Fragment>
+  );
+}
+
 function GodAnotherGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [gameN, setGameN] = useState(0);
@@ -7755,6 +7930,11 @@ function GodAnotherGame({ onScore, onClose }) {
   const psRef = useRef([]);
   const sprRef = useRef(null);
   const pRafRef = useRef(null);
+  // アセット層(画像が無い間は全て何もしない)
+  const [, setAssetTick] = useState(0);   // アセットが1つロードされた時だけ再レンダーする
+  const cutinRef = useRef(null);
+  const vidRef = useRef(null);
+  const vidStRef = useRef({ armed: false, ready: false, failed: false });
   // ref コールバックは identity を固定(再レンダーごとの detach/attach を避ける)
   const cbRef = useRef(null);
   if (!cbRef.current) {
@@ -7859,8 +8039,22 @@ function GodAnotherGame({ onScore, onClose }) {
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     o.connect(g); g.connect(gaGetBus() || a.destination); o.start(t0); o.stop(t0 + dur);
   };
-  const sndTap = () => synth(0.05, (s) => (Math.sin(2 * Math.PI * 3200 * s) * Math.exp(-s * 70) * 0.35 + Math.sin(2 * Math.PI * 900 * s) * Math.exp(-s * 50) * 0.2) * 0.6, 0.1);
-  const sndReelStop = () => synth(0.14, (s) => (Math.sin(2 * Math.PI * 180 * s) * Math.exp(-s * 30) * 0.6 + (Math.random() * 2 - 1) * Math.exp(-s * 45) * 0.3) * 0.8, 0.3);
+  // レバーON「ガコッ」: ①低域トランジェント(レバーが落ちる衝撃) ②金属クリック(非整数倍音) ③極短ノイズのアタック
+  // 主操作=連打なので音圧は抑えめ。バスのコンプ(-18dB/5:1)で頭を潰して耳の疲れを避ける
+  const sndTap = () => synth(0.16, (s, ch) => {
+    const thud = (Math.sin(2 * Math.PI * 116 * s) * 0.85 + Math.sin(2 * Math.PI * 58 * s) * 0.6) * Math.exp(-s * 34);
+    const clack = (Math.sin(2 * Math.PI * 1870 * s) * 0.3 + Math.sin(2 * Math.PI * 2630 * s) * 0.2 + Math.sin(2 * Math.PI * 3910 * s) * 0.11) * Math.exp(-s * 95);
+    const atk = (Math.random() * 2 - 1) * Math.exp(-s * 200) * 0.5;
+    return (thud + clack + atk) * (ch === 0 ? 0.3 : 0.28);
+  }, 0.24);
+  // リール停止「ガシャッ」: 金属の当たり(低域クランク+非整数倍音)+ 擦れノイズ + サブの芯
+  const sndReelStop = () => synth(0.2, (s, ch) => {
+    const clank = (Math.sin(2 * Math.PI * 168 * s) * 0.7 + Math.sin(2 * Math.PI * 252 * s) * 0.3) * Math.exp(-s * 28);
+    const metal = (Math.sin(2 * Math.PI * 1420 * s) * 0.24 + Math.sin(2 * Math.PI * 2180 * s) * 0.16 + Math.sin(2 * Math.PI * 3260 * s) * 0.1) * Math.exp(-s * 46);
+    const shhh = (Math.random() * 2 - 1) * Math.exp(-s * 70) * 0.4;
+    const sub = Math.sin(2 * Math.PI * 62 * s) * 0.45 * Math.exp(-s * 22);
+    return (clank + metal + shhh + sub) * (ch === 0 ? 0.5 : 0.46);
+  }, 0.3);
   const sndSoftStop = () => synth(0.1, (s) => (Math.sin(2 * Math.PI * 140 * s) * Math.exp(-s * 34) * 0.4) * 0.7, 0.12);
   const sndGakonG = () => synth(0.8, (s, ch) => { const at = Math.exp(-s * 40) * 0.9; return (Math.sin(2 * Math.PI * 220 * s + Math.sin(2 * Math.PI * 440 * s) * 0.5) * at + (Math.sin(2 * Math.PI * 880 * s) * 0.2 + Math.sin(2 * Math.PI * 1320 * s) * 0.15) * Math.exp(-s * 8) + Math.sin(2 * Math.PI * 55 * s) * 0.6 * Math.exp(-s * 20) + (Math.random() * 2 - 1) * 0.35 * Math.exp(-s * 30)) * (ch === 0 ? 0.55 : 0.5); }, 0.85);
   const sndZawa = () => synth(1.0, (s, ch) => { const env = Math.sin(Math.PI * Math.min(s, 1)); return ((Math.random() * 2 - 1) * 0.22 + Math.sin(2 * Math.PI * 68 * s) * 0.3) * env * (ch === 0 ? 0.5 : 0.45); }, 0.3);
@@ -7962,6 +8156,41 @@ function GodAnotherGame({ onScore, onClose }) {
   };
   const flash = (a, ms, col) => { setFlashColor(col || '#fff'); setFlashAlpha(a); T(() => setFlashAlpha(0), ms); };
   const shakeFor = (ms) => { setShaking(true); T(() => setShaking(false), ms); };
+  // --- アセット: カットイン層。画像が未ロードなら完全に何もしない(既存タイムラインの時刻・音・ロック時間は不変) ---
+  const hideCutin = () => { const el = cutinRef.current; if (el && el.style.opacity !== '0') el.style.opacity = '0'; };
+  const showCutin = (key, durationMs) => {
+    const el = cutinRef.current; if (!el) return;
+    if (!gaAssetLoaded(key)) return;
+    const cfg = GA_ASSETS[key] || {}, fade = cfg.fade != null ? cfg.fade : 300;
+    el.style.backgroundImage = 'url("' + gaAssetSrc(key) + '")';
+    el.style.mixBlendMode = cfg.blend || 'screen';
+    el.style.transition = 'opacity ' + fade + 'ms linear';
+    el.style.opacity = '1';
+    T(hideCutin, Math.max(fade, durationMs || 0));   // 表示時間の終端でフェードアウト(ロック時間内)
+  };
+  // --- アセット: 動画。preload="none" のまま眠り、初回GOD揃いで load()、アメイジングGOD時だけ再生 ---
+  const hideMovie = () => {
+    const v = vidRef.current; if (!v) return;
+    if (v.style.display === 'none') return;   // 非表示のままなら完全に何もしない
+    v.style.display = 'none';
+    try { v.pause(); } catch (e) {}
+  };
+  const armMovie = () => {
+    const st = vidStRef.current, v = vidRef.current;
+    if (st.armed || st.failed || !v) return;
+    st.armed = true;
+    try { v.load(); } catch (e) {}
+  };
+  const playMovie = () => {
+    const st = vidStRef.current, v = vidRef.current;
+    if (!v || !st.ready || st.failed) return;
+    try {
+      v.style.display = 'block';
+      v.currentTime = 0;
+      const p = v.play();
+      if (p && p.catch) p.catch(() => hideMovie());   // 自動再生拒否は無視(現行演出が床)
+    } catch (e) { hideMovie(); }
+  };
   // --- リール: 図柄の並び(帯)は idx から決まる固定バンド。停止コマ(stopIdx)だけ狙った図柄に差し替える ---
   const symAt = (i, idx, r, pool) => {
     if (r.stopIdx != null && idx === r.stopIdx) return r.sym;
@@ -8200,8 +8429,10 @@ function GodAnotherGame({ onScore, onClose }) {
       // --- P4: 縦ストリップの回転・停止ターゲティング・減衰振動バウンス(setStateなし) ---
       {
         const pool = reelPoolRef.current || SPINPOOL, mask = reelSpinRef.current;
+        let anySpin = false;   // 回転ループ音の可否。回転中 or 減速中の1本でもあれば鳴らす
         for (let i = 0; i < 3; i++) {
           const r = rObjRef.current[i];
+          if ((mask & (1 << i)) || r.mode === 'spin' || r.mode === 'stopping') anySpin = true;
           if (r.mode === 'stopping') {
             r.et += dt;
             const x = r.dur > 0 ? Math.min(1, r.et / r.dur) : 1;
@@ -8223,6 +8454,7 @@ function GodAnotherGame({ onScore, onClose }) {
           } else if (r.mode === 'spin') { r.mode = 'idle'; }
           paintReel(i, r, pool);
         }
+        gaSpinLoopSet(anySpin);   // 毎フレーム同期。どの経路で回転が終わっても次フレームで必ず停止する
       }
       const lt = lampTypeRef.current;
       if (lt !== prevLtRef.current) { prevLtRef.current = lt; styCacheRef.current = {}; }
@@ -8270,7 +8502,7 @@ function GodAnotherGame({ onScore, onClose }) {
       lampRef.current = requestAnimationFrame(loop);
     };
     lampRef.current = requestAnimationFrame(loop);
-    return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); };
+    return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); gaSpinLoopStop(); };
   }, [phase]);
 
   // reels(出目の正)とストリップ表示の同期。setReels 直書き(seqGod/unlockAt/rnd3等)を取りこぼさない
@@ -8347,6 +8579,7 @@ function GodAnotherGame({ onScore, onClose }) {
     barLockRef.current = 0;
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
     reelReset(); rayOn(false);
+    hideCutin(); hideMovie();   // アセット: 演出終了時の保険(未使用なら何も変わらない)
     setReels(rnd3());
   }, ms);
 
@@ -8359,6 +8592,7 @@ function GodAnotherGame({ onScore, onClose }) {
       sndThunder(0.9); sndPurpleRun(); vib([30, 40, 80]); flash(0.6, 110, '#c07bff'); shakeFor(520);
       if (!c.noReels) reelDark(true);          // P5: 消灯
       boltFlash();                             // P5: 稲妻SVG
+      showCutin('cutinPurple', pay);           // アセット: 紫7カットイン(未ロードなら何もしない)
     }, t0);
     T(() => reelRelight('purple', 70), t0 + 90);   // P5: 左から1本ずつ再点灯
     if (!c.noReels) landStagger(['p7', 'p7', 'p7'], t0 + 180, 180, false, 'rgba(190,110,255,0.5)');
@@ -8374,10 +8608,10 @@ function GodAnotherGame({ onScore, onClose }) {
       T(() => { lockStage(2); setDim(0.52); shakeFor(220); }, t0 + 700);
       T(() => { lockStage(3); setDim(0.72); shakeFor(320); }, t0 + 1400);
       T(() => { barLockRef.current = 0; setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); reelDark(true); }, t0 + pre);
-      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); reelRelight('meio', 120); }, t0 + pre + 700);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); reelRelight('meio', 120); showCutin('cutinMeio', Math.max(0, pay - 700)); }, t0 + pre + 700);   // アセット: 冥王カットイン(降臨時)
       landStagger(['meio', 'meio', 'meio'], t0 + pre + 900, 200, false, 'rgba(150,220,255,0.5)');
     } else {
-      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); reelRelight('meio', 90); }, t0);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); reelRelight('meio', 90); showCutin('cutinMeio', pay); }, t0);   // アセット: 冥王カットイン(クラッシュ経由の降臨時)
     }
     T(() => { setLampMainText('冥王'); setLampMainSize('min(26vw,104px)'); sndMeioBell(); vib([30, 40, 80]); flash(0.6, 150, '#9fdcff'); shakeFor(900); }, t0 + pre + Math.round(pay * 0.58));
     T(() => award(type, '☠ 冥王 降臨', '#8fd8ff', () => setMeioC(v => v + 1)), t0 + pre + pay);
@@ -8397,8 +8631,10 @@ function GodAnotherGame({ onScore, onClose }) {
       reelSpinRef.current = 0; setReels(['god', 'god', 'god']);
       setTint('radial-gradient(circle at 50% 45%, rgba(255,200,40,0.28) 0%, rgba(60,40,0,0.5) 75%)');
       shakeFor(1400); sndGodGong(); vib([0, 60, 50, 60, 50, 60, 250]); pBurst('coins');   // P7: 金コイン雨+金粉
+      showCutin('cutinGod', Math.max(0, pay - rise));   // アセット: GODカットイン(降臨時)
+      armMovie();                                       // アセット: 初回GOD揃いで動画のプリロードを開始
       // P3-③: amazing時はアメイジンググレイスが主役(G調)なのでニ長調ファンファーレは重ねない
-      if (amazing) { playAmazingGrace(); setBigMsgColor('#ffe98a'); setBigMsg('AMAZING GOD!'); }
+      if (amazing) { playAmazingGrace(); setBigMsgColor('#ffe98a'); setBigMsg('AMAZING GOD!'); playMovie(); }
       else gaGodFanfare();
     }, t0 + rise);
     T(() => flash(0.42, 80, '#ffd700'), t0 + rise + Math.round((pay - rise) * 0.35));
@@ -8479,7 +8715,8 @@ function GodAnotherGame({ onScore, onClose }) {
     else if (type === 'cmeio') seqMeio(FRZ + 4100, 'cmeio', { noIntro: true, pay: 700 });
     else seqPurple(FRZ + 4100, 'cpurple', { noReels: true, pay: 600 });
     T(() => setCrashC(v => v + 1), FRZ + 4200);
-    unlockAt(FRZ + 6000);
+    const mext = (type === 'cgod' && amazing && vidStRef.current.ready && !vidStRef.current.failed) ? 8300 : 0;   // 動画(10秒)完走ぶんだけ延長(タイマー停止中=収支不変)
+    unlockAt(FRZ + 6000 + mext);
   };
 
   const doSin = (win) => {
@@ -8495,6 +8732,7 @@ function GodAnotherGame({ onScore, onClose }) {
         setLampMainText('SIN'); setLampMainSize('min(28vw,116px)'); setLampSubText('JACKPOT');
         setTint('radial-gradient(circle at 50% 45%, rgba(255,215,0,0.35) 0%, rgba(140,40,255,0.5) 55%, rgba(20,0,40,0.7) 100%)');
         flash(1.0, 170, '#fff'); shakeFor(1300); sndSinBoom(); vib([30, 40, 80]); pBurst('spark');   // P7: 紫金の火花80
+        showCutin('cutinSin', 1700);   // アセット: レアSINカットイン(爆発時・unlockAt(5000)の内側)
         T(() => flash(0.55, 90, '#e0a0ff'), 260);
         T(() => flash(0.5, 90, '#ffd700'), 520);
         const earn = award('sin', '💥 SIN JACKPOT', '#ffcf3a', () => setSinC(v => v + 1));
@@ -8539,7 +8777,7 @@ function GodAnotherGame({ onScore, onClose }) {
       if (godCountRef.current >= 2 && godGapRef.current <= 100) amazing = true;
       godGapRef.current = 0;
     }
-    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); unlockAt(5000 + frz); return; }
+    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); const mext = (amazing && vidStRef.current.ready && !vidStRef.current.failed) ? 6200 : 0; unlockAt(5000 + frz + mext); return; }
     if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500 + MEIO_PRE); return; }
     if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
     doCrash(flag, amazing);
@@ -8567,8 +8805,17 @@ function GodAnotherGame({ onScore, onClose }) {
     aliveRef.current = true;
     gaWarmup();       // ready画面表示中に重量バッファ・IRを作っておく(playing中の一括生成を避ける)
     ensureSprites();  // P7: パーティクルのスプライトも起動時に1回だけ描いておく
+    gaPreloadAssets();                              // アセット: 画像の非同期プリロード(無ければ黙って無効のまま)
+    if (vidRef.current) vidRef.current.muted = true;  // 一部ブラウザは muted 属性だけでは効かないため実体にも設定
+    const offAsset = gaOnAsset(() => { if (aliveRef.current) setAssetTick(t => t + 1); });
+    // 裏に回るとRAFが止まり、回転ループ音だけが鳴り続けてしまうので明示的に落とす(復帰後はRAFが鳴らし直す)
+    const onHide = () => { if (document.hidden) gaSpinLoopStop(); };
+    document.addEventListener('visibilitychange', onHide);
     return () => {
       aliveRef.current = false;
+      document.removeEventListener('visibilitychange', onHide);
+      gaSpinLoopStop();   // アンマウント: 回転ループ音を確実に解放
+      offAsset(); hideMovie();
       timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = [];
       if (lampRef.current) cancelAnimationFrame(lampRef.current);
       if (pRafRef.current) { cancelAnimationFrame(pRafRef.current); pRafRef.current = null; }
@@ -8586,6 +8833,13 @@ function GodAnotherGame({ onScore, onClose }) {
       background: 'radial-gradient(ellipse 90% 34% at 50% -4%, rgba(90,60,140,0.5), transparent 70%),radial-gradient(ellipse 60% 26% at 18% 108%, rgba(180,120,20,0.16), transparent 70%),radial-gradient(ellipse 60% 26% at 82% 108%, rgba(180,120,20,0.16), transparent 70%),linear-gradient(180deg,#0d0a18 0%,#070510 46%,#0e0a14 100%)',
     }}>
       <GaDefs />
+      <GaMeterStyles />
+      {/* アセット: 背景画像(ロード済みの時だけ現CSSグラデの上に低不透明度で敷く・最下層) */}
+      {gaAssetLoaded('bg') && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+          backgroundImage: 'url("' + gaAssetSrc('bg') + '")', backgroundSize: 'cover', backgroundPosition: 'center',
+          opacity: GA_ASSETS.bg.opacity }} />
+      )}
       <div ref={sgRef} style={{ position: 'absolute', inset: 0, background: ls.sg || 'none', pointerEvents: 'none', zIndex: 0 }} />
       {/* 火の粉(常設・transform/opacityのみ) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
@@ -8629,7 +8883,13 @@ function GodAnotherGame({ onScore, onClose }) {
 
       {phase === "ready" && (
         <div style={{ padding: '40px 20px' }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
+          {/* アセット: ロゴ画像があれば置換。無ければ現行のテキストタイトルのまま(altも同文) */}
+          {gaAssetLoaded('logo') ? (
+            <img src={gaAssetSrc('logo')} alt="⚡ ゴッドアナザー"
+              style={{ display: 'block', width: GA_ASSETS.logo.maxWidth, height: 'auto', margin: '0 auto 12px' }} />
+          ) : (
+            <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
+          )}
           <p style={{ fontSize: 11, opacity: 0.6, margin: '12px 0', lineHeight: 1.9, color: '#a89660' }}>
             画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
           </p>
@@ -8651,37 +8911,42 @@ function GodAnotherGame({ onScore, onClose }) {
                 <div key={i} ref={cbRef.current.bar[i]} style={{ width: 14, height: 14, borderRadius: '50%', background: 'none', opacity: 0 }} />
               ))}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <span style={{ fontSize: 9, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>当たり間</span>
-                <span style={{ fontSize: 34, fontWeight: 800, color: spinCount >= 500 ? '#ff2222' : spinCount >= 200 ? '#ff9922' : '#ffd24a', fontFamily: "'Courier New',monospace", lineHeight: 1, textShadow: spinCount >= 500 ? '0 0 10px rgba(255,34,34,0.5)' : '0 0 10px rgba(255,210,74,0.5)' }}>{spinCount}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>GAME</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: '#ffd24a' }}>{gameN}</div>
+            {/* 主計器: 当たり間(主役)+ GAME/TIME/COIN。金の装飾罫と角飾りで「計器盤」に見せる */}
+            <div className="ga-panel" style={{ padding: '6px 11px 7px', marginBottom: 4 }}>
+              <GaCorners size={12} inset={2} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <div className="ga-mlbl" style={{ fontSize: 8, marginBottom: 3, lineHeight: 1 }}>当たり間</div>
+                  <div className="ga-mnum" style={{ fontSize: 42, lineHeight: 0.9, ...gaMV(spinCount >= 500 ? GA_MC.red : spinCount >= 200 ? GA_MC.amber : GA_MC.gold) }}>{spinCount}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>TIME</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: locked ? '#66ccff' : timeLeft <= 10 ? '#ff2222' : '#ffd24a', textShadow: locked ? '0 0 8px rgba(102,204,255,0.6)' : 'none' }}>{fmtT(timeLeft)}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 7, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>COIN</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Courier New',monospace", lineHeight: 1.1, color: coins < 0 ? '#ff7766' : '#eecc22' }}>{coins.toLocaleString()}</div>
+                <div style={{ display: 'flex', gap: 11, alignItems: 'flex-end' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="ga-mlbl" style={{ fontSize: 7.5, lineHeight: 1 }}>GAME</div>
+                    <div className="ga-mnum" style={{ fontSize: 18, lineHeight: 1.15, ...gaMV(GA_MC.gold) }}>{gameN}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="ga-mlbl" style={{ fontSize: 7.5, lineHeight: 1 }}>TIME</div>
+                    <div className="ga-mnum" style={{ fontSize: 18, lineHeight: 1.15, ...gaMV(locked ? GA_MC.ice : timeLeft <= 10 ? GA_MC.red : GA_MC.gold) }}>{fmtT(timeLeft)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="ga-mlbl" style={{ fontSize: 7.5, lineHeight: 1 }}>COIN</div>
+                    <div className="ga-mnum" style={{ fontSize: 18, lineHeight: 1.15, ...gaMV(coins < 0 ? GA_MC.loss : GA_MC.coin) }}>{coins.toLocaleString()}</div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 2 }}>
+            <div style={{ display: 'flex', gap: 3 }}>
               {[
-                { label: 'GOD', val: godC, prob: fmtP(gameN, godC), color: '#ffd700' },
-                { label: '冥王', val: meioC, prob: fmtP(gameN, meioC), color: '#8fd8ff' },
-                { label: '紫7', val: purpleC, prob: fmtP(gameN, purpleC), color: '#c48bff' },
-                { label: '合算', val: totalC, prob: fmtP(gameN, totalC), color: '#ffb347' },
+                { label: 'GOD', val: godC, prob: fmtP(gameN, godC), mc: ['#ffe14a', '#8a6a00', 'rgba(255,215,0,.45)'] },
+                { label: '冥王', val: meioC, prob: fmtP(gameN, meioC), mc: ['#a8e2ff', '#2b6f96', 'rgba(143,216,255,.42)'] },
+                { label: '紫7', val: purpleC, prob: fmtP(gameN, purpleC), mc: ['#d3a5ff', '#5f3596', 'rgba(196,139,255,.42)'] },
+                { label: '合算', val: totalC, prob: fmtP(gameN, totalC), mc: ['#ffc266', '#8a5410', 'rgba(255,179,71,.42)'] },
               ].map(s => (
-                <div key={s.label} style={{ flex: 1, background: '#0b0a0e', border: '1px solid #241d10', borderRadius: 5, padding: '4px 2px 3px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, fontFamily: "'Courier New',monospace", color: s.color, textShadow: `0 0 6px ${s.color}44`, marginBottom: 1 }}>{s.label}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Courier New',monospace", lineHeight: 1, color: s.color, textShadow: `0 0 6px ${s.color}44` }}>{s.val}</div>
-                  <div style={{ fontSize: 9, fontFamily: "'Courier New',monospace", marginTop: 1, color: s.color, opacity: 0.5 }}>{s.prob}</div>
+                <div key={s.label} className="ga-panel" style={{ flex: 1, padding: '5px 2px 4px', textAlign: 'center', ...gaMV(s.mc) }}>
+                  <GaCorners size={8} inset={1} color={s.mc[0]} op={0.4} />
+                  <div className="ga-mlbl" style={{ fontSize: 9.5, marginBottom: 2, lineHeight: 1 }}>{s.label}</div>
+                  <div className="ga-mnum" style={{ fontSize: 22, lineHeight: 1 }}>{s.val}</div>
+                  <div style={{ fontSize: 9, fontFamily: "'Orbitron','Courier New',monospace", fontWeight: 600, marginTop: 2, color: s.mc[0], opacity: 0.5 }}>{s.prob}</div>
                 </div>
               ))}
             </div>
@@ -8757,6 +9022,10 @@ function GodAnotherGame({ onScore, onClose }) {
                   </div>
                 ))}
               </div>
+              {/* アセット: カットイン層(リール窓の上・全幅。画像が無い間は opacity 0 のまま何も描かない) */}
+              <div key="gaCutin" ref={cutinRef} style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none', opacity: 0,
+                backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+                transition: 'opacity 300ms linear' }} />
               {sinPlus && <div style={{ position: 'absolute', right: '8%', top: '14%', fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.55)', zIndex: 6, fontFamily: "'Courier New',monospace" }}>+1</div>}
               {lampMainText && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
@@ -8836,6 +9105,14 @@ function GodAnotherGame({ onScore, onClose }) {
           )}
         </>
       )}
+
+      {/* アセット: GOD降臨ムービー。preload="none" のまま眠り、初回GOD揃いで load()・アメイジングGOD時のみ全画面再生 */}
+      <video key="gaMovie" ref={vidRef} src={gaAssetSrc('movie')} muted playsInline preload="none"
+        onCanPlayThrough={() => { vidStRef.current.ready = true; }}
+        onError={() => { vidStRef.current.failed = true; hideMovie(); }}
+        onEnded={hideMovie}
+        style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'contain',
+          background: '#000', zIndex: 9998, display: 'none', pointerEvents: 'none' }} />
 
       <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}
 .gaStrip{opacity:1;transition:opacity .18s linear}
