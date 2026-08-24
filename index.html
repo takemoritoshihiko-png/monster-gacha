@@ -2243,6 +2243,9 @@ function MonsterGacha() {
   const pull = useCallback((n) => {
     const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_30;
     if (coins < cost) return;
+    if (window.__gPullBusy) return;   // 多重実行ガード(連打による二重課金+開封タイマー消失の防止)
+    window.__gPullBusy = true;
+    setTimeout(() => { window.__gPullBusy = false; }, 1500);
     bgm.stop(); stopMainBgm();
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
@@ -8457,8 +8460,9 @@ function GodAnotherGame({ onScore, onClose }) {
         const newTimeLeft = Math.max(0, TOTAL - elapsed);
         if (newTimeLeft !== timeLeftRef.current) {
           timeLeftRef.current = newTimeLeft; setTimeLeft(newTimeLeft);
-          if (newTimeLeft <= 0) { phaseRef.current = 'done'; setPhase("done"); setMsg('TIME UP'); setMsgColor('#666'); resetLamp(); }
         }
+        // 演出ロック中はTIME UPさせない(award完了後にdoneへ→スコア取りこぼし防止)
+        if (newTimeLeft <= 0 && !lockedRef.current && phaseRef.current === 'playing') { phaseRef.current = 'done'; setPhase("done"); setMsg('TIME UP'); setMsgColor('#666'); resetLamp(); }
       }
       // --- P4: 縦ストリップの回転・停止ターゲティング・減衰振動バウンス(setStateなし) ---
       {
@@ -8749,7 +8753,7 @@ function GodAnotherGame({ onScore, onClose }) {
     else if (type === 'cmeio') seqMeio(FRZ + 4100, 'cmeio', { noIntro: true, pay: 700 });
     else seqPurple(FRZ + 4100, 'cpurple', { noReels: true, pay: 600 });
     T(() => setCrashC(v => v + 1), FRZ + 4200);
-    const mext = (type === 'cgod' && amazing && vidStRef.current.ready && !vidStRef.current.failed) ? 8300 : 0;   // 動画(10秒)完走ぶんだけ延長(タイマー停止中=収支不変)
+    const mext = (type === 'cgod' && amazing) ? 10200 : 0;   // アメイジング=AG音楽12.1秒+動画10秒を両方収める延長(タイマー停止中=収支不変)
     unlockAt(FRZ + 6000 + mext);
   };
 
@@ -8819,7 +8823,7 @@ function GodAnotherGame({ onScore, onClose }) {
       if (godCountRef.current >= 2 && godGapRef.current <= 100) amazing = true;
       godGapRef.current = 0;
     }
-    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); const mext = (amazing && vidStRef.current.ready && !vidStRef.current.failed) ? 6200 : 0; unlockAt(5000 + frz + mext); return; }
+    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); const mext = amazing ? 8200 : 0; unlockAt(5000 + frz + mext); return; }   // アメイジング=AG音楽12.1秒+動画10秒を両方収める延長
     if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500 + MEIO_PRE); return; }
     if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
     doCrash(flag, amazing);
