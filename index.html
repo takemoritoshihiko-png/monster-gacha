@@ -3986,8 +3986,8 @@ function MonsterGacha() {
                 games: [
                   { id: "coinRunner", icon: "🏃", name: "コインランナー" },
                   { id: "juggler", icon: "🎰", name: "ジャグラー" },
-                  { id: "godAnother", icon: "⚡", name: "ゴッドアナザー" },
                   { id: "batting", icon: "⚾", name: "バッティングヒーロー" },
+                  { id: "godAnother", icon: "⚡", name: "ゴッドアナザー" },
                   { id: "pinball", icon: "🎱", name: "ピンボール" },
                   { id: "chainBurst", icon: "💥", name: "チェインバースト" },
                 ]},
@@ -7464,6 +7464,133 @@ function gaWarmup() {
   ric(step);
 }
 
+// --- 検証済みSVG図柄(symbol-mock.html採用案)。<defs>は1回だけ定義し <use> で参照。id は ga- プレフィクス ---
+function GaDefs() {
+  return (
+    <svg aria-hidden="true" width="0" height="0" style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+      <defs>
+        <linearGradient id="ga-g7y" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff6c0" /><stop offset="0.28" stopColor="#ffd84d" />
+          <stop offset="0.55" stopColor="#e8a000" /><stop offset="0.56" stopColor="#a86a00" />
+          <stop offset="1" stopColor="#ffcf3d" />
+        </linearGradient>
+        <linearGradient id="ga-e7y" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7a5a10" /><stop offset="1" stopColor="#3a2a06" /></linearGradient>
+        <linearGradient id="ga-g7p" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f3dcff" /><stop offset="0.28" stopColor="#c26bff" />
+          <stop offset="0.55" stopColor="#8a2be2" /><stop offset="0.56" stopColor="#5a1596" />
+          <stop offset="1" stopColor="#b95cff" />
+        </linearGradient>
+        <linearGradient id="ga-e7p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4a1a70" /><stop offset="1" stopColor="#220838" /></linearGradient>
+        <linearGradient id="ga-g7r" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffd9d9" /><stop offset="0.28" stopColor="#ff5566" />
+          <stop offset="0.55" stopColor="#d40f2e" /><stop offset="0.56" stopColor="#8d0518" />
+          <stop offset="1" stopColor="#ff4455" />
+        </linearGradient>
+        <linearGradient id="ga-e7r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6b0a1a" /><stop offset="1" stopColor="#320410" /></linearGradient>
+        <linearGradient id="ga-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff8cc" /><stop offset="0.35" stopColor="#ffd84d" />
+          <stop offset="0.6" stopColor="#c8860a" /><stop offset="0.61" stopColor="#8d5c00" />
+          <stop offset="1" stopColor="#ffd23f" />
+        </linearGradient>
+        <radialGradient id="ga-halo" cx="0.5" cy="0.45" r="0.62">
+          <stop offset="0" stopColor="rgba(255,240,170,1)" /><stop offset="0.5" stopColor="rgba(255,205,70,0.4)" /><stop offset="1" stopColor="rgba(255,205,70,0)" />
+        </radialGradient>
+        <radialGradient id="ga-mdisc" cx="0.5" cy="0.55" r="0.62">
+          <stop offset="0" stopColor="#0e3d6e" /><stop offset="0.7" stopColor="#071f3a" /><stop offset="1" stopColor="rgba(7,20,40,0)" />
+        </radialGradient>
+        <linearGradient id="ga-mflame" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#0a2a55" /><stop offset="0.4" stopColor="#1e8fe0" />
+          <stop offset="0.75" stopColor="#9fe2ff" /><stop offset="1" stopColor="#f0fcff" />
+        </linearGradient>
+        <linearGradient id="ga-msteel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#eaf6ff" /><stop offset="0.42" stopColor="#9fc4e0" />
+          <stop offset="0.43" stopColor="#4a7396" /><stop offset="1" stopColor="#cfe6f6" />
+        </linearGradient>
+        <linearGradient id="ga-barp" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f4f7f2" /><stop offset="0.45" stopColor="#9fb5a2" />
+          <stop offset="0.46" stopColor="#5c7a62" /><stop offset="1" stopColor="#c9d9c8" />
+        </linearGradient>
+        <linearGradient id="ga-bellg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff3b8" /><stop offset="0.5" stopColor="#f4b830" /><stop offset="1" stopColor="#a86f08" />
+        </linearGradient>
+        <radialGradient id="ga-ch" cx="0.35" cy="0.3" r="0.9">
+          <stop offset="0" stopColor="#ff9aa8" /><stop offset="0.35" stopColor="#e6273f" /><stop offset="1" stopColor="#8d0518" />
+        </radialGradient>
+        <linearGradient id="ga-rep" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#e3f0ff" /><stop offset="0.45" stopColor="#7ba6e8" />
+          <stop offset="0.46" stopColor="#3b5f9c" /><stop offset="1" stopColor="#9fc4f0" />
+        </linearGradient>
+        <linearGradient id="ga-fgold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f7e08a" /><stop offset="0.45" stopColor="#b8860b" />
+          <stop offset="0.55" stopColor="#7a5506" /><stop offset="1" stopColor="#d4a017" />
+        </linearGradient>
+
+        <g id="ga-s-y7" transform="translate(10,0)">
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-e7y)" transform="translate(3,4)" opacity="0.9" />
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-g7y)" stroke="#5d420a" strokeWidth="2.5" />
+          <path d="M16 18 h66 l-3 8 H20 Z" fill="rgba(255,255,255,0.75)" />
+        </g>
+        <g id="ga-s-p7" transform="translate(10,0)">
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-e7p)" transform="translate(3,4)" opacity="0.9" />
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-g7p)" stroke="#3c0d63" strokeWidth="2.5" />
+          <path d="M16 18 h66 l-3 8 H20 Z" fill="rgba(255,255,255,0.65)" />
+        </g>
+        <g id="ga-s-r7" transform="translate(10,0)">
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-e7r)" transform="translate(3,4)" opacity="0.9" />
+          <path d="M12 14 h76 v30 L52 122 H20 L60 44 H12 Z" fill="url(#ga-g7r)" stroke="#5d0715" strokeWidth="2.5" />
+          <path d="M16 18 h66 l-3 8 H20 Z" fill="rgba(255,255,255,0.7)" />
+        </g>
+        <g id="ga-s-god">
+          <circle cx="60" cy="58" r="54" fill="url(#ga-halo)" />
+          <g stroke="#5d420a" strokeWidth="1.4" fill="url(#ga-gold)">
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(30 60 58)" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(-30 60 58)" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(65 60 58)" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(-65 60 58)" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(100 60 58)" />
+            <path d="M60 4 L67 38 L60 52 L53 38 Z" transform="rotate(-100 60 58)" />
+          </g>
+          <circle cx="60" cy="58" r="20" fill="url(#ga-gold)" stroke="#5d420a" strokeWidth="2" />
+          <ellipse cx="60" cy="58" rx="12" ry="7.5" fill="#1a1206" />
+          <circle cx="60" cy="58" r="4.6" fill="#ffd84d" />
+          <text x="60" y="112" textAnchor="middle" fontFamily="Georgia,serif" fontWeight="900" fontSize="26" fill="url(#ga-gold)" stroke="#5d420a" strokeWidth="1.2" letterSpacing="2">GOD</text>
+        </g>
+        <g id="ga-s-meio">
+          <circle cx="60" cy="66" r="54" fill="url(#ga-mdisc)" />
+          <path d="M28 78 Q22 46 38 40 Q34 56 44 48 Q38 30 52 24 Q50 40 58 34 Q54 16 60 8 Q66 16 62 34 Q70 40 68 24 Q82 30 76 48 Q86 56 82 40 Q98 46 92 78 Z" fill="url(#ga-mflame)" opacity="0.92" />
+          <text x="60" y="96" textAnchor="middle" fontFamily="'Yu Mincho','Hiragino Mincho ProN',serif" fontWeight="900" fontSize="56" fill="url(#ga-msteel)" stroke="#0c2438" strokeWidth="2">冥</text>
+        </g>
+        <g id="ga-s-bar" transform="translate(5,0)">
+          <g transform="rotate(-8 55 65)">
+            <rect x="10" y="40" width="90" height="46" rx="8" fill="#20301f" transform="translate(3,4)" />
+            <rect x="10" y="40" width="90" height="46" rx="8" fill="url(#ga-barp)" stroke="#233c26" strokeWidth="2.5" />
+            <text x="55" y="74" textAnchor="middle" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="30" fill="#15241a">BAR</text>
+          </g>
+        </g>
+        <g id="ga-s-bell" transform="translate(5,0)">
+          <path d="M55 22 q4 0 4 6 v4 q20 6 22 34 q1 14 8 20 H21 q7 -6 8 -20 q2 -28 22 -34 v-4 q0 -6 4 -6 Z" fill="url(#ga-bellg)" stroke="#6b4a06" strokeWidth="2.5" />
+          <circle cx="55" cy="94" r="7" fill="url(#ga-bellg)" stroke="#6b4a06" strokeWidth="2" />
+          <path d="M36 40 q8 -8 16 -9" stroke="rgba(255,255,255,0.8)" strokeWidth="4" fill="none" strokeLinecap="round" />
+        </g>
+        <g id="ga-s-cherry" transform="translate(5,0)">
+          <path d="M42 62 Q48 26 74 16 M68 66 Q70 34 74 16" stroke="#3f7d2c" strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M74 16 q14 -6 20 4 q-12 2 -20 -4" fill="#57a03c" />
+          <circle cx="40" cy="82" r="21" fill="url(#ga-ch)" stroke="#5d0715" strokeWidth="2" />
+          <circle cx="70" cy="86" r="19" fill="url(#ga-ch)" stroke="#5d0715" strokeWidth="2" />
+          <ellipse cx="33" cy="74" rx="6" ry="4" fill="rgba(255,255,255,0.55)" transform="rotate(-25 33 74)" />
+          <ellipse cx="64" cy="79" rx="5" ry="3.4" fill="rgba(255,255,255,0.5)" transform="rotate(-25 64 79)" />
+        </g>
+        <g id="ga-s-replay" transform="translate(10,0)">
+          <path d="M20 28 L56 65 L20 102 Z" fill="url(#ga-rep)" stroke="#1e3a6b" strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M52 28 L88 65 L52 102 Z" fill="url(#ga-rep)" stroke="#1e3a6b" strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M24 34 L44 54" stroke="rgba(255,255,255,0.7)" strokeWidth="4" fill="none" strokeLinecap="round" />
+        </g>
+      </defs>
+    </svg>
+  );
+}
+
 function GodAnotherGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [gameN, setGameN] = useState(0);
@@ -7513,7 +7640,6 @@ function GodAnotherGame({ onScore, onClose }) {
   const lastTsRef = useRef(null);
   const reelSpinRef = useRef(0);
   const reelSlowRef = useRef(false);
-  const reelTickRef = useRef(0);
   const reelPoolRef = useRef(null);
   const aliveRef = useRef(true);
   const timeoutsRef = useRef([]);
@@ -7533,6 +7659,37 @@ function GodAnotherGame({ onScore, onClose }) {
   const lsRef = useRef({});
   const styCacheRef = useRef({});
   const prevLtRef = useRef('off');
+  // --- P4: 縦ストリップ式リール(reel-mock.html検証済み機構をref+既存RAFへ移植) ---
+  const rObjRef = useRef(null);
+  if (!rObjRef.current) rObjRef.current = [0, 1, 2].map(() => ({
+    pos: 0, from: 0, target: 0, et: 0, dur: 175, mode: 'idle', bounceT: 0,
+    sym: 'bell', stopIdx: 0, quiet: false, silent: false, dirty: true, spinCls: false,
+  }));
+  const stripRef = useRef([]);
+  const cellRef = useRef([[], [], []]);
+  const rGlowRef = useRef([]);
+  const rHaloRef = useRef([]);
+  const rDarkRef = useRef([]);
+  const rBackRef = useRef([]);
+  const tenpaiRef = useRef(false);
+  // P5/P10 用
+  const rayRef = useRef(null);
+  const boltRef = useRef(null);
+  const barRef = useRef([]);
+  const barPrevRef = useRef('');
+  const barCacheRef = useRef([-1, -1, -1, -1, -1, -1, -1, -1]);
+  // ref コールバックは identity を固定(再レンダーごとの detach/attach を避ける)
+  const cbRef = useRef(null);
+  if (!cbRef.current) {
+    const mk = (store) => [0, 1, 2].map(i => (el) => { store.current[i] = el; });
+    cbRef.current = {
+      strip: mk(stripRef), glow: mk(rGlowRef), halo: mk(rHaloRef), dark: mk(rDarkRef), back: mk(rBackRef),
+      bar: [0, 1, 2, 3, 4, 5, 6, 7].map(i => (el) => { barRef.current[i] = el; }),
+      cell: [0, 1, 2].map(i => [0, 1, 2, 3].map(j => (el) => {
+        cellRef.current[i][j] = el ? { el, u: el.getElementsByTagName('use'), idx: null, h: null } : null;
+      })),
+    };
+  }
 
   const TOTAL = 180;
   // 抽選単位 R = 1/32768。各フラグの重みは R の整数倍(仕様分母との誤差1%以内)
@@ -7564,6 +7721,29 @@ function GodAnotherGame({ onScore, onClose }) {
   const BLANKS = ['bell', 'cherry', 'replay', 'bar'];
   const SPINPOOL = ['bell', 'cherry', 'replay', 'bar', 'y7', 'p7', 'r7'];
   const ALLPOOL = ['god', 'meio', 'p7', 'y7', 'r7', 'bar'];
+  // SVG図柄ID / 後光を出す図柄 / ストリップ実DOMコマ数 / 回転速度(コマ per 100ms・reel-mock検証値)
+  const SYM_ID = { y7: 'ga-s-y7', p7: 'ga-s-p7', r7: 'ga-s-r7', god: 'ga-s-god', meio: 'ga-s-meio', bar: 'ga-s-bar', bell: 'ga-s-bell', cherry: 'ga-s-cherry', replay: 'ga-s-replay' };
+  const HALO_SYM = { y7: 1, p7: 1, r7: 1, god: 1, meio: 1 };
+  const RCELLS = 4;
+  const RV_FAST = 2.6, RV_SLOW = 0.55, RV_TENPAI = 0.5;
+  const XLINK = 'http://www.w3.org/1999/xlink';
+  // P10: 上部ランプ帯の色(当たり種別ごと)
+  const BAR_C = { y7: '255,210,74', y7hold: '255,200,60', y7win: '255,230,130', purple: '190,110,255', meio: '150,220,255', god: '255,215,0', amazing: '255,235,140', crash: '255,90,70', allspin: '120,180,255', sinwin: '255,190,60' };
+  const barGrad = (m, i) => {
+    if (m === 'off') return 'none';
+    const c = m === 'sinwin' ? (i % 2 ? '210,120,255' : '255,190,60') : BAR_C[m];
+    return `radial-gradient(circle at 50% 45%,rgba(255,255,255,0.95) 0%,rgba(${c},0.95) 30%,rgba(${c},0.34) 54%,rgba(${c},0) 74%)`;
+  };
+  const barVal = (m, i, e) => {
+    if (m === 'y7' || m === 'y7hold' || m === 'y7win') { const k = Math.floor(e * 7) % 4; return (i === k || i === 7 - k) ? 1 : 0.1; }
+    if (m === 'purple') return (i % 2 === (Math.floor(e * 6) % 2)) ? 1 : 0.08;
+    if (m === 'meio') return 0.12 + 0.88 * (0.5 + 0.5 * Math.sin(e * 3 - i * 0.5));
+    if (m === 'god' || m === 'amazing') return (Math.floor(e * 3) % 2) ? 1 : 0.12;   // 1.5回/秒(WCAG 3回/秒以下)
+    if (m === 'crash') { const s = Math.sin(Math.floor(e * 10) * 13.13 + i * 7.7) * 43758.5453; return (s - Math.floor(s)) > 0.45 ? 1 : 0.08; }
+    if (m === 'allspin') return 0.1 + 0.5 * (0.5 + 0.5 * Math.sin(e * 2.2 - i * 0.6));
+    if (m === 'sinwin') return ((Math.floor(e * 5) + i) % 2) ? 1 : 0.12;
+    return 0;
+  };
   const HTYPE = {
     god: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.2)', bd: 'rgba(255,215,0,0.35)' },
     cgod: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.28)', bd: 'rgba(255,255,255,0.55)' },
@@ -7676,13 +7856,108 @@ function GodAnotherGame({ onScore, onClose }) {
   };
   const flash = (a, ms, col) => { setFlashColor(col || '#fff'); setFlashAlpha(a); T(() => setFlashAlpha(0), ms); };
   const shakeFor = (ms) => { setShaking(true); T(() => setShaking(false), ms); };
+  // --- リール: 図柄の並び(帯)は idx から決まる固定バンド。停止コマ(stopIdx)だけ狙った図柄に差し替える ---
+  const symAt = (i, idx, r, pool) => {
+    if (r.stopIdx != null && idx === r.stopIdx) return r.sym;
+    if (r.prevIdx != null && idx === r.prevIdx) return r.prevSym;   // 差し替え直前の出目(滑り込み中の見た目維持)
+    const L = pool.length;
+    return pool[(((idx + i * 2) % L) + L) % L];
+  };
+  const paintReel = (i, r, pool) => {
+    const st = stripRef.current[i]; if (!st) return;
+    const tf = 'translateY(' + (-r.pos * 100).toFixed(3) + '%)';
+    if (tf !== r.lastT) { r.lastT = tf; st.style.transform = tf; }   // 静止中の無駄な書き込みを避ける
+    const spinning = r.mode === 'spin';
+    if (spinning !== r.spinCls) { r.spinCls = spinning; st.className = spinning ? 'gaStrip gaSpin' : 'gaStrip'; }
+    const base = Math.floor(r.pos);
+    for (let j = 0; j < RCELLS; j++) {
+      const c = cellRef.current[i][j]; if (!c) continue;
+      const idx = base - 1 + (((j - (base - 1)) % RCELLS) + RCELLS) % RCELLS;
+      if (c.idx !== idx) { c.idx = idx; c.el.style.top = (idx * 100) + '%'; }
+      const h = '#' + SYM_ID[symAt(i, idx, r, pool)];
+      if (c.h !== h) { c.h = h; const us = c.u; for (let k = 0; k < us.length; k++) { us[k].setAttribute('href', h); us[k].setAttributeNS(XLINK, 'xlink:href', h); } }
+    }
+    r.dirty = false;
+  };
+  const rebaseReel = (r) => {
+    if (Math.abs(r.pos) < 400) return;
+    const k = Math.round(r.pos);
+    r.pos -= k; r.target -= k; r.from -= k;
+    if (r.stopIdx != null) r.stopIdx -= k;
+    if (r.prevIdx != null) r.prevIdx -= k;
+    r.dirty = true;
+  };
+  const setHalo = (i, sym) => {
+    const h = rHaloRef.current[i]; if (!h) return;
+    const s = SYMS[sym];
+    if (s && HALO_SYM[sym]) { h.style.background = `radial-gradient(ellipse at 50% 50%,${s.g},transparent 74%)`; h.style.opacity = '1'; }
+    else h.style.opacity = '0';
+  };
+  const setReelGlow = (i, col) => {
+    const g = rGlowRef.current[i]; if (!g) return;
+    if (col) { g.style.background = `radial-gradient(ellipse at 50% 50%,${col},transparent 76%)`; g.style.opacity = '1'; }
+    else g.style.opacity = '0';
+  };
+  const sndTenpai = () => { jTone(740, 0, 0.09, 0.13, 'triangle'); jTone(988, 0.1, 0.15, 0.13, 'triangle'); };
+  const startTenpai = (col) => { tenpaiRef.current = true; setReelGlow(2, col); sndTenpai(); };
+  const endTenpai = () => { tenpaiRef.current = false; setReelGlow(2, null); };
+  // 停止ターゲティング: 目標コマまで easeOut で寄せ、着地後に減衰振動(バウンス)
+  const beginStop = (i, sym, quiet, silent) => {
+    const r = rObjRef.current[i];
+    if (r.mode === 'stopping' || r.mode === 'bounce') { r.sym = sym; r.stopIdx = r.target; r.dirty = true; return; }
+    const wasSpin = r.mode === 'spin' || !!(reelSpinRef.current & (1 << i));
+    r.prevIdx = r.stopIdx; r.prevSym = r.sym;
+    if (wasSpin) {
+      r.target = Math.ceil(r.pos + 1.8);
+      r.dur = (i === 2 && tenpaiRef.current) ? 430 : (reelSlowRef.current ? 360 : 175);
+    } else {
+      r.target = Math.round(r.pos) + 1; r.pos = r.target - 1.05; r.dur = 110;
+    }
+    r.from = r.pos; r.et = 0; r.mode = 'stopping';
+    r.sym = sym; r.stopIdx = r.target; r.quiet = !!quiet; r.silent = !!silent; r.dirty = true;
+  };
   const stopReel = (i, sym, quiet) => {
     reelSpinRef.current = reelSpinRef.current & ~(1 << i);
     setReels(prev => { const n = prev.slice(); n[i] = sym; return n; });
-    if (quiet) sndSoftStop(); else sndReelStop();
+    beginStop(i, sym, quiet, false);   // 停止音は着地フレームで鳴らす(RAF側)
   };
-  const landStagger = (arr, t0, gap, quiet) => arr.forEach((s, i) => T(() => stopReel(i, s, quiet), t0 + i * gap));
+  const landStagger = (arr, t0, gap, quiet, tenpaiCol) => {
+    if (tenpaiCol) { T(() => startTenpai(tenpaiCol), t0 + gap + 90); T(endTenpai, t0 + 2 * gap + 1200); }
+    arr.forEach((s, i) => T(() => stopReel(i, s, quiet), t0 + i * gap));
+  };
   const spinReels = (pool) => { reelPoolRef.current = pool; reelSpinRef.current = 7; };
+  // --- P5: 消灯→再点灯 / 回転レイ盤 / 稲妻 ---
+  const RELIT = {
+    god: 'radial-gradient(ellipse at 50% 55%,rgba(255,228,130,0.5),rgba(255,180,0,0.16) 58%,transparent 84%)',
+    meio: 'radial-gradient(ellipse at 50% 55%,rgba(170,230,255,0.46),rgba(40,140,230,0.16) 58%,transparent 84%)',
+    purple: 'radial-gradient(ellipse at 50% 55%,rgba(210,150,255,0.46),rgba(140,50,230,0.16) 58%,transparent 84%)',
+  };
+  const reelDark = (on) => { for (let i = 0; i < 3; i++) { const d = rDarkRef.current[i]; if (d) d.style.opacity = on ? '0.85' : '0'; } };
+  const reelRelight = (kind, step) => {
+    const g = RELIT[kind] || RELIT.god;
+    for (let i = 0; i < 3; i++) T(() => {
+      const d = rDarkRef.current[i], b = rBackRef.current[i];
+      if (d) d.style.opacity = '0';
+      if (b) { b.style.background = g; b.style.opacity = '1'; }
+    }, i * step);
+    T(() => { for (let i = 0; i < 3; i++) { const b = rBackRef.current[i]; if (b) b.style.opacity = '0.4'; } }, 2 * step + 300);
+  };
+  const reelReset = () => {
+    tenpaiRef.current = false;
+    for (let i = 0; i < 3; i++) {
+      const d = rDarkRef.current[i], b = rBackRef.current[i], g = rGlowRef.current[i], h = rHaloRef.current[i];
+      if (d) d.style.opacity = '0'; if (b) b.style.opacity = '0';
+      if (g) g.style.opacity = '0'; if (h) h.style.opacity = '0';
+    }
+  };
+  const rayOn = (on) => { const el = rayRef.current; if (el) el.className = on ? 'gaRayWrap gaRayOn' : 'gaRayWrap'; };
+  const boltFlash = () => {
+    const el = boltRef.current; if (!el) return;
+    el.style.opacity = '1';
+    T(() => { if (boltRef.current) boltRef.current.style.opacity = '0'; }, 90);
+    T(() => { if (boltRef.current) boltRef.current.style.opacity = '0.85'; }, 165);
+    T(() => { if (boltRef.current) boltRef.current.style.opacity = '0'; }, 270);
+  };
 
   const computeLamp = (h, s, l, p, a) => ({
     glow: `radial-gradient(circle,hsla(${h},${s}%,${l + 15}%,${a * 1.1}) 0%,hsla(${h},${s}%,${l + 5}%,${a * 0.5}) 30%,hsla(${h},${s * 0.7}%,${l - 10}%,${a * 0.08}) 65%,transparent 88%)`,
@@ -7736,12 +8011,31 @@ function GodAnotherGame({ onScore, onClose }) {
           if (newTimeLeft <= 0) { phaseRef.current = 'done'; setPhase("done"); setMsg('TIME UP'); setMsgColor('#666'); resetLamp(); }
         }
       }
-      if (reelSpinRef.current) {
-        const iv = reelSlowRef.current ? 240 : 55;
-        if (ts - reelTickRef.current > iv) {
-          reelTickRef.current = ts;
-          const pool = reelPoolRef.current || SPINPOOL, mask = reelSpinRef.current;
-          setReels(p => p.map((v, i) => (mask & (1 << i)) ? pool[(pool.indexOf(v) + 1 + pool.length) % pool.length] : v));
+      // --- P4: 縦ストリップの回転・停止ターゲティング・減衰振動バウンス(setStateなし) ---
+      {
+        const pool = reelPoolRef.current || SPINPOOL, mask = reelSpinRef.current;
+        for (let i = 0; i < 3; i++) {
+          const r = rObjRef.current[i];
+          if (r.mode === 'stopping') {
+            r.et += dt;
+            const x = r.dur > 0 ? Math.min(1, r.et / r.dur) : 1;
+            r.pos = r.from + (r.target - r.from) * (1 - (1 - x) * (1 - x));
+            if (x >= 1) {
+              r.pos = r.target; r.mode = 'bounce'; r.bounceT = 0;
+              if (!r.silent) { if (r.quiet) sndSoftStop(); else sndReelStop(); }
+              r.silent = false; setHalo(i, r.sym);
+              if (i === 2 && tenpaiRef.current) endTenpai();
+            }
+          } else if (r.mode === 'bounce') {
+            r.bounceT += dt / 1000;
+            const t = r.bounceT;
+            r.pos = r.target + 0.06 * Math.exp(-8 * t) * Math.cos(24 * t);   // reel-mock検証済みの式
+            if (t > 0.45) { r.pos = r.target; r.mode = 'idle'; rebaseReel(r); }
+          } else if (mask & (1 << i)) {
+            if (r.mode !== 'spin') { r.mode = 'spin'; r.stopIdx = null; r.dirty = true; }
+            r.pos += ((i === 2 && tenpaiRef.current) ? RV_TENPAI : (reelSlowRef.current ? RV_SLOW : RV_FAST)) * dt / 100;
+          } else if (r.mode === 'spin') { r.mode = 'idle'; }
+          paintReel(i, r, pool);
         }
       }
       const lt = lampTypeRef.current;
@@ -7773,10 +8067,49 @@ function GodAnotherGame({ onScore, onClose }) {
         }
         applyLamp(st);
       }
+      // --- P10: 上部ランプ帯(色はモード切替時のみ・毎フレームは opacity だけ) ---
+      if (barRef.current[0]) {
+        const bm = BAR_C[lt] ? lt : 'off';
+        if (bm !== barPrevRef.current) {
+          barPrevRef.current = bm;
+          for (let i = 0; i < 8; i++) { const el = barRef.current[i]; if (el) el.style.background = barGrad(bm, i); barCacheRef.current[i] = -1; }
+        }
+        const be = (bm !== 'off' && lampStartRef.current) ? (ts - lampStartRef.current) / 1000 : 0;
+        for (let i = 0; i < 8; i++) {
+          const el = barRef.current[i]; if (!el) continue;
+          const v = Math.round(barVal(bm, i, be) * 20) / 20;
+          if (barCacheRef.current[i] !== v) { barCacheRef.current[i] = v; el.style.opacity = String(v); }
+        }
+      }
       lampRef.current = requestAnimationFrame(loop);
     };
     lampRef.current = requestAnimationFrame(loop);
     return () => { running = false; if (lampRef.current) cancelAnimationFrame(lampRef.current); };
+  }, [phase]);
+
+  // reels(出目の正)とストリップ表示の同期。setReels 直書き(seqGod/unlockAt/rnd3等)を取りこぼさない
+  useEffect(() => {
+    const mask = reelSpinRef.current;
+    for (let i = 0; i < 3; i++) {
+      const r = rObjRef.current[i];
+      if (r.sym === reels[i]) continue;
+      if (r.mode === 'stopping' || r.mode === 'bounce') { r.sym = reels[i]; r.stopIdx = r.target; r.dirty = true; continue; }
+      if (r.mode === 'spin' || (mask & (1 << i))) { beginStop(i, reels[i], true, true); continue; }
+      const k = Math.round(r.pos);
+      r.pos = k; r.from = k; r.target = k; r.stopIdx = k; r.prevIdx = null; r.sym = reels[i]; r.mode = 'idle'; r.dirty = true;
+      setHalo(i, reels[i]);
+    }
+  }, [reels]);
+  // リールDOMのマウント直後(playing/done切替時)に現在の出目を描き直す
+  useEffect(() => {
+    if (phase !== 'playing' && phase !== 'done') return;
+    barPrevRef.current = '';
+    for (let i = 0; i < 3; i++) {
+      const r = rObjRef.current[i];
+      r.dirty = true; r.spinCls = false; r.lastT = null;
+      for (let j = 0; j < RCELLS; j++) { const c = cellRef.current[i][j]; if (c) { c.idx = null; c.h = null; } }
+      setHalo(i, r.sym);
+    }
   }, [phase]);
 
   // ジャグ連の計算(支払いが発生したフラグのみ呼ぶ)
@@ -7796,7 +8129,7 @@ function GodAnotherGame({ onScore, onClose }) {
     if (is1G) {
       gaPlay('oneG', 1.0);
       [1568, 1976, 2349, 2793, 3136].forEach((f, i) => jTone(f, 0.05 + i * 0.03, 0.2, 0.15));
-      flash(0.8, 120, '#fff'); shakeFor(500);
+      flash(0.8, 120, '#fff'); shakeFor(500); boltFlash();
     }
     if (newJugRen >= 2) {
       const intensity = Math.min(newJugRen, 5);
@@ -7826,6 +8159,7 @@ function GodAnotherGame({ onScore, onClose }) {
     lockedRef.current = false; setLocked(false); resetLamp();
     setBigMsg(''); setDim(0); setTint('none'); setCrackLv(0); setSinPlus(false);
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
+    reelReset(); rayOn(false);
     setReels(rnd3());
   }, ms);
 
@@ -7836,19 +8170,22 @@ function GodAnotherGame({ onScore, onClose }) {
       lampTypeRef.current = 'purple'; lampStartRef.current = null; setLampSubText('PURPLE 7');
       setTint('radial-gradient(circle at 50% 45%, rgba(165,60,255,0.4) 0%, rgba(70,0,140,0.55) 70%)');
       sndThunder(0.9); flash(0.6, 110, '#c07bff'); shakeFor(520);
+      if (!c.noReels) reelDark(true);          // P5: 消灯
+      boltFlash();                             // P5: 稲妻SVG
     }, t0);
-    if (!c.noReels) landStagger(['p7', 'p7', 'p7'], t0 + 180, 180);
+    T(() => reelRelight('purple', 70), t0 + 90);   // P5: 左から1本ずつ再点灯
+    if (!c.noReels) landStagger(['p7', 'p7', 'p7'], t0 + 180, 180, false, 'rgba(190,110,255,0.5)');
     T(() => { setLampMainText('紫7'); setLampMainSize('min(24vw,96px)'); flash(0.45, 80, '#c07bff'); }, t0 + Math.round(pay * 0.55));
     T(() => award(type, '⚡ 紫7揃い', '#c48bff', () => setPurpleC(v => v + 1)), t0 + pay);
   };
   const seqMeio = (t0, type, cfg) => {
     const c = cfg || {}, pay = c.pay != null ? c.pay : 2600;
     if (!c.noIntro) {
-      T(() => { setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); }, t0);
-      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); }, t0 + 700);
-      landStagger(['meio', 'meio', 'meio'], t0 + 900, 200);
+      T(() => { setDim(0.92); sndMeioRumble(); shakeFor(2400); spinReels(SPINPOOL); reelDark(true); }, t0);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); reelRelight('meio', 120); }, t0 + 700);
+      landStagger(['meio', 'meio', 'meio'], t0 + 900, 200, false, 'rgba(150,220,255,0.5)');
     } else {
-      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); }, t0);
+      T(() => { lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('HADES'); setDim(0.16); setTint('radial-gradient(circle at 50% 45%, rgba(60,150,255,0.35) 0%, rgba(20,0,70,0.6) 70%)'); sndMeioRumble(); shakeFor(1600); reelRelight('meio', 90); }, t0);
     }
     T(() => { setLampMainText('冥王'); setLampMainSize('min(26vw,104px)'); sndMeioBell(); flash(0.6, 150, '#9fdcff'); shakeFor(900); }, t0 + Math.round(pay * 0.58));
     T(() => award(type, '☠ 冥王 降臨', '#8fd8ff', () => setMeioC(v => v + 1)), t0 + pay);
@@ -7856,8 +8193,11 @@ function GodAnotherGame({ onScore, onClose }) {
   const seqGod = (t0, type, amazing, cfg) => {
     const c = cfg || {}, rise = c.rise != null ? c.rise : 850, pay = c.pay != null ? c.pay : 3200;
     if (!c.noCrt) T(() => { crtStartRef.current = performance.now(); crtActiveRef.current = true; setCrtActive(true); sndPuchun(); }, t0);
+    T(() => reelDark(true), t0);                                                    // P5: 消灯
+    if (rise >= 400) T(() => { setReelGlow(2, 'rgba(255,215,0,0.5)'); sndTenpai(); }, t0 + rise - 320);   // 第3リール枠グロー(テンパイ相当)
     T(() => {
       crtActiveRef.current = false; setCrtActive(false); flash(0.75, 110, '#fff');
+      setReelGlow(2, null); reelRelight('god', 110); rayOn(true);                    // P5: 再点灯 + 回転レイ盤
       lampTypeRef.current = amazing ? 'amazing' : 'god'; lampStartRef.current = null;
       setLampMainText('GOD'); setLampMainSize('min(30vw,126px)'); setLampSubText(amazing ? 'AMAZING GRACE' : 'JACKPOT');
       reelSpinRef.current = 0; setReels(['god', 'god', 'god']);
@@ -7910,15 +8250,15 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => { setCrackLv(3); sndGlass(); }, 520);
     T(() => { setCrackLv(4); flash(0.9, 140, '#fff'); shakeFor(400); }, 900);
     // ブラックアウト
-    T(() => { lampOff(); setCrackLv(0); setDim(1); setLampMainText(''); reelSpinRef.current = 0; setTint('none'); }, 1150);
+    T(() => { lampOff(); setCrackLv(0); setDim(1); setLampMainText(''); reelSpinRef.current = 0; setTint('none'); reelDark(true); }, 1150);
     // 全回転(ゆっくり回る溜め 約2秒)
     T(() => {
       setDim(0.12); lampTypeRef.current = 'allspin'; lampStartRef.current = null; setLampSubText('ALL SPIN');
-      reelSlowRef.current = true; spinReels(ALLPOOL); sndAllSpin();
+      reelSlowRef.current = true; spinReels(ALLPOOL); sndAllSpin(); reelDark(false);
     }, 1600);
     const sym = type === 'cgod' ? 'god' : type === 'cmeio' ? 'meio' : 'p7';
     T(() => { reelSlowRef.current = false; }, 3550);
-    landStagger([sym, sym, sym], 3600, 250);
+    landStagger([sym, sym, sym], 3600, 250, false, type === 'cgod' ? 'rgba(255,215,0,0.55)' : type === 'cmeio' ? 'rgba(150,220,255,0.5)' : 'rgba(190,110,255,0.5)');
     // 対応する揃い演出へ接続(6秒ロック内に収める圧縮版)
     if (type === 'cgod') seqGod(4100, 'cgod', amazing, { noCrt: true, rise: 0, pay: 900 });
     else if (type === 'cmeio') seqMeio(4100, 'cmeio', { noIntro: true, pay: 700 });
@@ -8019,8 +8359,25 @@ function GodAnotherGame({ onScore, onClose }) {
   const totalC = godC + meioC + purpleC + y7C + sinC;
 
   return (
-    <div style={{ textAlign: 'center', background: '#050406', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden' }}>
+    <div style={{
+      textAlign: 'center', minHeight: '60vh', borderRadius: 12, padding: 0, position: 'relative', overflow: 'hidden',
+      background: 'radial-gradient(ellipse 90% 34% at 50% -4%, rgba(90,60,140,0.5), transparent 70%),radial-gradient(ellipse 60% 26% at 18% 108%, rgba(180,120,20,0.16), transparent 70%),radial-gradient(ellipse 60% 26% at 82% 108%, rgba(180,120,20,0.16), transparent 70%),linear-gradient(180deg,#0d0a18 0%,#070510 46%,#0e0a14 100%)',
+    }}>
+      <GaDefs />
       <div ref={sgRef} style={{ position: 'absolute', inset: 0, background: ls.sg || 'none', pointerEvents: 'none', zIndex: 0 }} />
+      {/* 火の粉(常設・transform/opacityのみ) */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
+        {[[8, 10, 5, 0], [26, 6, 4, 1.8], [63, 9, 4, 3.4], [81, 13, 6, 5.2], [45, 4, 3, 7]].map((p, i) => (
+          <div key={i} className="gaEmb" style={{ position: 'absolute', left: p[0] + '%', bottom: p[1] + '%', width: p[2], height: p[2], borderRadius: '50%', background: i % 2 ? '#ffd84d' : '#ffb84d', boxShadow: '0 0 7px #ff9a1f', opacity: 0, animationDelay: p[3] + 's' }} />
+        ))}
+      </div>
+      {/* 常設ビネット(静的radial 1枚) */}
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 82% 64% at 50% 44%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.5) 100%)', pointerEvents: 'none', zIndex: 43 }} />
+      {/* 稲妻SVG(紫7・1G連。opacityのみアニメ) */}
+      <svg ref={boltRef} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', zIndex: 46, transition: 'opacity 0.08s linear' }}>
+        <polyline points="18,0 31,26 21,31 37,58 27,63 45,100" fill="none" stroke="#efe0ff" strokeWidth="2.4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <polyline points="83,0 70,23 80,29 63,55 73,60 56,100" fill="none" stroke="#d3a8ff" strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
       {tint !== 'none' && <div style={{ position: 'absolute', inset: 0, background: tint, pointerEvents: 'none', zIndex: 2 }} />}
       {dim > 0 && <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: dim, pointerEvents: 'none', zIndex: 45, transition: 'opacity 0.25s linear' }} />}
       {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: flashColor, opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
@@ -8058,7 +8415,13 @@ function GodAnotherGame({ onScore, onClose }) {
             onTouchMove={e => { e.preventDefault(); }}
             onTouchStart={e => { e.preventDefault(); }} />}
 
-          <div style={{ background: '#08070a', borderBottom: '1px solid #2a2210', padding: '6px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
+          <div style={{ background: '#08070a', borderBottom: '1px solid #2a2210', padding: '4px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
+            {/* P10: 上部ランプ帯(プリブラーgradient・opacity切替のみ) */}
+            <div style={{ display: 'flex', gap: 5, justifyContent: 'center', alignItems: 'center', height: 14, marginBottom: 2 }}>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+                <div key={i} ref={cbRef.current.bar[i]} style={{ width: 14, height: 14, borderRadius: '50%', background: 'none', opacity: 0 }} />
+              ))}
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
                 <span style={{ fontSize: 9, color: '#7a6420', fontWeight: 600, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>当たり間</span>
@@ -8095,8 +8458,30 @@ function GodAnotherGame({ onScore, onClose }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1, padding: '16px 4px', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '92%', maxWidth: 380 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1, padding: '6px 2px 8px', pointerEvents: 'none' }}>
+            <div style={{ position: 'relative', width: '99%', maxWidth: 432, padding: '30px 24px 16px', boxSizing: 'border-box' }}>
+            {/* 筐体: 神殿フレーム(ペディメント+溝彫り柱+金の台座) */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+              <svg viewBox="0 0 420 44" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 30, display: 'block' }}>
+                <path d="M4 30 L210 2 L416 30 L416 42 L4 42 Z" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="2" />
+                <path d="M46 30 L210 9 L374 30 Z" fill="#181226" stroke="#7a5c10" strokeWidth="1.5" />
+              </svg>
+              <svg viewBox="0 0 40 40" style={{ position: 'absolute', left: '50%', top: 5, width: 20, height: 20, marginLeft: -10 }}>
+                <circle cx="20" cy="20" r="12" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="1.5" />
+                <circle cx="20" cy="20" r="5.5" fill="#2a2010" />
+                <circle cx="20" cy="20" r="2" fill="#ffd84d" />
+              </svg>
+              {[0, 1].map(k => (
+                <div key={k} style={{ position: 'absolute', left: k ? 'auto' : 0, right: k ? 0 : 'auto', top: 30, bottom: 14, width: 20 }}>
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#241c30,#4a3a5e 50%,#1a1424)', border: '1px solid #6b5510' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg,transparent 0 4px,rgba(190,150,60,0.34) 4px 5px,transparent 5px 9px)' }} />
+                  <div style={{ position: 'absolute', left: -3, right: -3, top: -8, height: 9, background: 'linear-gradient(180deg,#f7e08a,#b8860b 55%,#7a5506)', border: '1px solid #513c08' }} />
+                  <div style={{ position: 'absolute', left: -3, right: -3, bottom: -4, height: 8, background: 'linear-gradient(180deg,#d4a017,#7a5506)', border: '1px solid #513c08' }} />
+                </div>
+              ))}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 12, background: 'linear-gradient(180deg,#f7e08a,#b8860b 42%,#7a5506 58%,#d4a017)', border: '1px solid #513c08', borderRadius: 2 }} />
+              <div style={{ position: 'absolute', left: '9%', right: '9%', bottom: 1, height: 5, background: '#2a2010', borderRadius: 2 }} />
+            </div>
             {/* 枠の発光: プリブラー済みradial-gradient + opacity変調(box-shadowの毎フレーム書換えを廃止) */}
             <div ref={frameGlowRef} style={{ position: 'absolute', inset: -16, borderRadius: 34, background: ls.fg || 'none', opacity: ls.fgo || 0, pointerEvents: 'none', zIndex: 0 }} />
             <div ref={frameRef} style={{ width: '100%', aspectRatio: '16/10', borderRadius: 20, position: 'relative', zIndex: 1,
@@ -8107,21 +8492,41 @@ function GodAnotherGame({ onScore, onClose }) {
               animation: shaking ? 'shake 0.15s linear infinite' : 'none' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
               <div ref={glowRef} style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
-              {/* 3リール */}
+              {/* P5: 回転レイ盤(conic-gradient 2枚・逆回転。GOD/amazing中のみ表示) */}
+              <div ref={rayRef} className="gaRayWrap" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
+                <div className="gaRay gaRayA" style={{ position: 'absolute', left: '50%', top: '50%', width: '190%', aspectRatio: '1/1', marginLeft: '-95%', marginTop: '-95%', borderRadius: '50%', mixBlendMode: 'screen', background: 'repeating-conic-gradient(rgba(255,215,0,0.20) 0deg 6deg, rgba(255,215,0,0) 6deg 26deg)' }} />
+                <div className="gaRay gaRayB" style={{ position: 'absolute', left: '50%', top: '50%', width: '150%', aspectRatio: '1/1', marginLeft: '-75%', marginTop: '-75%', borderRadius: '50%', mixBlendMode: 'screen', background: 'repeating-conic-gradient(rgba(255,255,255,0.13) 0deg 4deg, rgba(255,255,255,0) 4deg 34deg)' }} />
+              </div>
+              {/* 3リール(縦ストリップ・SVG図柄) */}
               <div style={{ display: 'flex', gap: '3%', alignItems: 'center', justifyContent: 'center', width: '86%', zIndex: 2, position: 'relative' }}>
-                {reels.map((k, i) => {
-                  const s = SYMS[k] || SYMS.bell;
-                  return (
-                    <div key={i} style={{ flex: 1, aspectRatio: '3/4', borderRadius: 10,
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ flex: 1, aspectRatio: '3/4', position: 'relative' }}>
+                    {/* テンパイ時のリール枠グロー(窓のoverflow外に置く) */}
+                    <div ref={cbRef.current.glow[i]} style={{ position: 'absolute', inset: -7, borderRadius: 16, background: 'radial-gradient(ellipse at 50% 50%,rgba(255,210,74,0.5),transparent 76%)', opacity: 0, transition: 'opacity 0.2s linear', zIndex: 0, pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: 10, overflow: 'hidden', zIndex: 1,
                       background: 'linear-gradient(180deg,#131117,#050406 55%,#0f0d13)',
-                      border: '2px solid rgba(255,215,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: `inset 0 0 18px rgba(0,0,0,0.9), 0 0 12px ${s.g}` }}>
-                      <span style={{ fontSize: s.sm ? 'min(6vw,26px)' : 'min(13vw,54px)', fontWeight: 900, fontStyle: 'italic',
-                        color: s.c, fontFamily: "'Courier New',monospace", lineHeight: 1,
-                        textShadow: `0 0 14px ${s.g}, 0 0 34px ${s.g}` }}>{s.t}</span>
+                      border: '2px solid rgba(255,215,0,0.25)', boxShadow: 'inset 0 0 18px rgba(0,0,0,0.9)' }}>
+                      {/* バックライト(消灯→再点灯用) */}
+                      <div ref={cbRef.current.back[i]} style={{ position: 'absolute', inset: 0, background: 'none', opacity: 0, transition: 'opacity 0.22s linear', pointerEvents: 'none', zIndex: 0 }} />
+                      {/* 当たり図柄の後光 */}
+                      <div ref={cbRef.current.halo[i]} style={{ position: 'absolute', inset: 0, background: 'none', opacity: 0, transition: 'opacity 0.3s ease', zIndex: 1, pointerEvents: 'none' }} />
+                      <div ref={cbRef.current.strip[i]} className="gaStrip" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '100%', willChange: 'transform', zIndex: 2 }}>
+                        {[0, 1, 2, 3].map(j => (
+                          <svg key={j} ref={cbRef.current.cell[i][j]} viewBox="0 0 120 130" preserveAspectRatio="xMidYMid meet"
+                            style={{ position: 'absolute', left: '6%', width: '88%', height: '100%', top: (j === 3 ? -100 : j * 100) + '%' }}>
+                            <g className="gaGh"><use href="#ga-s-bell" y="-34" /><use href="#ga-s-bell" y="34" /></g>
+                            <use href="#ga-s-bell" />
+                          </svg>
+                        ))}
+                      </div>
+                      {/* リール窓の円筒感(上下の暗いグラデ) */}
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '26%', background: 'linear-gradient(180deg,rgba(0,0,0,0.88),transparent)', zIndex: 3, pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '26%', background: 'linear-gradient(0deg,rgba(0,0,0,0.88),transparent)', zIndex: 3, pointerEvents: 'none' }} />
+                      {/* 消灯オーバーレイ */}
+                      <div ref={cbRef.current.dark[i]} style={{ position: 'absolute', inset: 0, background: '#000', opacity: 0, transition: 'opacity 0.18s linear', zIndex: 4, pointerEvents: 'none' }} />
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
               {sinPlus && <div style={{ position: 'absolute', right: '8%', top: '14%', fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.55)', zIndex: 6, fontFamily: "'Courier New',monospace" }}>+1</div>}
               {lampMainText && (
@@ -8203,7 +8608,21 @@ function GodAnotherGame({ onScore, onClose }) {
         </>
       )}
 
-      <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}`}</style>
+      <style>{`@keyframes shake{0%,100%{transform:translate(0)}10%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}50%{transform:translate(-3px,4px)}70%{transform:translate(3px,-2px)}90%{transform:translate(-2px,3px)}}
+.gaStrip{opacity:1;transition:opacity .18s linear}
+.gaStrip.gaSpin{opacity:.72}
+.gaGh{opacity:0;transition:opacity .18s linear}
+.gaSpin .gaGh{opacity:.26}
+@keyframes gaRotA{to{transform:rotate(360deg)}}
+@keyframes gaRotB{to{transform:rotate(-360deg)}}
+.gaRayWrap{opacity:0;transition:opacity .35s linear}
+.gaRayWrap.gaRayOn{opacity:1}
+.gaRay{animation-play-state:paused}
+.gaRayWrap.gaRayOn .gaRay{animation-play-state:running}
+.gaRayA{animation:gaRotA 15s linear infinite}
+.gaRayB{animation:gaRotB 23s linear infinite}
+@keyframes gaEmb{0%{transform:translate3d(0,0,0);opacity:0}18%{opacity:.75}100%{transform:translate3d(10px,-120px,0);opacity:0}}
+.gaEmb{animation:gaEmb 9s ease-out infinite}`}</style>
     </div>
   );
 }
