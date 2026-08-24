@@ -7601,15 +7601,36 @@ const GA_ASSETS = {
   cutinMeio: { file: 'cutin-meio.webp', blend: 'screen', fade: 300 },
   cutinPurple: { file: 'cutin-purple.webp', blend: 'screen', fade: 300 },
   cutinSin: { file: 'cutin-sin.webp', blend: 'screen', fade: 300 },
+  // 図柄(黒背景・正方形。ロードできた図柄だけ画像に差し替わり、残りはSVGのまま)
+  symY7: { file: 'sym-y7.webp' },
+  symP7: { file: 'sym-p7.webp' },
+  symR7: { file: 'sym-r7.webp' },
+  symGod: { file: 'sym-god.webp' },
+  symMeio: { file: 'sym-meio.webp' },
+  symBar: { file: 'sym-bar.webp' },
+  symBell: { file: 'sym-bell.webp' },
+  symCherry: { file: 'sym-cherry.webp' },
+  symReplay: { file: 'sym-replay.webp' },
+  // 筐体パーツ(枠=border-image / 上下帯=画像。未ロードなら現行のSVG・CSSがそのまま床)
+  bezel: { file: 'bezel.webp', slice: 0.18, width: 22 },
+  pediment: { file: 'pediment.webp' },
+  basestrip: { file: 'basestrip.webp' },
   // 動画(preload="none"。初回GOD揃い後に load()、アメイジングGOD時のみ再生)
   movie: { file: 'god-movie.mp4' },
 };
-const GA_ASSET_IMGS = ['bg', 'logo', 'cutinGod', 'cutinMeio', 'cutinPurple', 'cutinSin'];
+const GA_ASSET_IMGS = ['bg', 'logo', 'cutinGod', 'cutinMeio', 'cutinPurple', 'cutinSin',
+  'symY7', 'symP7', 'symR7', 'symGod', 'symMeio', 'symBar', 'symBell', 'symCherry', 'symReplay',
+  'bezel', 'pediment', 'basestrip'];
 const gaAssetState = {};       // key -> { loaded: bool }
 const gaAssetSubs = [];
 let gaAssetsStarted = false;
 const gaAssetSrc = (k) => { const c = GA_ASSETS[k]; return c && c.file ? GA_ASSETS.base + c.file : ''; };
 const gaAssetLoaded = (k) => { const s = gaAssetState[k]; return !!(s && s.loaded); };
+// border-image-slice 用。画像実寸の ratio 倍(無次元数=画像ピクセル)。実寸が取れない時だけ % で代替。
+const gaAssetSlice = (k, ratio) => {
+  const s = gaAssetState[k], n = s && s.w ? Math.round(s.w * ratio) : 0;
+  return n > 0 ? String(n) : (ratio * 100) + '%';
+};
 function gaOnAsset(fn) {
   gaAssetSubs.push(fn);
   return () => { const i = gaAssetSubs.indexOf(fn); if (i >= 0) gaAssetSubs.splice(i, 1); };
@@ -7626,11 +7647,13 @@ function gaPreloadAssets() {
   gaAssetsStarted = true;
   GA_ASSET_IMGS.forEach(k => {
     const src = gaAssetSrc(k); if (!src) return;
-    gaAssetState[k] = { loaded: false };
+    gaAssetState[k] = { loaded: false, w: 0, h: 0 };
     try {
       const img = new Image();
       img.onerror = () => {};
       img.onload = () => {
+        const s = gaAssetState[k];
+        if (s) { s.w = img.naturalWidth || 0; s.h = img.naturalHeight || 0; }   // border-image-slice の実寸計算用
         if (img.decode) { try { img.decode().then(() => gaMarkLoaded(k), () => {}); } catch (e) {} }
         else gaMarkLoaded(k);
       };
@@ -7942,7 +7965,11 @@ function GodAnotherGame({ onScore, onClose }) {
       strip: mk(stripRef), glow: mk(rGlowRef), halo: mk(rHaloRef), dark: mk(rDarkRef), back: mk(rBackRef),
       bar: [0, 1, 2, 3, 4, 5, 6, 7].map(i => (el) => { barRef.current[i] = el; }),
       cell: [0, 1, 2].map(i => [0, 1, 2, 3].map(j => (el) => {
-        cellRef.current[i][j] = el ? { el, u: el.getElementsByTagName('use'), idx: null, h: null } : null;
+        cellRef.current[i][j] = el ? {
+          el, u: el.getElementsByTagName('use'), im: el.getElementsByTagName('image'),
+          sg: el.querySelector('.gaCsvg'), ig: el.querySelector('.gaCimg'),
+          idx: null, h: null, useImg: null,
+        } : null;
       })),
     };
   }
@@ -7979,6 +8006,8 @@ function GodAnotherGame({ onScore, onClose }) {
   const ALLPOOL = ['god', 'meio', 'p7', 'y7', 'r7', 'bar'];
   // SVG図柄ID / 後光を出す図柄 / ストリップ実DOMコマ数 / 回転速度(コマ per 100ms・reel-mock検証値)
   const SYM_ID = { y7: 'ga-s-y7', p7: 'ga-s-p7', r7: 'ga-s-r7', god: 'ga-s-god', meio: 'ga-s-meio', bar: 'ga-s-bar', bell: 'ga-s-bell', cherry: 'ga-s-cherry', replay: 'ga-s-replay' };
+  // 図柄画像のアセットキー。ロード済みの図柄だけ <image> に差し替わる(未ロードは上のSVGのまま)
+  const SYM_ASSET = { y7: 'symY7', p7: 'symP7', r7: 'symR7', god: 'symGod', meio: 'symMeio', bar: 'symBar', bell: 'symBell', cherry: 'symCherry', replay: 'symReplay' };
   const HALO_SYM = { y7: 1, p7: 1, r7: 1, god: 1, meio: 1 };
   const RCELLS = 4;
   const RV_FAST = 2.6, RV_SLOW = 0.55, RV_TENPAI = 0.5;
@@ -8208,8 +8237,23 @@ function GodAnotherGame({ onScore, onClose }) {
       const c = cellRef.current[i][j]; if (!c) continue;
       const idx = base - 1 + (((j - (base - 1)) % RCELLS) + RCELLS) % RCELLS;
       if (c.idx !== idx) { c.idx = idx; c.el.style.top = (idx * 100) + '%'; }
-      const h = '#' + SYM_ID[symAt(i, idx, r, pool)];
-      if (c.h !== h) { c.h = h; const us = c.u; for (let k = 0; k < us.length; k++) { us[k].setAttribute('href', h); us[k].setAttributeNS(XLINK, 'xlink:href', h); } }
+      const sym = symAt(i, idx, r, pool);
+      if (c.h !== sym) {
+        c.h = sym;
+        const ak = SYM_ASSET[sym], useImg = !!(ak && gaAssetLoaded(ak));
+        if (useImg) {
+          const src = gaAssetSrc(ak), ims = c.im;
+          for (let k = 0; k < ims.length; k++) { ims[k].setAttribute('href', src); ims[k].setAttributeNS(XLINK, 'xlink:href', src); }
+        } else {
+          const h = '#' + SYM_ID[sym], us = c.u;
+          for (let k = 0; k < us.length; k++) { us[k].setAttribute('href', h); us[k].setAttributeNS(XLINK, 'xlink:href', h); }
+        }
+        if (c.useImg !== useImg) {   // レイヤの表示切替は変化した時だけ(毎フレームの書き込みを増やさない)
+          c.useImg = useImg;
+          if (c.sg) c.sg.style.display = useImg ? 'none' : '';
+          if (c.ig) c.ig.style.display = useImg ? '' : 'none';
+        }
+      }
     }
     r.dirty = false;
   };
@@ -8807,7 +8851,14 @@ function GodAnotherGame({ onScore, onClose }) {
     ensureSprites();  // P7: パーティクルのスプライトも起動時に1回だけ描いておく
     gaPreloadAssets();                              // アセット: 画像の非同期プリロード(無ければ黙って無効のまま)
     if (vidRef.current) vidRef.current.muted = true;  // 一部ブラウザは muted 属性だけでは効かないため実体にも設定
-    const offAsset = gaOnAsset(() => { if (aliveRef.current) setAssetTick(t => t + 1); });
+    const offAsset = gaOnAsset(() => {
+      if (!aliveRef.current) return;
+      // 図柄画像が後から来ても次フレームで差し替わるよう、コマのキャッシュを無効化する
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < RCELLS; j++) { const c = cellRef.current[i][j]; if (c) c.h = null; }
+      }
+      setAssetTick(t => t + 1);
+    });
     // 裏に回るとRAFが止まり、回転ループ音だけが鳴り続けてしまうので明示的に落とす(復帰後はRAFが鳴らし直す)
     const onHide = () => { if (document.hidden) gaSpinLoopStop(); };
     document.addEventListener('visibilitychange', onHide);
@@ -8826,6 +8877,16 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const ls = lsRef.current;
   const totalC = godC + meioC + purpleC + y7C + sinC;
+  // アセット: 筐体パーツ(未ロードなら null = 現行のSVG/CSSがそのまま残る)
+  const bezelOn = gaAssetLoaded('bezel');
+  const bezelSty = bezelOn ? {
+    borderWidth: GA_ASSETS.bezel.width, borderStyle: 'solid', borderColor: 'transparent', borderRadius: 0,
+    borderImageSource: `url("${gaAssetSrc('bezel')}")`,
+    borderImageSlice: gaAssetSlice('bezel', GA_ASSETS.bezel.slice),
+    borderImageRepeat: 'stretch',
+  } : null;
+  const pedimentOn = gaAssetLoaded('pediment');
+  const basestripOn = gaAssetLoaded('basestrip');
 
   return (
     <div style={{
@@ -8956,15 +9017,23 @@ function GodAnotherGame({ onScore, onClose }) {
             <div style={{ position: 'relative', width: '99%', maxWidth: 432, padding: '30px 24px 16px', boxSizing: 'border-box' }}>
             {/* 筐体: 神殿フレーム(ペディメント+溝彫り柱+金の台座) */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-              <svg viewBox="0 0 420 44" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 30, display: 'block' }}>
-                <path d="M4 30 L210 2 L416 30 L416 42 L4 42 Z" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="2" />
-                <path d="M46 30 L210 9 L374 30 Z" fill="#181226" stroke="#7a5c10" strokeWidth="1.5" />
-              </svg>
-              <svg viewBox="0 0 40 40" style={{ position: 'absolute', left: '50%', top: 5, width: 20, height: 20, marginLeft: -10 }}>
-                <circle cx="20" cy="20" r="12" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="1.5" />
-                <circle cx="20" cy="20" r="5.5" fill="#2a2010" />
-                <circle cx="20" cy="20" r="2" fill="#ffd84d" />
-              </svg>
+              {/* 上帯: pediment.webp がロードできたら画像、無ければ従来のSVG破風+メダリオン */}
+              {pedimentOn ? (
+                <img src={gaAssetSrc('pediment')} alt="" aria-hidden="true"
+                  style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 'auto', display: 'block' }} />
+              ) : (
+                <React.Fragment>
+                  <svg viewBox="0 0 420 44" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 30, display: 'block' }}>
+                    <path d="M4 30 L210 2 L416 30 L416 42 L4 42 Z" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="2" />
+                    <path d="M46 30 L210 9 L374 30 Z" fill="#181226" stroke="#7a5c10" strokeWidth="1.5" />
+                  </svg>
+                  <svg viewBox="0 0 40 40" style={{ position: 'absolute', left: '50%', top: 5, width: 20, height: 20, marginLeft: -10 }}>
+                    <circle cx="20" cy="20" r="12" fill="url(#ga-fgold)" stroke="#513c08" strokeWidth="1.5" />
+                    <circle cx="20" cy="20" r="5.5" fill="#2a2010" />
+                    <circle cx="20" cy="20" r="2" fill="#ffd84d" />
+                  </svg>
+                </React.Fragment>
+              )}
               {[0, 1].map(k => (
                 <div key={k} style={{ position: 'absolute', left: k ? 'auto' : 0, right: k ? 0 : 'auto', top: 30, bottom: 14, width: 20 }}>
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#241c30,#4a3a5e 50%,#1a1424)', border: '1px solid #6b5510' }} />
@@ -8973,8 +9042,16 @@ function GodAnotherGame({ onScore, onClose }) {
                   <div style={{ position: 'absolute', left: -3, right: -3, bottom: -4, height: 8, background: 'linear-gradient(180deg,#d4a017,#7a5506)', border: '1px solid #513c08' }} />
                 </div>
               ))}
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 12, background: 'linear-gradient(180deg,#f7e08a,#b8860b 42%,#7a5506 58%,#d4a017)', border: '1px solid #513c08', borderRadius: 2 }} />
-              <div style={{ position: 'absolute', left: '9%', right: '9%', bottom: 1, height: 5, background: '#2a2010', borderRadius: 2 }} />
+              {/* 下帯: basestrip.webp がロードできたら画像、無ければ従来のCSS台座 */}
+              {basestripOn ? (
+                <img src={gaAssetSrc('basestrip')} alt="" aria-hidden="true"
+                  style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: 'auto', display: 'block' }} />
+              ) : (
+                <React.Fragment>
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 12, background: 'linear-gradient(180deg,#f7e08a,#b8860b 42%,#7a5506 58%,#d4a017)', border: '1px solid #513c08', borderRadius: 2 }} />
+                  <div style={{ position: 'absolute', left: '9%', right: '9%', bottom: 1, height: 5, background: '#2a2010', borderRadius: 2 }} />
+                </React.Fragment>
+              )}
             </div>
             {/* 枠の発光: プリブラー済みradial-gradient + opacity変調(box-shadowの毎フレーム書換えを廃止) */}
             <div ref={frameGlowRef} style={{ position: 'absolute', inset: -16, borderRadius: 34, background: ls.fg || 'none', opacity: ls.fgo || 0, pointerEvents: 'none', zIndex: 0 }} />
@@ -8983,7 +9060,8 @@ function GodAnotherGame({ onScore, onClose }) {
               border: `3px solid ${ls.border || 'rgba(255,215,0,0.18)'}`, overflow: 'hidden',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: 'inset 0 0 30px rgba(0,0,0,0.9)',
-              animation: shaking ? 'shake 0.15s linear infinite' : 'none' }}>
+              animation: shaking ? 'shake 0.15s linear infinite' : 'none',
+              ...(bezelSty || {}) }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 20, boxShadow: 'inset 0 0 30px rgba(0,0,0,0.85)', pointerEvents: 'none', zIndex: 5 }} />
               <div ref={glowRef} style={{ position: 'absolute', inset: 0, background: ls.glow || 'none', pointerEvents: 'none', zIndex: 1 }} />
               {/* P5: 回転レイ盤(conic-gradient 2枚・逆回転。GOD/amazing中のみ表示) */}
@@ -9008,8 +9086,19 @@ function GodAnotherGame({ onScore, onClose }) {
                         {[0, 1, 2, 3].map(j => (
                           <svg key={j} ref={cbRef.current.cell[i][j]} viewBox="0 0 120 130" preserveAspectRatio="xMidYMid meet"
                             style={{ position: 'absolute', left: '6%', width: '88%', height: '100%', top: (j === 3 ? -100 : j * 100) + '%' }}>
-                            <g className="gaGh"><use href="#ga-s-bell" y="-34" /><use href="#ga-s-bell" y="34" /></g>
-                            <use href="#ga-s-bell" />
+                            {/* SVG図柄(既定)。画像がロードできた図柄だけ下の画像層に切り替わる */}
+                            <g className="gaCsvg">
+                              <g className="gaGh"><use href="#ga-s-bell" y="-34" /><use href="#ga-s-bell" y="34" /></g>
+                              <use href="#ga-s-bell" />
+                            </g>
+                            {/* 画像図柄(黒背景を screen で透過扱い)。href は paintReel が入れる */}
+                            <g className="gaCimg" style={{ display: 'none' }}>
+                              <g className="gaGh">
+                                <image x="0" y="-29" width="120" height="120" preserveAspectRatio="xMidYMid meet" style={{ mixBlendMode: 'screen' }} />
+                                <image x="0" y="39" width="120" height="120" preserveAspectRatio="xMidYMid meet" style={{ mixBlendMode: 'screen' }} />
+                              </g>
+                              <image x="0" y="5" width="120" height="120" preserveAspectRatio="xMidYMid meet" style={{ mixBlendMode: 'screen' }} />
+                            </g>
                           </svg>
                         ))}
                       </div>
