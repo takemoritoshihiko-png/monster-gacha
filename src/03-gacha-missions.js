@@ -415,6 +415,8 @@ const CSS = `
 .cr-40 .chest img { width: 38px !important; height: 38px !important; border-radius: 7px !important; }
 .cr-40 .rc { padding: 3px 2px !important; border-width: 1px !important; border-radius: 7px !important; width: 100%; }
 @keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }
+/* 木・銀(★1-4)は一発開封: 回転フリップなしで即表示(2026-08-25 竹森氏指示) */
+.rc.rc-fast { animation: none; }
 /* 宝箱開封4コマ(A7 2026-08-25): 120ms×4で切り替わり、以降opacity:0のまま残る(pointer-events:noneなので操作に無影響) */
 @keyframes chestFrame4 { 0%,24%{opacity:1} 25%,100%{opacity:0} }
 .god { animation: gp 1s ease-in-out infinite; }

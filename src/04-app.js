@@ -675,6 +675,14 @@ function MonsterGacha() {
   const autoOpenRef = useRef([]);
   // まだ走っていない「コレクションへの追加」。演出タイマーを取り消す時も獲得だけは捨てずに確定させる
   const pendingRevealRef = useRef([]);
+  // レア演出の表示+自動解除。解除は「自分が出した演出がまだ表示中の時だけ」行う。
+  // (無条件のsetRareEffect(null)だと、先行演出の解除タイマーが後発のレインボー演出を数百msで消す実バグがあった 2026-08-25)
+  const rareFxSeqRef = useRef(0);
+  const showRareFx = (fx, ms) => {
+    const fxId = ++rareFxSeqRef.current;
+    setRareEffect({ ...fx, fxId });
+    autoOpenRef.current.push(setTimeout(() => setRareEffect(prev => (prev && prev.fxId === fxId) ? null : prev), ms));
+  };
   const [cueEffect, setCueEffect] = useState(null);
   // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
   // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
@@ -722,8 +730,7 @@ function MonsterGacha() {
       if (uraWins.length > 0) {
         // 当選した裏アイテムを1個ずつ順番に披露(各3.5秒)
         uraWins.forEach((w, wi) => {
-          autoOpenRef.current.push(setTimeout(() => { setRareEffect({ type: 'uraItem', uraItem: w }); sfx('reveal10'); }, wi * 3800));
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), wi * 3800 + 3500));
+          autoOpenRef.current.push(setTimeout(() => { showRareFx({ type: 'uraItem', uraItem: w }, 3500); sfx('reveal10'); }, wi * 3800));
         });
         uraDelay = uraWins.length * 3800; // chest animation starts after all ura effects clear
       }
@@ -738,15 +745,15 @@ function MonsterGacha() {
       return a.i - b.i;
     });
     // Build cumulative timing
-    // ★1-4(木箱/シルバー): 1回目に全部一括(250ms) / ★5-7(ゴールド): 2回目に全部一括(700ms)
-    // ★8+(レインボー): 金銀の開封タイミングの1.5倍の間隔(700ms×1.5=1050ms)で1個ずつ(2026-08-25 竹森氏指示)
-    const RAINBOW_INTERVAL = Math.round(700 * 1.5);
-    let cumTime = 250;
+    // ★1-4(木箱/シルバー): 即時一括(0ms・演出なしで一発開封=2026-08-25 竹森氏指示) / ★5-7(ゴールド): 700msに一括
+    // ★8+(レインボー): 2,100ms間隔で1個ずつ(旧1,050msは「短すぎる」との2026-08-25 竹森氏指示で2倍化)
+    const RAINBOW_INTERVAL = 2100;
+    let cumTime = 0;
     let oneByOneStarted = false;
     const timings = openOrder.map((o) => {
-      if (o.rank <= 4) return { ...o, time: 250 };            // 木・銀: 1回目一括
+      if (o.rank <= 4) return { ...o, time: 0 };              // 木・銀: 即時一括
       if (o.rank <= 7) { cumTime = 700; return { ...o, time: 700 }; }  // 金: 2回目一括
-      // ★8+: 1個目=1050ms、2個目以降も1050ms間隔で順に開封
+      // ★8+: 1個目=2100ms、2個目以降も2100ms間隔で順に開封
       cumTime = oneByOneStarted ? cumTime + RAINBOW_INTERVAL : RAINBOW_INTERVAL;
       oneByOneStarted = true;
       return { ...o, time: cumTime };
@@ -759,7 +766,8 @@ function MonsterGacha() {
       timeGroups[t].push(o);
     });
     // reveal(=addToCollection)が最後に走るグループを先に確定し、そこで保存トリガーを立てる
-    const getRevealDelay = (rank) => rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
+    // レインボー(★8+)は箱が開いてからアイテムが出るまでのタメも延長(2026-08-25 竹森氏指示「開く時間が短すぎる」)
+    const getRevealDelay = (rank) => rank >= 10 ? 1600 : rank === 9 ? 1300 : rank === 8 ? 1000 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 0;
     const groupEntries = Object.entries(timeGroups).map(([time, group]) => {
       const maxGroupRank = Math.max(...group.map(o => o.rank));
       return { time: Number(time), group, maxGroupRank, revealDelay: getRevealDelay(maxGroupRank) };
@@ -813,7 +821,7 @@ function MonsterGacha() {
         playNote(1100, 0.06, 'sine', 0.03, 0.03);
       }
       // Chest open sound (delayed for rank 5+)
-      const chestSoundDelay = rank >= 10 ? 600 : rank === 9 ? 420 : rank === 8 ? 300 : rank === 7 ? 180 : rank === 6 ? 100 : rank === 5 ? 50 : 0;
+      const chestSoundDelay = rank >= 10 ? 1000 : rank === 9 ? 800 : rank === 8 ? 600 : rank === 7 ? 180 : rank === 6 ? 100 : rank === 5 ? 50 : 0;
       autoOpenRef.current.push(setTimeout(() => {
         const ct = getChestType(rank);
         sfx(ct === "rainbow" ? 'chestRainbow' : ct === "gold" ? 'chestGold' : ct === "silver" ? 'chestSilver' : 'chestWood');
@@ -837,7 +845,7 @@ function MonsterGacha() {
         sfx(revealSound);
         // Rare visual effects + gorgeous reveal sounds
         if (r.rank >= 10) {
-          setRareEffect({ type: 'god', rank: r.rank, item: r }); // itemは降臨演出で当該アイテムの絵を出すため
+          showRareFx({ type: 'god', rank: r.rank, item: r }, 3500); // itemは降臨演出で当該アイテムの絵を出すため
           // 壮大なGODファンファーレ: 低音衝撃 → 8音アルペジオ → 4和音ブルーム → 天上のきらめき
           playNote(55, 0.5, 'sawtooth', 0.12);
           playSweep(100, 2500, 0.8, 'sine', 0.1);
@@ -845,9 +853,8 @@ function MonsterGacha() {
           playChord([1047, 1319, 1568, 2093], 1.2, 'sine', 0.07, 0.6);
           playChord([1319, 1568, 2093], 0.8, 'triangle', 0.04, 0.8);
           [2093, 2349, 2637, 3136].forEach((f, i) => playNote(f, 0.2, 'sine', 0.03, 1.0 + i * 0.1));
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 3500));
         } else if (r.rank === 9) {
-          setRareEffect({ type: 'mythic', rank: 9 });
+          showRareFx({ type: 'mythic', rank: 9 }, 2500);
           // 神秘的ミシカルファンファーレ: スウィープ → 6音アルペジオ → 和音ブルーム → きらめき
           playNote(100, 0.3, 'triangle', 0.08);
           playSweep(150, 1500, 0.5, 'sine', 0.09);
@@ -855,36 +862,31 @@ function MonsterGacha() {
           playChord([831, 1047, 1319], 0.7, 'sine', 0.07, 0.5);
           playChord([1047, 1319, 1568], 0.5, 'triangle', 0.04, 0.65);
           [1568, 1760, 2093].forEach((f, i) => playNote(f, 0.15, 'sine', 0.03, 0.8 + i * 0.07));
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 2500));
         } else if (r.rank === 8) {
-          setRareEffect({ type: 'legend', rank: 8 });
+          showRareFx({ type: 'legend', rank: 8 }, 1500);
           // レジェンド: メタルクリック → 5音上昇 → 輝く和音
           playNote(400, 0.08, 'square', 0.05);
           playSweep(350, 1000, 0.3, 'sine', 0.06);
           [494, 587, 698, 880, 1047].forEach((f, i) => playNote(f, 0.25, 'sine', 0.1, 0.06 + i * 0.06));
           playChord([880, 1047, 1319], 0.5, 'sine', 0.06, 0.4);
           playNote(1319, 0.3, 'triangle', 0.04, 0.5);
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 1500));
         } else if (r.rank === 7) {
-          setRareEffect({ type: 'epic', rank: 7 });
+          showRareFx({ type: 'epic', rank: 7 }, 1000);
           // エピック: スパーク → 4音上昇 → シマー和音
           playNote(350, 0.06, 'square', 0.04);
           [523, 659, 831, 1047].forEach((f, i) => playNote(f, 0.2, 'sine', 0.1, 0.04 + i * 0.06));
           playChord([831, 1047, 1319], 0.35, 'sine', 0.05, 0.3);
           playNote(1319, 0.2, 'triangle', 0.03, 0.38);
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 1000));
         } else if (r.rank === 6) {
-          setRareEffect({ type: 'ultra', rank: 6 });
+          showRareFx({ type: 'ultra', rank: 6 }, 700);
           // ウルトラ: 明るい3音チャイム + 余韻
           playSweep(400, 700, 0.1, 'sine', 0.04);
           [523, 659, 831].forEach((f, i) => playNote(f, 0.15, 'sine', 0.09, i * 0.05));
           playNote(1047, 0.2, 'sine', 0.04, 0.2);
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 700));
         } else if (r.rank === 5) {
-          setRareEffect({ type: 'ssrare', rank: 5 });
+          showRareFx({ type: 'ssrare', rank: 5 }, 400);
           // SSレア: きらめく3音
           [523, 659, 784].forEach((f, i) => playNote(f, 0.12, 'sine', 0.07, i * 0.04));
-          autoOpenRef.current.push(setTimeout(() => setRareEffect(null), 400));
         }
         // Notify family of rare pull + history for ALL ★8+ in this group
         indices.forEach(idx => {
@@ -2630,7 +2632,7 @@ function MonsterGacha() {
                           </>}
                         </div>
                       ) : (
-                        <div className={`rc ${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : gachaResults[i].rank === 7 ? 'rank7-card' : gachaResults[i].rank === 6 ? 'rank6-card' : ''}`}
+                        <div className={`rc ${gachaResults[i].rank <= 4 ? 'rc-fast ' : ''}${gachaResults[i].rank >= 10 ? 'rank10-card' : gachaResults[i].rank === 9 ? 'rank9-card' : gachaResults[i].rank === 8 ? 'rank8-card' : gachaResults[i].rank === 7 ? 'rank7-card' : gachaResults[i].rank === 6 ? 'rank6-card' : ''}`}
                           style={{ borderColor: gachaResults[i].rarity.color, cursor: 'pointer', position: 'relative' }}
                           onClick={() => setModal(gachaResults[i])}>
                           <div>{gachaResults[i].img ? renderItemIcon(gachaResults[i], gachaChests.length >= 40 ? 18 : 30) : <span style={{ fontSize: gachaChests.length >= 40 ? 16 : 26 }}>{gachaResults[i].icon}</span>}</div>
@@ -2638,15 +2640,16 @@ function MonsterGacha() {
                             style={{ fontSize: 8, fontWeight: 900, color: gachaResults[i].rarity.color, marginTop: 2, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', padding: '0 1px' }}>{gachaResults[i].name}</div>}
                           <div className={gachaResults[i].rank >= 10 ? 'rank-rainbow' : gachaResults[i].rank === 9 ? 'rank-gold' : gachaResults[i].rank === 8 ? 'rank-silver' : gachaResults[i].rank === 7 ? 'rank-epic' : gachaResults[i].rank === 6 ? 'rank-ultra' : ''}
                             style={{ fontSize: 8, color: gachaResults[i].rarity.color }}>{renderStars(gachaResults[i].rank)}</div>
-                          {/* 宝箱開封4コマ(A7 2026-08-25): カードの上に120ms間隔で4コマ重ねて開封感を出す。404はonErrorで個別に消え、下のカードがそのまま床(現行動作) */}
-                          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                          {/* 宝箱開封4コマ(A7 2026-08-25): カードの上に120ms間隔で4コマ重ねて開封感を出す。404はonErrorで個別に消え、下のカードがそのまま床(現行動作)
+                              木・銀(★1-4)は「一発で開く」指示(2026-08-25)により4コマなし=アイテム即表示 */}
+                          {gachaResults[i].rank >= 5 && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                             {[1, 2, 3, 4].map(f => (
                               <img key={f} src={`assets/gacha/chest-${ct}-f${f}.webp`} alt=""
                                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8,
                                   opacity: 0, animation: 'chestFrame4 480ms linear forwards', animationDelay: `${(f - 1) * 120}ms` }}
                                 onError={e => { e.currentTarget.style.display = 'none'; }} />
                             ))}
-                          </div>
+                          </div>}
                         </div>
                       )}
                     </div>
