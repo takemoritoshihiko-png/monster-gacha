@@ -9426,6 +9426,13 @@ function BattingGame({ onScore, onClose }) {
   const rafRef = useRef(null);
   const [phase, setPhase] = useState("ready");
   const [score, setScore] = useState(0);
+  // 予約スプライト: assets/games/bat-pitch-f1〜f3.webp(投手振りかぶり→リリース)+bat-swing-f1〜f4.webp(打者構え→スイング)+bat-stadium.webp(球場背景)
+  // 画像未配置の間は*Loadedがfalseのまま→現行の手描きprimitive人形・背景にフォールバック
+  const bImgRef = useRef({
+    pitch: [], pitchLoaded: false,
+    swing: [], swingLoaded: false,
+    stadium: null, stadiumLoaded: false,
+  });
 
   const W = 340, H = 480, TOTAL = 70;
   const PX = W / 2;
@@ -9543,6 +9550,31 @@ function BattingGame({ onScore, onClose }) {
     bgm.playLoop(SHOOTING_BGM, 140);
   };
 
+  // 初期化時1回だけプリロード(画像が無ければonerrorで握りつぶし、*Loadedはfalseのまま=フォールバック継続)
+  useEffect(() => {
+    const R = bImgRef.current;
+    const PITCH_SRC = ['assets/games/bat-pitch-f1.webp', 'assets/games/bat-pitch-f2.webp', 'assets/games/bat-pitch-f3.webp'];
+    let pLoaded = 0;
+    PITCH_SRC.forEach((src, i) => {
+      const img = new Image();
+      img.onerror = () => {};
+      img.onload = () => { R.pitch[i] = img; pLoaded++; if (pLoaded === PITCH_SRC.length) R.pitchLoaded = true; };
+      img.src = src;
+    });
+    const SWING_SRC = ['assets/games/bat-swing-f1.webp', 'assets/games/bat-swing-f2.webp', 'assets/games/bat-swing-f3.webp', 'assets/games/bat-swing-f4.webp'];
+    let sLoaded = 0;
+    SWING_SRC.forEach((src, i) => {
+      const img = new Image();
+      img.onerror = () => {};
+      img.onload = () => { R.swing[i] = img; sLoaded++; if (sLoaded === SWING_SRC.length) R.swingLoaded = true; };
+      img.src = src;
+    });
+    const stImg = new Image();
+    stImg.onerror = () => {};
+    stImg.onload = () => { R.stadium = stImg; R.stadiumLoaded = true; };
+    stImg.src = 'assets/games/bat-stadium.webp';
+  }, []);
+
   useEffect(() => {
     if (phase !== "play") return;
     const canvas = canvasRef.current;
@@ -9592,40 +9624,46 @@ function BattingGame({ onScore, onClose }) {
       partsRef.current = partsRef.current.filter(p => p.life > 0);
 
       // Draw
-      const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#0a1828'); sky.addColorStop(0.55, '#0f1e30'); sky.addColorStop(1, '#141e08');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-
-      // Stadium lights
-      [[36, 26], [W - 36, 26]].forEach(([lx, ly]) => {
-        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 80);
-        g.addColorStop(0, 'rgba(255,240,180,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      });
-
-      // Stands
-      ctx.fillStyle = '#111e30'; ctx.fillRect(0, 0, W, H * 0.18);
-      for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 20; col++) {
-          const cx = col * (W / 19), cy = 15 + row * 16;
-          const cols = ['#bb2233', '#1e44aa', '#229944', '#bb9922', '#774422'];
-          ctx.fillStyle = cols[(row * 7 + col) % cols.length]; ctx.globalAlpha = 0.6;
-          ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#e8b870'; ctx.beginPath(); ctx.arc(cx, cy - 5, 3, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-      ctx.globalAlpha = 1;
-
-      // Field
+      const BI = bImgRef.current;
       const fy = H * 0.2;
-      ctx.fillStyle = '#162808'; ctx.fillRect(0, fy, W, H - fy);
-      for (let i = 0; i < 7; i++) { ctx.fillStyle = i % 2 === 0 ? '#1a3208' : '#142606'; ctx.fillRect(0, fy + i * ((H - fy) / 7), W, (H - fy) / 7); }
-      ctx.fillStyle = '#6e4828'; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.74, W * 0.38, H * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+      if (BI.stadiumLoaded) {
+        // bat-stadium.webp 1枚で背景全域(空/照明/スタンド/フィールド/マウンド)を差し替え
+        ctx.drawImage(BI.stadium, 0, 0, W, H);
+      } else {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, '#0a1828'); sky.addColorStop(0.55, '#0f1e30'); sky.addColorStop(1, '#141e08');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
 
-      // Mound
-      const mg = ctx.createRadialGradient(PX, H * 0.32, 0, PX, H * 0.32, 24);
-      mg.addColorStop(0, '#8a6038'); mg.addColorStop(1, '#6e4828');
-      ctx.fillStyle = mg; ctx.beginPath(); ctx.ellipse(PX, H * 0.32, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+        // Stadium lights
+        [[36, 26], [W - 36, 26]].forEach(([lx, ly]) => {
+          const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 80);
+          g.addColorStop(0, 'rgba(255,240,180,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        });
+
+        // Stands
+        ctx.fillStyle = '#111e30'; ctx.fillRect(0, 0, W, H * 0.18);
+        for (let row = 0; row < 3; row++) {
+          for (let col = 0; col < 20; col++) {
+            const cx = col * (W / 19), cy = 15 + row * 16;
+            const cols = ['#bb2233', '#1e44aa', '#229944', '#bb9922', '#774422'];
+            ctx.fillStyle = cols[(row * 7 + col) % cols.length]; ctx.globalAlpha = 0.6;
+            ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#e8b870'; ctx.beginPath(); ctx.arc(cx, cy - 5, 3, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1;
+
+        // Field
+        ctx.fillStyle = '#162808'; ctx.fillRect(0, fy, W, H - fy);
+        for (let i = 0; i < 7; i++) { ctx.fillStyle = i % 2 === 0 ? '#1a3208' : '#142606'; ctx.fillRect(0, fy + i * ((H - fy) / 7), W, (H - fy) / 7); }
+        ctx.fillStyle = '#6e4828'; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.74, W * 0.38, H * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Mound
+        const mg = ctx.createRadialGradient(PX, H * 0.32, 0, PX, H * 0.32, 24);
+        mg.addColorStop(0, '#8a6038'); mg.addColorStop(1, '#6e4828');
+        ctx.fillStyle = mg; ctx.beginPath(); ctx.ellipse(PX, H * 0.32, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+      }
 
       // Foul lines
       ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
@@ -9672,18 +9710,26 @@ function BattingGame({ onScore, onClose }) {
       const winding = G.phase === 1;
       const armLift = winding ? Math.sin((1 - (G.timer / 0.42)) * Math.PI) * 0.8 : 0;
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(ppx, ppy + 32, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#163380'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(ppx - 3, ppy + 12); ctx.lineTo(ppx - 4, ppy + 30); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ppx + 3, ppy + 12); ctx.lineTo(ppx + 6, ppy + 30); ctx.stroke();
-      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(ppx - 9, ppy + 27, 10, 5); ctx.fillRect(ppx + 2, ppy + 27, 10, 5);
-      ctx.fillStyle = '#d01a28'; ctx.fillRect(ppx - 11, ppy - 16, 22, 28);
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('21', ppx, ppy + 2);
-      ctx.strokeStyle = '#e8a860'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-      const ax = ppx + 10 + Math.cos(armLift) * 5, ay = ppy - 8 - Math.sin(armLift) * 16;
-      ctx.beginPath(); ctx.moveTo(ppx + 8, ppy - 8); ctx.lineTo(ax, ay); ctx.stroke();
-      ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(ppx, ppy - 22, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c01020'; ctx.beginPath(); ctx.arc(ppx, ppy - 27, 11, Math.PI * 1.05, Math.PI * 2.1); ctx.fill();
+      if (BI.pitchLoaded) {
+        // bat-pitch-f1(構え/phase0)→f2(振りかぶり前半/phase1進行度<0.55)→f3(リリース/phase1後半・投球中)を切替
+        const windProgress = winding ? 1 - (G.timer / 0.42) : 0;
+        const ppFrame = G.phase === 0 ? 0 : G.phase === 1 ? (windProgress < 0.55 ? 1 : 2) : 2;
+        // 現行primitiveの外接ボックス(帽子上ppy-38〜靴下ppy+35, 幅約44)に合わせて配置
+        ctx.drawImage(BI.pitch[ppFrame], ppx - 22, ppy - 38, 44, 76);
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(ppx, ppy + 32, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#163380'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(ppx - 3, ppy + 12); ctx.lineTo(ppx - 4, ppy + 30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ppx + 3, ppy + 12); ctx.lineTo(ppx + 6, ppy + 30); ctx.stroke();
+        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(ppx - 9, ppy + 27, 10, 5); ctx.fillRect(ppx + 2, ppy + 27, 10, 5);
+        ctx.fillStyle = '#d01a28'; ctx.fillRect(ppx - 11, ppy - 16, 22, 28);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('21', ppx, ppy + 2);
+        ctx.strokeStyle = '#e8a860'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        const ax = ppx + 10 + Math.cos(armLift) * 5, ay = ppy - 8 - Math.sin(armLift) * 16;
+        ctx.beginPath(); ctx.moveTo(ppx + 8, ppy - 8); ctx.lineTo(ax, ay); ctx.stroke();
+        ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(ppx, ppy - 22, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c01020'; ctx.beginPath(); ctx.arc(ppx, ppy - 27, 11, Math.PI * 1.05, Math.PI * 2.1); ctx.fill();
+      }
       ctx.restore();
 
       // Ball trail + ball
@@ -9714,20 +9760,28 @@ function BattingGame({ onScore, onClose }) {
       const bx = BAT_X, by = BAT_Y;
       const ang = G.swinging ? G.swingAng : 0.15;
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(bx + 13, by + 36, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1a3680'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(bx + 5, by + 14); ctx.lineTo(bx + 2, by + 34); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(bx + 15, by + 14); ctx.lineTo(bx + 18, by + 34); ctx.stroke();
-      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(bx - 3, by + 31, 11, 6); ctx.fillRect(bx + 12, by + 31, 11, 6);
-      ctx.fillStyle = '#1e3ecc'; ctx.fillRect(bx, by - 18, 26, 32);
-      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('3', bx + 13, by - 1);
-      ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(bx + 13, by - 27, 11, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#0f1144'; ctx.beginPath(); ctx.arc(bx + 13, by - 32, 12, Math.PI * 1.1, Math.PI * 2.2); ctx.fill();
-      // Bat
-      ctx.save(); ctx.translate(bx + 24, by - 12); ctx.rotate(ang);
-      ctx.fillStyle = '#cc8030'; ctx.strokeStyle = '#553010'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(-3, 0); ctx.bezierCurveTo(-4, 16, -8, 36, -7, 52); ctx.bezierCurveTo(-5, 54, 5, 54, 7, 52); ctx.bezierCurveTo(8, 36, 4, 16, 3, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.restore();
+      if (BI.swingLoaded) {
+        // bat-swing-f1(構え)→f2〜f4(スイング進行)をswingT(0〜0.35s)の進捗で切替。バット込みの1枚絵想定
+        const swingProgress = G.swinging ? G.swingT / 0.35 : 0;
+        const batFrame = !G.swinging ? 0 : swingProgress < 0.33 ? 1 : swingProgress < 0.66 ? 2 : 3;
+        // 現行primitive+バットの外接ボックス(頭上by-44〜靴下by+40, バット先端まで含め幅56)に合わせて配置
+        ctx.drawImage(BI.swing[batFrame], bx - 14, by - 46, 56, 92);
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(bx + 13, by + 36, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1a3680'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(bx + 5, by + 14); ctx.lineTo(bx + 2, by + 34); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx + 15, by + 14); ctx.lineTo(bx + 18, by + 34); ctx.stroke();
+        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(bx - 3, by + 31, 11, 6); ctx.fillRect(bx + 12, by + 31, 11, 6);
+        ctx.fillStyle = '#1e3ecc'; ctx.fillRect(bx, by - 18, 26, 32);
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('3', bx + 13, by - 1);
+        ctx.fillStyle = '#e8a860'; ctx.beginPath(); ctx.arc(bx + 13, by - 27, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f1144'; ctx.beginPath(); ctx.arc(bx + 13, by - 32, 12, Math.PI * 1.1, Math.PI * 2.2); ctx.fill();
+        // Bat
+        ctx.save(); ctx.translate(bx + 24, by - 12); ctx.rotate(ang);
+        ctx.fillStyle = '#cc8030'; ctx.strokeStyle = '#553010'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-3, 0); ctx.bezierCurveTo(-4, 16, -8, 36, -7, 52); ctx.bezierCurveTo(-5, 54, 5, 54, 7, 52); ctx.bezierCurveTo(8, 36, 4, 16, 3, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
       if (G.hitFlash > 0) { ctx.globalAlpha = G.hitFlash * 0.45; ctx.fillStyle = G.hitCol; ctx.shadowColor = G.hitCol; ctx.shadowBlur = 24; ctx.beginPath(); ctx.ellipse(bx + 13, by - 8, 32, 26, 0, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore();
 
@@ -9828,6 +9882,15 @@ function CoinRunnerGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
   const [score, setScore] = useState(0);
   const heldRef = useRef(false);
+  // 予約スプライト: assets/games/run-hero-f1〜f4.webp(走り4コマ) + run-hero-jump.webp(ジャンプ) + 3層パララックス背景
+  // 画像未配置の間は imgRef.current.*Loaded が false のまま→現行primitive描画にフォールバック
+  const imgRef = useRef({
+    heroRun: [], heroRunLoaded: false,
+    heroJump: null, heroJumpLoaded: false,
+    bgFar: null, bgFarLoaded: false,
+    bgMid: null, bgMidLoaded: false,
+    bgNear: null, bgNearLoaded: false,
+  });
 
   const W = 340, H = 240, GY = H - 44, TOTAL = 80, START_TIME = 70;
 
@@ -9852,6 +9915,7 @@ function CoinRunnerGame({ onScore, onClose }) {
     slowTimer:0, SLOW_DUR:2.5, speed:180,
     items:[], obs:[], combo:0, mult:1, cTimer:0, C_RESET:3.5,
     got:0, maxCombo:0, iTimer:0, oTimer:2.5, bgX:0,
+    animT:0, animFrame:0, bgMidX:0, bgFarX:0,
     floats:[], floatId:0,
   });
 
@@ -9861,6 +9925,29 @@ function CoinRunnerGame({ onScore, onClose }) {
     setPhase("play"); setScore(0);
     bgm.playLoop(BGM_TAP, 160);
   };
+
+  // 初期化時1回だけプリロード(画像が無ければonerrorで握りつぶし、*Loadedはfalseのまま=フォールバック継続)
+  useEffect(() => {
+    const R = imgRef.current;
+    const HERO_RUN_SRC = ['assets/games/run-hero-f1.webp', 'assets/games/run-hero-f2.webp', 'assets/games/run-hero-f3.webp', 'assets/games/run-hero-f4.webp'];
+    let runLoadedCount = 0;
+    HERO_RUN_SRC.forEach((src, i) => {
+      const img = new Image();
+      img.onerror = () => {};
+      img.onload = () => { R.heroRun[i] = img; runLoadedCount++; if (runLoadedCount === HERO_RUN_SRC.length) R.heroRunLoaded = true; };
+      img.src = src;
+    });
+    const jumpImg = new Image();
+    jumpImg.onerror = () => {};
+    jumpImg.onload = () => { R.heroJump = jumpImg; R.heroJumpLoaded = true; };
+    jumpImg.src = 'assets/games/run-hero-jump.webp';
+    [['bgFar', 'run-bg-far.webp'], ['bgMid', 'run-bg-mid.webp'], ['bgNear', 'run-bg-near.webp']].forEach(([key, file]) => {
+      const img = new Image();
+      img.onerror = () => {};
+      img.onload = () => { R[key] = img; R[key + 'Loaded'] = true; };
+      img.src = 'assets/games/' + file;
+    });
+  }, []);
 
   useEffect(() => {
     if (phase !== "play") return;
@@ -9891,6 +9978,13 @@ function CoinRunnerGame({ onScore, onClose }) {
       if (G.py < 15) { G.py = 15; G.pvy = 0; } // ceiling cap
       if (G.py >= GY - PLAYER_H) { G.py = GY - PLAYER_H; G.pvy = 0; G.ground = true; G.jumps = 0; }
       else G.ground = false;
+
+      // Sprite anim: 走りコマ送り(接地時のみ進行)+3層パララックス背景スクロール(現行ロジック・座標には無関係)
+      if (G.ground) G.animT += dt * (G.speed / 180);
+      G.animFrame = Math.floor(G.animT * 8) % 4;
+      G.bgX -= G.speed * 0.5 * dt;
+      G.bgMidX -= G.speed * 0.25 * dt;
+      G.bgFarX -= G.speed * 0.1 * dt;
 
       if (G.invTimer > 0) G.invTimer -= dt;
       if (G.drainTimer > 0) { G.drainTimer -= dt; G.coins = Math.max(0, G.coins - G.DRAIN_RATE * dt); }
@@ -9964,7 +10058,20 @@ function CoinRunnerGame({ onScore, onClose }) {
       setScore(Math.floor(G.coins));
 
       // Draw
-      ctx.fillStyle = '#0f0c1a'; ctx.fillRect(0, 0, W, H);
+      const CRI = imgRef.current;
+      if (CRI.bgFarLoaded && CRI.bgMidLoaded && CRI.bgNearLoaded) {
+        // 3層パララックス(横シームレスタイル・スクロール速度差で奥行き表現)
+        const drawTiled = (img, offsetX) => {
+          const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+          if (!iw || !ih) return;
+          const scale = H / ih, dw = iw * scale;
+          let ox = offsetX % dw; if (ox > 0) ox -= dw;
+          for (let x = ox; x < W; x += dw) ctx.drawImage(img, x, 0, dw, H);
+        };
+        drawTiled(CRI.bgFar, G.bgFarX); drawTiled(CRI.bgMid, G.bgMidX); drawTiled(CRI.bgNear, G.bgX);
+      } else {
+        ctx.fillStyle = '#0f0c1a'; ctx.fillRect(0, 0, W, H);
+      }
       // Ground
       ctx.fillStyle = '#2a1f5a'; ctx.fillRect(0, GY, W, H - GY);
       ctx.strokeStyle = 'rgba(255,200,50,0.2)'; ctx.lineWidth = 1;
@@ -10036,24 +10143,36 @@ function CoinRunnerGame({ onScore, onClose }) {
       // Player - character on ground
       const blink = G.invTimer > 0 ? (Math.sin(G.invTimer * 24) > 0 ? 0.35 : 1) : 1;
       ctx.save(); ctx.globalAlpha = blink;
-      // Body
-      ctx.fillStyle = G.slowTimer > 0 ? '#8844cc' : G.drainTimer > 0 ? '#cc4400' : '#2255cc';
-      ctx.beginPath(); ctx.roundRect(G.px-8, G.py-12, 16, 14, [3]); ctx.fill();
-      // Head
-      ctx.fillStyle = '#f4a460';
-      ctx.beginPath(); ctx.arc(G.px, G.py-18, 8, 0, Math.PI*2); ctx.fill();
-      // Cap
-      ctx.fillStyle = '#cc1100';
-      ctx.fillRect(G.px-10, G.py-24, 20, 5);
-      ctx.beginPath(); ctx.ellipse(G.px, G.py-24, 10, 5, 0, Math.PI, Math.PI*2); ctx.fill();
-      // Eyes
-      ctx.fillStyle = '#222';
-      ctx.beginPath(); ctx.arc(G.px-3, G.py-18, 1.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(G.px+3, G.py-18, 1.5, 0, Math.PI*2); ctx.fill();
-      // Legs
-      ctx.fillStyle = '#3333aa';
-      ctx.fillRect(G.px-6, G.py, 5, 6);
-      ctx.fillRect(G.px+1, G.py, 5, 6);
+      const crJumping = !G.ground;
+      if (crJumping && CRI.heroJumpLoaded) {
+        // ジャンプ中: run-hero-jump.webp 1枚固定。足位置(py+6)を基準に30x36で配置(現行primitiveの縦幅と揃える)
+        const sw = 30, sh = 36;
+        ctx.drawImage(CRI.heroJump, G.px - sw / 2, G.py + 6 - sh, sw, sh);
+      } else if (!crJumping && CRI.heroRunLoaded) {
+        // 接地中: run-hero-f1〜f4.webp をanimFrame(0-3)で循環表示。フレームレート=8コマ/秒相当
+        const sw = 30, sh = 36;
+        ctx.drawImage(CRI.heroRun[G.animFrame], G.px - sw / 2, G.py + 6 - sh, sw, sh);
+      } else {
+        // フォールバック: 現行primitive描画(画像未配置時はジャンプ/走り区別なく常にこちら)
+        // Body
+        ctx.fillStyle = G.slowTimer > 0 ? '#8844cc' : G.drainTimer > 0 ? '#cc4400' : '#2255cc';
+        ctx.beginPath(); ctx.roundRect(G.px-8, G.py-12, 16, 14, [3]); ctx.fill();
+        // Head
+        ctx.fillStyle = '#f4a460';
+        ctx.beginPath(); ctx.arc(G.px, G.py-18, 8, 0, Math.PI*2); ctx.fill();
+        // Cap
+        ctx.fillStyle = '#cc1100';
+        ctx.fillRect(G.px-10, G.py-24, 20, 5);
+        ctx.beginPath(); ctx.ellipse(G.px, G.py-24, 10, 5, 0, Math.PI, Math.PI*2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.arc(G.px-3, G.py-18, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(G.px+3, G.py-18, 1.5, 0, Math.PI*2); ctx.fill();
+        // Legs
+        ctx.fillStyle = '#3333aa';
+        ctx.fillRect(G.px-6, G.py, 5, 6);
+        ctx.fillRect(G.px+1, G.py, 5, 6);
+      }
       ctx.restore();
 
       // Float texts
