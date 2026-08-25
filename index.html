@@ -719,6 +719,36 @@ function renderItemIcon(item, size = 40, extraStyle = {}) {
   return React.createElement('span', { style: { fontSize: size, ...extraStyle } }, item.icon);
 }
 
+// 金の錠前アイコン(未取得表示)。画像404時はonErrorで従来の🔒絵文字にフォールバック
+function renderLockIcon(size = 24) {
+  return React.createElement('span', { style: { display: 'inline-block', lineHeight: 0 } },
+    React.createElement('img', { key: 'exlock', src: 'assets/ui/ex-lock.webp', alt: '',
+      onError: e => { const n = e.currentTarget.nextSibling; if (n) n.style.display = 'inline'; e.currentTarget.style.display = 'none'; },
+      style: { width: size, height: size, objectFit: 'contain', display: 'block', mixBlendMode: 'screen' } }),
+    React.createElement('span', { key: 'exlockfb', style: { display: 'none', fontSize: size, lineHeight: 1 } }, '🔒')
+  );
+}
+
+// 金貨アイコン。画像404時はonErrorで従来の🪙絵文字にフォールバック
+function renderCoinIcon(size = 15) {
+  return React.createElement('span', { style: { display: 'inline-block', lineHeight: 0, flexShrink: 0 } },
+    React.createElement('img', { key: 'hdcoin', src: 'assets/ui/hd-coin.webp', alt: '',
+      onError: e => { const s = e.currentTarget.nextSibling; if (s) s.style.display = 'inline'; e.currentTarget.style.display = 'none'; },
+      style: { width: size, height: size, objectFit: 'contain', display: 'block', mixBlendMode: 'screen' } }),
+    React.createElement('span', { key: 'hdcoinfb', style: { display: 'none', fontSize: size - 1, lineHeight: 1 } }, '🪙')
+  );
+}
+
+// 金銀銅メダル画像(1=金/2=銀/3=銅)。画像404時はonErrorで従来の絵文字にフォールバック
+function renderMedalIcon(n, emoji, size = 14) {
+  return React.createElement('span', { style: { display: 'inline-block', lineHeight: 0 } },
+    React.createElement('img', { key: 'medal' + n, src: 'assets/ui/medal-' + n + '.webp', alt: '',
+      onError: e => { const s = e.currentTarget.nextSibling; if (s) s.style.display = 'inline'; e.currentTarget.style.display = 'none'; },
+      style: { width: size, height: size, objectFit: 'contain', display: 'block' } }),
+    React.createElement('span', { key: 'medalfb' + n, style: { display: 'none', fontSize: size - 3, lineHeight: 1 } }, emoji)
+  );
+}
+
 function renderStars(rank) {
   if (rank === 12) return <span className="rank-congrats" style={{ letterSpacing: 2 }}>CONGRATS</span>;
   if (rank === 11) return <span className="rank-diamond" style={{ letterSpacing: 2 }}>★MAX</span>;
@@ -839,45 +869,151 @@ const CSS = `
   background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
+/* ===== シェルUI: 黄金の宝物庫トーン(青銅+金彫金) ===== */
 .hdr {
   position: sticky; top: 0; z-index: 100;
   max-width: 480px; margin: 0 auto;
-  background: linear-gradient(180deg, rgba(6,6,15,0.97), rgba(6,6,15,0.85));
+  background:
+    radial-gradient(130% 200% at 50% -70%, rgba(201,168,76,0.12), transparent 62%),
+    linear-gradient(180deg, #141009 0%, #0c0906 55%, #060506 100%);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(139,92,246,0.15);
-  padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.65);
+  padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
 }
+/* 微細ノイズ(金の粉じん)。装飾のみでクリック不可 */
+.hdr::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.45;
+  background-image: radial-gradient(rgba(255,235,180,0.05) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+/* 下端の金グラデライン(帯の縁取り) */
+.hdr::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.65) 14%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.65) 86%, transparent);
+}
+.hdr > div { position: relative; z-index: 1; }
 .hdr-t {
-  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
-  background: linear-gradient(135deg, #a78bfa, #ec4899, #f59e0b);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  letter-spacing: 2px;
+  font-family: 'Cinzel', 'Orbitron', serif; font-size: 15px; font-weight: 700;
+  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 44%, #a8842f 58%, #f2e0aa 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: 2.5px; white-space: nowrap;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));
 }
+.hdr-logo { height: 22px; width: auto; display: block; mix-blend-mode: screen;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
+.hdr-slot {
+  font-family: 'Rajdhani', 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: 1.5px; color: #e6cd90; line-height: 1.35;
+  background: linear-gradient(180deg, #2b2215, #16110a);
+  border: 1px solid rgba(201,168,76,0.5);
+  border-radius: 4px; padding: 2px 7px;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 0 6px rgba(201,168,76,0.14);
+  text-shadow: 0 0 5px rgba(201,168,76,0.35);
+}
+.hdr-ib {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; flex-shrink: 0;
+  background: linear-gradient(180deg, #251d12, #120e08);
+  border: 1px solid rgba(201,168,76,0.42); border-radius: 7px;
+  color: #e6cd90; font-size: 14px; line-height: 1; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 3px rgba(0,0,0,0.6);
+  transition: all 0.2s;
+}
+.hdr-ib:hover { border-color: rgba(240,214,145,0.75); box-shadow: inset 0 1px 0 rgba(240,214,145,0.24), 0 0 9px rgba(201,168,76,0.3); }
+.hdr-ib.off { color: rgba(205,193,170,0.3); border-color: rgba(150,130,90,0.25); }
+.hdr-ib.off img { opacity: 0.45; }
+.hdr-ib img { width: 20px; height: 20px; object-fit: contain; display: block; mix-blend-mode: screen; }
 .coin {
   display: flex; align-items: center; gap: 6px;
-  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(236,72,153,0.1));
-  border: 1px solid rgba(245,158,11,0.25);
-  border-radius: 20px; padding: 4px 14px;
-  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; color: #fbbf24;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);
+  border: 1px solid rgba(201,168,76,0.48);
+  border-radius: 6px; padding: 3px 11px;
+  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 13px; color: #f2e0aa;
+  letter-spacing: 0.5px;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 7px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5);
+  text-shadow: 0 0 6px rgba(201,168,76,0.35);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;
 }
+.coin img { width: 15px; height: 15px; object-fit: contain; display: block; flex-shrink: 0; }
 .cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }
 .nav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px; z-index: 100;
-  background: rgba(6,6,15,0.97); backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(139,92,246,0.15);
-  display: flex; justify-content: space-around; padding: 6px 0 8px;
-  border-radius: 16px 16px 0 0;
+  background:
+    radial-gradient(130% 220% at 50% 150%, rgba(201,168,76,0.11), transparent 62%),
+    linear-gradient(180deg, #110d07 0%, #0a0806 58%, #060506 100%);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: none;
+  display: flex; justify-content: space-around; padding: 5px 0 7px;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -3px 16px rgba(0,0,0,0.65);
+}
+/* 上端の金グラデライン */
+.nav::before {
+  content: ''; position: absolute; left: 10px; right: 10px; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.6) 12%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.6) 88%, transparent);
 }
 .nb {
-  background: none; border: none; color: rgba(255,255,255,0.3);
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-  font-size: 10px; font-family: 'Noto Sans JP', sans-serif;
-  cursor: pointer; padding: 4px 8px; transition: all 0.3s;
+  background: none; border: none; color: rgba(190,170,120,0.5);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 11px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;
+  letter-spacing: 0.15em;
+  cursor: pointer; padding: 4px 8px 6px; transition: all 0.3s;
+  position: relative;
 }
-.nb.act { color: #a78bfa; }
+.nb.act { color: #f2e0aa; text-shadow: 0 0 8px rgba(201,168,76,0.5); }
 .nb img { pointer-events: none; }
+.nb-l { line-height: 1; padding-left: 0.15em; }
+/* アクティブタブ下部の金インジケータ */
+.nb-ind {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;
+  width: 22px; height: 2px; border-radius: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #f2e0aa, transparent);
+  box-shadow: 0 0 6px rgba(240,214,145,0.85);
+}
+/* 画面見出し(展示室/合成 共通) */
+.scrh {
+  text-align: center; margin: 0 -16px 16px; padding: 16px 16px 13px; position: relative;
+  background: linear-gradient(180deg, rgba(26,20,11,0.8), rgba(10,8,6,0.35));
+  border-bottom: 1px solid rgba(201,168,76,0.28);
+}
+.scrh-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; font-weight: 700;
+  letter-spacing: 5px; color: rgba(201,168,76,0.6); margin-bottom: 5px; }
+.scrh-t {
+  font-family: 'Cinzel', 'Orbitron', 'Noto Sans JP', sans-serif; font-size: 21px; font-weight: 700;
+  letter-spacing: 6px; line-height: 1.25;
+  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 46%, #a8842f 60%, #f2e0aa 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75));
+}
+.scrh-r { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 7px; }
+.scrh-d { width: 72px; height: 9px; flex-shrink: 0; opacity: 0.75;
+  background: url(assets/ui/divider.webp) center/contain no-repeat; }
+.scrh-d.f { transform: scaleX(-1); }
+.scrh-s { font-size: 10px; color: rgba(232,213,163,0.6); letter-spacing: 1px; white-space: nowrap; }
+/* 通知バナー(青銅+金の帯) */
+.gbanner {
+  position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 300;
+  max-width: min(92vw, 430px);
+  background: linear-gradient(180deg, #2b2215 0%, #171108 58%, #221a0f 100%);
+  border: 1px solid rgba(201,168,76,0.6);
+  border-radius: 6px; padding: 7px 20px;
+  font-size: 13px; font-weight: 700; color: #f2e0aa; letter-spacing: 0.5px;
+  text-align: center; line-height: 1.5;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 5px 20px rgba(0,0,0,0.6), 0 0 14px rgba(201,168,76,0.16);
+  animation: ri 0.3s ease-out;
+}
+.gbanner .gb-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; letter-spacing: 4px;
+  color: rgba(201,168,76,0.7); margin-bottom: 3px; }
+.gbanner .gb-sub { font-size: 10px; color: rgba(232,213,163,0.55); margin-top: 4px; font-weight: 400; }
+/* 金プレート(称号バッジ・メダル帯 共通) */
+.gplate {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(180deg, #2b2215, #17110a);
+  border: 1px solid rgba(201,168,76,0.45); border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 4px rgba(0,0,0,0.5);
+}
 .btn {
   border: none; border-radius: 14px; padding: 12px 24px;
   font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700;
@@ -1262,12 +1398,19 @@ const CSS = `
 .sb { background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.15); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
 .tf2 { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
 .tfb {
-  background: linear-gradient(180deg, rgba(50,45,65,0.7), rgba(35,30,48,0.85));
-  border: 1px solid rgba(139,92,246,0.15);
-  border-radius: 8px; padding: 3px 9px; font-size: 11px; cursor: pointer;
-  color: #aaa; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+  background: linear-gradient(180deg, #241c11, #14100a);
+  border: 1px solid rgba(201,168,76,0.32);
+  border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer;
+  color: #cbb37e; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.10);
 }
-.tfb.act { background: linear-gradient(180deg, rgba(80,60,140,0.4), rgba(60,40,110,0.5)); border-color: rgba(167,139,250,0.5); color: #c084fc; box-shadow: 0 0 8px rgba(139,92,246,0.15); }
+.tfb:hover { border-color: rgba(240,214,145,0.6); color: #f2e0aa; }
+.tfb.act {
+  background: linear-gradient(180deg, #f4e2ac 0%, #d0aa50 55%, #b8913c 100%);
+  border-color: rgba(255,240,200,0.85); color: #1a1206;
+  box-shadow: 0 0 10px rgba(201,168,76,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.tfe { font-size: 12px; margin-right: 2px; line-height: 1; }
 
 /* Modal */
 .mo {
@@ -1318,7 +1461,10 @@ body { overscroll-behavior: none; }
   .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }
   .md { font-size: 28px !important; }
   .mi { font-size: 20px !important; width: 160px !important; }
-  .nb img { width: 40px !important; height: 40px !important; }
+  .nb img { width: 34px !important; height: 34px !important; }
+  .nb { font-size: 10px !important; padding: 4px 5px 6px !important; }
+  .scrh-t { font-size: 18px !important; letter-spacing: 4px !important; }
+  .scrh-d { width: 52px !important; }
 }
 
 @media (min-width: 381px) and (max-width: 480px) {
@@ -1492,7 +1638,16 @@ function generateDailyMissions(dateStr) {
     const hb = (seed * 31 + (legacy ? b.type.charCodeAt(0) : mix(b.type))) % 100;
     return ha - hb;
   });
-  return shuffled.slice(0, 3).map((m, i) => {
+  // 毎日1枠は「全員の普段のプレイで必ず進む」汎用ミッションを確保する。
+  // (2026-08-25事故: 抽選がsynth/shooting/giftに偏り、1日中ガチャ・ミニゲームを遊んでも3本とも0のままだった)
+  const picked = shuffled.slice(0, 3);
+  const ANCHOR_TYPES = ['gacha', 'minigame'];
+  if (!picked.some(m => ANCHOR_TYPES.includes(m.type))) {
+    const anchorType = ANCHOR_TYPES[seed % ANCHOR_TYPES.length];
+    const anchor = DAILY_MISSION_POOL.find(m => m.type === anchorType);
+    if (anchor) picked[2] = anchor;
+  }
+  return picked.map((m, i) => {
     const targetIdx = (seed + i) % m.targets.length;
     const target = m.targets[targetIdx];
     const displayTarget = m.type === 'gift' ? formatYen(target) : target.toLocaleString();
@@ -2629,6 +2784,8 @@ function MonsterGacha() {
       }
     });
     setCollection(n);
+    // 一撃合成(連鎖)分もデイリーミッションに加算(2026-08-25: 単発合成しか加算されていなかった取りこぼしを修正)
+    contributeMission('synth', totalSynths);
 
     if (rareItems.length > 0) {
       // Sort by rank ascending: ★8 first → ★MAX last (climactic reveal)
@@ -2673,7 +2830,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths });
       synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, 2100)];
     }
-  }, [collection, findSynthCandidates]);
+  }, [collection, findSynthCandidates, contributeMission]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); setShowUraMuseum(false); };
 
@@ -2840,12 +2997,12 @@ function MonsterGacha() {
   }, []);
   // Daily Missions loading (simplified v3)
   useEffect(() => {
-    if (!window.fbDb) return;
     const today = missionDate;
     const missions = generateDailyMissions(today);
     setDailyMissions(missions);
     setDailyCompleted({});
     setDailyProgress({});
+    if (!window.fbDb) return;   // Firebase未接続でもミッション自体は表示する(進捗は0のまま)
 
     const ref = window.fbDb.ref('dailyMissions/' + today);
     const handler = ref.on('value', snapshot => {
@@ -3043,51 +3200,57 @@ function MonsterGacha() {
               const slotCleared = data ? TYPES.every(t => data.collection[`${t.id}_11`]) : false;
               return (
                 <div key={id} style={{
-                  background: slotCleared ? 'linear-gradient(135deg, rgba(255,215,0,0.08), rgba(139,92,246,0.08))'
-                    : data ? 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(236,72,153,0.06))' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${slotCleared ? 'rgba(255,215,0,0.3)' : data ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                  borderRadius: 16, padding: 16,
+                  background: slotCleared ? 'linear-gradient(180deg, rgba(46,36,18,0.75), rgba(20,15,9,0.85))'
+                    : data ? 'linear-gradient(180deg, rgba(32,25,15,0.72), rgba(14,11,7,0.85))' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${slotCleared ? 'rgba(255,215,0,0.4)' : data ? 'rgba(201,168,76,0.32)' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 10, padding: 14,
+                  boxShadow: data ? 'inset 0 1px 0 rgba(240,214,145,0.10), 0 2px 8px rgba(0,0,0,0.45)' : 'none',
                   display: 'flex', alignItems: 'center', gap: 14,
                   cursor: 'pointer', transition: 'all 0.2s',
                 }} onClick={() => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); mainBgmAudio.play().catch(() => {}); loadSlot(id); }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = data ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(240,214,145,0.7)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = slotCleared ? 'rgba(255,215,0,0.4)' : data ? 'rgba(201,168,76,0.32)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
                 >
-                  {/* Slot number */}
+                  {/* Slot number: 金彫金風ナンバープレート */}
                   <div style={{
-                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                    background: data ? 'linear-gradient(135deg, #a78bfa, #ec4899)' : 'rgba(255,255,255,0.06)',
+                    width: 44, height: 44, borderRadius: 6, flexShrink: 0,
+                    background: data ? 'linear-gradient(180deg, #2f2516 0%, #1a1409 55%, #251d12 100%)' : 'rgba(255,255,255,0.04)',
+                    border: data ? '1px solid rgba(201,168,76,0.55)' : '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: data ? 'inset 0 1px 0 rgba(240,214,145,0.2), inset 0 -3px 8px rgba(0,0,0,0.7), 0 0 8px rgba(201,168,76,0.12)' : 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: "'Orbitron',sans-serif", fontSize: 18, fontWeight: 900,
-                    color: data ? '#fff' : 'rgba(255,255,255,0.2)',
+                    fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900,
+                    color: data ? '#f2e0aa' : 'rgba(255,255,255,0.18)',
+                    textShadow: data ? '0 0 8px rgba(201,168,76,0.45), 0 1px 2px rgba(0,0,0,0.85)' : 'none',
                   }}>{id}</div>
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {data ? (
                       <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>
-                            💰 {formatYen(pwr)}
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 5 }}>
+                          <span style={{ fontSize: 8, letterSpacing: 2, fontWeight: 700, color: 'rgba(232,213,163,0.5)' }}>総資産</span>
+                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 700, color: '#f2e0aa',
+                            textShadow: '0 0 8px rgba(201,168,76,0.35)' }}>
+                            {formatYen(pwr)}
                           </span>
-                          {slotCleared && <span className="rank-rainbow" style={{ fontSize: 9, fontWeight: 900, fontFamily: "'Orbitron',sans-serif" }}>🏆CLEAR</span>}
+                          {slotCleared && <span className="rank-rainbow" style={{ fontSize: 9, fontWeight: 900, fontFamily: "'Orbitron',sans-serif" }}>CLEAR</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: 10, fontSize: 11, opacity: 0.5 }}>
-                          <span>📖 {colCnt}/69</span>
-                          <span>🎰 {(data.totalPulls || 0).toLocaleString()}回</span>
-                          <span>🪙 {(data.coins || 0).toLocaleString()}</span>
+                        <div style={{ display: 'flex', gap: 11, fontSize: 10, color: 'rgba(232,213,163,0.45)', letterSpacing: 0.3 }}>
+                          <span>展示 {colCnt}/69</span>
+                          <span>ガチャ {(data.totalPulls || 0).toLocaleString()}</span>
+                          <span>コイン {(data.coins || 0).toLocaleString()}</span>
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: 13, opacity: 0.3 }}>— 空きスロット —</div>
+                      <div style={{ fontSize: 13, color: 'rgba(232,213,163,0.28)', letterSpacing: 1 }}>— 空きスロット —</div>
                     )}
                   </div>
 
                   {/* Delete button for slots with data */}
                   {data && (
                     <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(id); }}
-                      style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 8px',
-                        fontSize: 10, color: '#ef4444', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", fontWeight: 700 }}>
+                      style={{ background: 'linear-gradient(180deg, #3b2018, #24100b)', border: '1px solid rgba(201,168,76,0.32)', borderRadius: 5, padding: '4px 9px',
+                        fontSize: 10, color: '#d8a08c', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", fontWeight: 700 }}>
                       削除
                     </button>
                   )}
@@ -3137,21 +3300,35 @@ function MonsterGacha() {
       <style>{CSS}</style>
       <div className="hdr">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="hdr-t">TREASURE GACHA</div>
-          <div style={{ fontSize: 9, color: 'rgba(167,139,250,0.6)', fontWeight: 700, background: 'rgba(139,92,246,0.15)', borderRadius: 6, padding: '2px 6px' }}>
-            SLOT {slotId}
-          </div>
+          {/* ロゴ: 金彫金ワードマーク(404時はonErrorで従来の文字ロゴにフォールバック) */}
+          <img src="assets/ui/hd-logo.webp" alt="TREASURE GACHA" className="hdr-logo"
+            onError={e => { const n = e.currentTarget.nextSibling; if (n) n.style.display = 'block'; e.currentTarget.style.display = 'none'; }} />
+          <div className="hdr-t" style={{ display: 'none' }}>TREASURE GACHA</div>
+          <div className="hdr-slot">SLOT {slotId}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setShowVolPanel(v => !v)}
-            style={{ background: (volMain > 0 || volGame > 0 || volSfxState > 0) ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${(volMain > 0 || volGame > 0 || volSfxState > 0) ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 8, fontSize: 12, cursor: 'pointer', padding: '3px 8px',
-              color: (volMain === 0 && volGame === 0 && volSfxState === 0) ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 700 }}>
-            {(volMain === 0 && volGame === 0 && volSfxState === 0) ? '🔇' : '🔊'}</button>
-          <button onClick={() => setShowSaveModal(true)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.6 }}
-            title="セーブ">💾</button>
-          <div className="coin">🪙 {coins.toLocaleString()}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          {(() => {
+            const muted = (volMain === 0 && volGame === 0 && volSfxState === 0);
+            return (
+              <button onClick={() => setShowVolPanel(v => !v)} title="音量" className={`hdr-ib${muted ? ' off' : ''}`}>
+                {/* 音量アイコン(404時はonErrorで従来の絵文字にフォールバック) */}
+                <img src={`assets/ui/hd-vol-${muted ? 'off' : 'on'}.webp`} alt=""
+                  onError={e => { const n = e.currentTarget.nextSibling; if (n) n.style.display = 'inline'; e.currentTarget.style.display = 'none'; }} />
+                <span style={{ display: 'none' }}>{muted ? '🔇' : '🔊'}</span>
+              </button>
+            );
+          })()}
+          <button onClick={() => setShowSaveModal(true)} className="hdr-ib" title="セーブ">
+            {/* セーブアイコン(404時はonErrorで従来の絵文字にフォールバック) */}
+            <img src="assets/ui/hd-save.webp" alt=""
+              onError={e => { const n = e.currentTarget.nextSibling; if (n) n.style.display = 'inline'; e.currentTarget.style.display = 'none'; }} />
+            <span style={{ display: 'none' }}>💾</span>
+          </button>
+          <div className="coin">
+            {/* 金貨アイコン(404時はonErrorで従来の絵文字にフォールバック) */}
+            {renderCoinIcon(15)}
+            {coins.toLocaleString()}
+          </div>
         </div>
       </div>
       {showVolPanel && (
@@ -3205,30 +3382,26 @@ function MonsterGacha() {
         </div>
       )}
       {saveMsg && (
-        <div style={{ position: 'fixed', top: 54, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
-          background: 'linear-gradient(135deg, rgba(139,92,246,0.95), rgba(167,139,250,0.95))', color: '#fff', padding: '6px 20px', borderRadius: 20,
-          fontSize: 13, fontWeight: 700, animation: 'ri 0.3s ease-out' }}>
+        <div className="gbanner">
           {saveMsg}
         </div>
       )}
       {newRecord && (
-        <div style={{ position: 'fixed', top: 54, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
-          background: 'linear-gradient(135deg, rgba(251,191,36,0.95), rgba(245,158,11,0.95))',
-          color: '#fff', padding: '8px 24px', borderRadius: 20,
-          fontSize: 14, fontWeight: 900, animation: 'ri 0.3s ease-out',
-          boxShadow: '0 4px 20px rgba(251,191,36,0.4)', textAlign: 'center' }}>
-          🎉 NEW RECORD! 🪙{newRecord.score}
+        <div className="gbanner" style={{ padding: '8px 24px' }}>
+          <div className="gb-k">NEW RECORD</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, letterSpacing: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {renderCoinIcon(15)}{newRecord.score}
+          </div>
         </div>
       )}
       {showLoginBonus && loginBonusInfo && (
-        <div style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 300,
-          background: 'linear-gradient(135deg, rgba(80,50,120,0.95), rgba(60,35,100,0.95))',
-          border: '1px solid rgba(167,139,250,0.4)', color: '#fff', padding: '12px 24px', borderRadius: 16,
-          fontSize: 13, fontWeight: 700, animation: 'ri 0.3s ease-out', textAlign: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-          <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 4 }}>DAILY LOGIN BONUS</div>
-          <div>🎁 {loginBonusInfo.streak}日連続！ +🪙{loginBonusInfo.coins.toLocaleString()}</div>
-          {loginBonusInfo.streak >= 2 && <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>コイン自動回復 +{loginBonusInfo.streak}%UP</div>}
+        <div className="gbanner" style={{ top: 60, padding: '10px 24px' }}>
+          <div className="gb-k">DAILY LOGIN BONUS</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <span>{loginBonusInfo.streak}日連続！ +</span>{renderCoinIcon(14)}<span>{loginBonusInfo.coins.toLocaleString()}</span>
+          </div>
+          {loginBonusInfo.streak >= 2 && <div className="gb-sub">コイン自動回復 +{loginBonusInfo.streak}%UP</div>}
         </div>
       )}
       <div className="cnt">
@@ -3329,8 +3502,19 @@ function MonsterGacha() {
                       color: 'rgba(232,213,163,0.8)', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
                       Rank {rn} / 25
                     </div>
-                    <div style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 8, marginTop: 3, ...rankStyle }}>
-                      {r.icon} {r.name}
+                    <div style={{ marginTop: 5, display: 'flex', justifyContent: 'center' }}>
+                      <div className="gplate" style={{ padding: '3px 13px 3px 9px', borderRadius: 14 }}>
+                        {/* 称号紋章(404時はonErrorで従来の絵文字がそのまま床) */}
+                        <span style={{ display: 'inline-block', lineHeight: 0 }}>
+                          <img src="assets/ui/hex-open.webp" alt=""
+                            style={{ width: 17, height: 17, objectFit: 'contain', display: 'block' }}
+                            onError={e => { const n = e.currentTarget.nextSibling; if (n) n.style.display = 'inline'; e.currentTarget.style.display = 'none'; }} />
+                          <span style={{ display: 'none', fontSize: 14, lineHeight: 1 }}>{r.icon}</span>
+                        </span>
+                        <span style={{ fontWeight: 900, fontSize: (rankStyle.fontSize || 12) + 8, ...rankStyle }}>
+                          {r.name}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -3338,10 +3522,18 @@ function MonsterGacha() {
 
                 {/* Total Assets - with decorative line */}
                 <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 6 }}>
-                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4))' }} />
-                    <div style={{ fontSize: 10, color: 'rgba(232,213,163,0.6)', letterSpacing: 4, fontFamily: "'Rajdhani',sans-serif" }}>TOTAL ASSETS</div>
-                    <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.4), transparent)' }} />
+                  {/* 飾り罫(divider.webp)。404時は下地の1px金罫がそのまま床 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 6 }}>
+                    <div className="scrh-d f" style={{ width: 62, backgroundColor: 'transparent',
+                      backgroundImage: 'url(assets/ui/divider.webp), linear-gradient(90deg, rgba(201,168,76,0.45), transparent)',
+                      backgroundSize: 'contain, 100% 1px', backgroundRepeat: 'no-repeat, no-repeat',
+                      backgroundPosition: 'center, center' }} />
+                    <div style={{ fontSize: 10, color: 'rgba(232,213,163,0.72)', letterSpacing: 5, fontWeight: 700,
+                      fontFamily: "'Rajdhani',sans-serif", whiteSpace: 'nowrap' }}>TOTAL ASSETS</div>
+                    <div className="scrh-d" style={{ width: 62, backgroundColor: 'transparent',
+                      backgroundImage: 'url(assets/ui/divider.webp), linear-gradient(90deg, rgba(201,168,76,0.45), transparent)',
+                      backgroundSize: 'contain, 100% 1px', backgroundRepeat: 'no-repeat, no-repeat',
+                      backgroundPosition: 'center, center' }} />
                   </div>
                   <div style={{ fontFamily: "'Orbitron','Noto Sans JP',sans-serif", fontSize: 20, fontWeight: 900,
                     background: 'linear-gradient(180deg, #e8d5a3, #c9a84c)',
@@ -3355,45 +3547,45 @@ function MonsterGacha() {
                 <div style={{ marginTop: 10, position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                   {/* All-time */}
                   <div>
-                    <div style={{ fontSize: 11, textAlign: 'center', opacity: 0.7, marginBottom: 4, fontFamily: "'Noto Sans JP',sans-serif", fontWeight: 700, letterSpacing: 2 }}>🏆 歴代ランキング</div>
-                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(80,60,30,0.5), rgba(50,35,15,0.7))',
-                      border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(201,168,76,0.15)' }}
+                    <div style={{ fontSize: 10, textAlign: 'center', marginBottom: 5, fontFamily: "'Noto Sans JP',sans-serif",
+                      fontWeight: 700, letterSpacing: 3, color: 'rgba(232,213,163,0.7)' }}>歴代ランキング</div>
+                    <div className="gplate" style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', padding: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px', borderRight: '1px solid rgba(201,168,76,0.22)' }}
                         title={crownsAll.goldGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>👑</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#e8d5a3' }}>x{crownsAll.gold}</span>
+                        {renderMedalIcon(1, '👑')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#f2e0aa' }}>x{crownsAll.gold}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(201,168,76,0.15)' }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px', borderRight: '1px solid rgba(201,168,76,0.22)' }}
                         title={crownsAll.silverGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥈</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crownsAll.silver}</span>
+                        {renderMedalIcon(2, '🥈')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#d8e2ee' }}>x{crownsAll.silver}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px' }}
                         title={crownsAll.bronzeGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥉</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crownsAll.bronze}</span>
+                        {renderMedalIcon(3, '🥉')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#dda06a' }}>x{crownsAll.bronze}</span>
                       </div>
                     </div>
                   </div>
                   {/* Weekly */}
                   <div>
-                    <div style={{ fontSize: 11, textAlign: 'center', opacity: 0.7, marginBottom: 4, fontFamily: "'Noto Sans JP',sans-serif", fontWeight: 700, letterSpacing: 2 }}>📊 週間ランキング</div>
-                    <div style={{ display: 'flex', background: 'linear-gradient(180deg, rgba(60,40,80,0.6), rgba(35,25,55,0.8))',
-                      border: '1px solid rgba(139,92,246,0.25)', borderRadius: 16, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                    <div style={{ fontSize: 10, textAlign: 'center', marginBottom: 5, fontFamily: "'Noto Sans JP',sans-serif",
+                      fontWeight: 700, letterSpacing: 3, color: 'rgba(232,213,163,0.7)' }}>週間ランキング</div>
+                    <div className="gplate" style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', padding: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px', borderRight: '1px solid rgba(201,168,76,0.22)' }}
                         title={crowns.goldGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>👑</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>x{crowns.gold}</span>
+                        {renderMedalIcon(1, '👑')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#f2e0aa' }}>x{crowns.gold}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', borderRight: '1px solid rgba(139,92,246,0.15)' }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px', borderRight: '1px solid rgba(201,168,76,0.22)' }}
                         title={crowns.silverGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥈</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#c8d6e5' }}>x{crowns.silver}</span>
+                        {renderMedalIcon(2, '🥈')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#d8e2ee' }}>x{crowns.silver}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px' }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 11px' }}
                         title={crowns.bronzeGames.join(', ')}>
-                        <span style={{ fontSize: 11 }}>🥉</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#cd7f32' }}>x{crowns.bronze}</span>
+                        {renderMedalIcon(3, '🥉')}
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'Orbitron',sans-serif", color: '#dda06a' }}>x{crowns.bronze}</span>
                       </div>
                     </div>
                   </div>
@@ -3407,9 +3599,10 @@ function MonsterGacha() {
                     const d = new Date(n.timestamp);
                     const ts = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
                     return (
-                      <div key={'r'+i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-                        fontSize: 10, opacity: 0.7, justifyContent: 'center' }}>
-                        <span style={{ opacity: 0.4, fontSize: 8 }}>{ts}</span>
+                      <div key={'r'+i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                        fontSize: 10, opacity: 0.85, justifyContent: 'center',
+                        borderBottom: i < Math.min(rareNotifs.length, 6) - 1 ? '1px solid rgba(201,168,76,0.10)' : 'none' }}>
+                        <span style={{ fontSize: 8, color: 'rgba(232,213,163,0.35)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: 0.5 }}>{ts}</span>
                         <span>{n.icon}</span>
                         <span style={{ color: '#c084fc' }}>{n.name}</span>
                         <span>が</span>
@@ -3420,15 +3613,16 @@ function MonsterGacha() {
                     );
                   })}
                   {congratsHistory.length > 0 && (
-                    <div style={{ marginTop: 6, borderTop: '1px solid rgba(255,215,0,0.15)', paddingTop: 6 }}>
+                    <div style={{ marginTop: 6, paddingTop: 7, borderTop: '1px solid rgba(201,168,76,0.28)' }}>
                       {congratsHistory.map((c, i) => {
                         const d = new Date(c.timestamp);
                         const ts = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
                         const tierColor = c.tier >= 3 ? '#00ffcc' : c.tier === 2 ? '#ff69b4' : '#ffd700';
                         return (
-                          <div key={'c'+i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-                            fontSize: 10, justifyContent: 'center' }}>
-                            <span style={{ opacity: 0.5, fontSize: 8 }}>{ts}</span>
+                          <div key={'c'+i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                            fontSize: 10, justifyContent: 'center',
+                            borderBottom: i < congratsHistory.length - 1 ? '1px solid rgba(201,168,76,0.10)' : 'none' }}>
+                            <span style={{ fontSize: 8, color: 'rgba(232,213,163,0.4)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: 0.5 }}>{ts}</span>
                             <span>{c.icon}</span>
                             <span style={{ color: '#c084fc', fontWeight: 700 }}>{c.name}</span>
                             <span>が</span>
@@ -3474,7 +3668,7 @@ function MonsterGacha() {
               <div style={{ margin: '10px 0', position: 'relative', zIndex: 1 }}>
                 <div style={{ fontSize: 9, textAlign: 'center', opacity: 0.4, marginBottom: 2,
                   fontFamily: "'Rajdhani',sans-serif", letterSpacing: 3 }}>DAILY MISSION</div>
-                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>全達成で 🪙2,000 ／ 1人上限: 目標の1/2</div>
+                <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.3, marginBottom: 5 }}>全達成で 🪙2,000 ／ みんなの合計で達成</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {dailyMissions.map(m => {
                     const prog = dailyProgress[m.id] || { total: 0, contributions: {}, target: m.target };
@@ -4280,17 +4474,20 @@ function MonsterGacha() {
       {/* NAV */}
       <div className="nav">
         {[
-          { id: "home", img: "nav-home.webp" },
-          { id: "gacha", img: "nav-gacha.webp" },
-          { id: "minigame", img: "nav-game.webp" },
-          { id: "collection", img: "nav-collection.webp" },
-          { id: "synth", img: "nav-synth.webp" },
+          { id: "home", img: "nav-home.webp", label: "ホーム" },
+          { id: "gacha", img: "nav-gacha.webp", label: "ガチャ" },
+          { id: "minigame", img: "nav-game.webp", label: "ゲーム" },
+          { id: "collection", img: "nav-collection.webp", label: "展示室" },
+          { id: "synth", img: "nav-synth.webp", label: "合成" },
         ].map(n => (
-          <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}
-            style={{ padding: '2px 4px' }}>
-            <img src={n.img} alt={n.id} style={{ width: 48, height: 48, objectFit: 'contain',
-              filter: screen === n.id ? 'brightness(1.2) drop-shadow(0 0 4px rgba(167,139,250,0.5))' : 'brightness(0.7)',
+          <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}>
+            <img src={n.img} alt="" style={{ width: 42, height: 42, objectFit: 'contain',
+              filter: screen === n.id
+                ? 'brightness(1.15) drop-shadow(0 0 5px rgba(240,214,145,0.75)) drop-shadow(0 0 12px rgba(201,168,76,0.35))'
+                : 'brightness(0.62) saturate(0.85)',
               transition: 'filter 0.3s' }} />
+            <span className="nb-l">{n.label}</span>
+            {screen === n.id && <span className="nb-ind" />}
           </button>
         ))}
       </div>
@@ -11826,16 +12023,15 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
   return (
     <div>
       {/* Exhibition Hall Header */}
-      <div style={{ textAlign: 'center', marginBottom: 16, padding: '16px 0 12px', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: '5%', right: '5%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.3), transparent)' }} />
-        <div style={{ fontSize: 8, letterSpacing: 3, opacity: 0.3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 4 }}>TREASURE EXHIBITION</div>
-        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 3, fontFamily: "'Orbitron',sans-serif" }}>
-          <img src="nav-collection.png" alt="展示室" style={{ width: 28, height: 28, objectFit: 'contain', verticalAlign: 'middle' }} /> 展示室
+      {/* 見出し: ミニゲーム帯と同形式(金タイポ+飾り罫)。divider.webp 404時は罫が消えるだけ */}
+      <div className="scrh">
+        <div className="scrh-k">TREASURE EXHIBITION</div>
+        <div className="scrh-t">展示室</div>
+        <div className="scrh-r">
+          <div className="scrh-d f" />
+          <div className="scrh-s">{ownCount}<span style={{ opacity: 0.6 }}> / 69 COLLECTED</span></div>
+          <div className="scrh-d" />
         </div>
-        <div style={{ fontSize: 11, opacity: 0.4, marginTop: 4 }}>
-          {ownCount}<span style={{ opacity: 0.5 }}>/69 collected</span>
-        </div>
-        <div style={{ position: 'absolute', bottom: 0, left: '5%', right: '5%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,180,140,0.3), transparent)' }} />
       </div>
       {requestMode && (
         <div style={{ margin: '0 0 14px', padding: '10px 16px', borderRadius: 12,
@@ -11850,14 +12046,23 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
             color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>キャンセル</button>
         </div>
       )}
+      {/* アセット: 9スライスの青銅パネル(panel.webp)。border-image未ロード時は下のborderColorがそのまま床 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(50,40,80,0.5), rgba(35,28,55,0.6))', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 9, opacity: 0.4 }}>総資産</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#c084fc' }}>{totalPwr.toLocaleString()}</div>
+        <div style={{ flex: 1, textAlign: 'center', padding: '6px 10px', borderRadius: 6,
+          background: 'linear-gradient(180deg, rgba(28,21,12,0.75), rgba(13,10,7,0.85))',
+          border: '2px solid rgba(201,168,76,0.28)',
+          borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch', borderWidth: 9, borderStyle: 'solid' }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, color: 'rgba(232,213,163,0.55)', fontWeight: 700 }}>総資産</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#f2e0aa',
+            textShadow: '0 0 8px rgba(201,168,76,0.4), 0 1px 2px rgba(0,0,0,0.8)' }}>{totalPwr.toLocaleString()}</div>
         </div>
-        <div style={{ flex: 1, background: 'linear-gradient(180deg, rgba(60,50,30,0.5), rgba(40,35,20,0.6))', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 9, opacity: 0.4 }}>総保有数</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#fbbf24' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
+        <div style={{ flex: 1, textAlign: 'center', padding: '6px 10px', borderRadius: 6,
+          background: 'linear-gradient(180deg, rgba(28,21,12,0.75), rgba(13,10,7,0.85))',
+          border: '2px solid rgba(201,168,76,0.28)',
+          borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch', borderWidth: 9, borderStyle: 'solid' }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, color: 'rgba(232,213,163,0.55)', fontWeight: 700 }}>総保有数</div>
+          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#f2e0aa',
+            textShadow: '0 0 8px rgba(201,168,76,0.4), 0 1px 2px rgba(0,0,0,0.8)' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
         </div>
       </div>
       {/* ★12 Congratulations - 3 treasure display cases */}
@@ -11918,7 +12123,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                       filter: owned ? `drop-shadow(0 0 12px ${ct.tierColor}) drop-shadow(0 0 24px ${ct.tierColor}80)` : 'none',
                       animation: owned ? `heroIconFloat ${2.5 - ct.tier * 0.2}s ease-in-out infinite` : 'none',
                     }}>
-                      {owned ? ct.icon : '🔒'}
+                      {owned ? ct.icon : renderLockIcon(28)}
                     </div>
                   </div>
                   {/* Info */}
@@ -12010,7 +12215,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                       {owned ? (
                         renderItemIcon({ ...monster, rank: 11 }, 40)
                       ) : (
-                        <span style={{ fontSize: 24 }}>🔒</span>
+                        renderLockIcon(24)
                       )}
                     </div>
                     {owned && count > 1 && <div style={{ position: 'absolute', top: 4, right: 6,
@@ -12072,7 +12277,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     <div style={{ fontSize: owned ? 32 : 22, opacity: owned ? 1 : 0.15,
                       filter: owned ? `drop-shadow(0 0 6px ${RARITIES[9].color})` : 'none',
                       animation: owned ? `heroIconFloat ${2.5 + i * 0.2}s ease-in-out infinite` : 'none' }}>
-                      {owned ? renderItemIcon({ ...monster, rank: 10 }, 32) : '🔒'}
+                      {owned ? renderItemIcon({ ...monster, rank: 10 }, 32) : renderLockIcon(22)}
                     </div>
                     {owned && count > 1 && <div style={{ fontSize: 7, color: '#fbbf24', fontWeight: 900 }}>×{count}</div>}
                     <div className={owned ? 'rank-rainbow' : ''} style={{ fontSize: 7, fontWeight: 900, color: owned ? undefined : 'rgba(255,255,255,0.12)' }}>
@@ -12109,7 +12314,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     <div style={{ fontSize: owned ? 32 : 22, opacity: owned ? 1 : 0.15,
                       filter: owned ? `drop-shadow(0 0 6px ${RARITIES[8].color})` : 'none',
                       animation: owned ? `heroIconFloat ${2.5 + i * 0.2}s ease-in-out infinite` : 'none' }}>
-                      {owned ? renderItemIcon({ ...monster, rank: 9 }, 32) : '🔒'}
+                      {owned ? renderItemIcon({ ...monster, rank: 9 }, 32) : renderLockIcon(22)}
                     </div>
                     {owned && count > 1 && <div style={{ fontSize: 7, color: '#fbbf24', fontWeight: 900 }}>×{count}</div>}
                     <div className={owned ? 'rank-gold' : ''} style={{ fontSize: 7, fontWeight: 900, color: owned ? undefined : 'rgba(255,255,255,0.12)' }}>
@@ -12163,7 +12368,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                       }}>
                         <div style={{ fontSize: owned ? 28 : 20, opacity: owned ? 1 : 0.12,
                           filter: owned ? `drop-shadow(0 0 4px ${r.color}80)` : 'none' }}>
-                          {owned ? renderItemIcon({ ...monster, rank: r.rank }, 28) : '🔒'}
+                          {owned ? renderItemIcon({ ...monster, rank: r.rank }, 28) : renderLockIcon(20)}
                         </div>
                         {owned && count > 1 && <div style={{ fontSize: 7, color: '#fbbf24', fontWeight: 900 }}>×{count}</div>}
                         <div className={owned ? rkCls : ''} style={{ fontSize: 7, fontWeight: 700, color: owned ? (rkCls ? undefined : r.color) : 'rgba(255,255,255,0.1)' }}>
@@ -12330,11 +12535,16 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
   return (
     <div>
       {/* Header with gradient */}
-      <div style={{ margin: '0 -16px', padding: '20px 16px 16px',
-        background: 'linear-gradient(160deg, rgba(60,40,100,0.3) 0%, rgba(40,25,70,0.2) 100%)',
-        borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}><img src="nav-synth.png" alt="合成" style={{ width: 26, height: 26, objectFit: 'contain' }} /> 合成</div>
-        <div style={{ fontSize: 11, opacity: 0.4 }}>
+      {/* 見出し: 展示室と同形式(金タイポ+飾り罫)。divider.webp 404時は罫が消えるだけ */}
+      <div className="scrh">
+        <div className="scrh-k">TREASURE SYNTHESIS</div>
+        <div className="scrh-t">合成</div>
+        <div className="scrh-r">
+          <div className="scrh-d f" />
+          <div className="scrh-s" style={{ letterSpacing: 0, opacity: 0.7 }}>✦</div>
+          <div className="scrh-d" />
+        </div>
+        <div style={{ fontSize: 10, lineHeight: 2, color: '#9a8f7a', marginTop: 8, letterSpacing: 0.3 }}>
           同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム<br/>※各アイテム1個はコレクション用に保持
         </div>
       </div>
@@ -12663,7 +12873,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
         <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
         {TYPES.map(t => (
           <button key={t.id} className={`tfb ${filter === t.id ? 'act' : ''}`} onClick={() => setFilter(t.id)}>
-            {t.emoji}{t.name}
+            <span className="tfe">{t.emoji}</span>{t.name}
           </button>
         ))}
       </div>
