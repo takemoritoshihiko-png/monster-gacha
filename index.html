@@ -8384,16 +8384,17 @@ function GodAnotherGame({ onScore, onClose }) {
   const RU = 32768;
   const FLAGS = [
     ['sin', 1],          // レアSIN 1/32768
+    ['amazing', 1],      // アメイジング・グレイス 1/32768(2026-08-25 独立フラグ化・GOD演出+GODの4倍)
     ['cgod', 1],         // クラッシュ→GOD 1/32768
     ['cmeio', 1],        // クラッシュ→冥王 1/32768
     ['cpurple', 1],      // クラッシュ→紫7 1/32768
-    ['god', 8],          // GOD揃い 8/32768 = 1/4096
+    ['god', 4],          // GOD揃い 4/32768 = 1/8192(2026-08-25 1/2調整)
     ['meio', 3],         // 冥王揃い 3/32768 = 1/10922.7
-    ['purple', 10],      // 紫7揃い 10/32768 = 1/3276.8(2026-08-24 1/4調整・配点据え置き)
-    ['y7', 70],          // 中段黄7 70/32768 = 1/468.1(2026-08-24 1/4調整・配点据え置き)
-    ['gase', 109],       // ガセ前兆 109/32768 = 1/300.6(2026-08-24 従来の1/3に減)
+    ['purple', 5],       // 紫7揃い 5/32768 = 1/6553.6(2026-08-25 1/2調整)
+    ['y7', 70],          // 中段黄7 70/32768 = 1/468.1
+    // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
-  const BASE = { sin: 20000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
+  const BASE = { sin: 20000, amazing: 31108, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
 
   const SYMS = {
     y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
@@ -8441,6 +8442,7 @@ function GodAnotherGame({ onScore, onClose }) {
   const HTYPE = {
     god: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.2)', bd: 'rgba(255,215,0,0.35)' },
     cgod: { t: '神', c: '#ffd700', bg: 'rgba(255,215,0,0.28)', bd: 'rgba(255,255,255,0.55)' },
+    amazing: { t: 'A', c: '#ffe98a', bg: 'rgba(255,233,138,0.28)', bd: 'rgba(255,255,255,0.6)' },
     meio: { t: '冥', c: '#8fd8ff', bg: 'rgba(143,216,255,0.16)', bd: 'rgba(143,216,255,0.3)' },
     cmeio: { t: '冥', c: '#8fd8ff', bg: 'rgba(143,216,255,0.24)', bd: 'rgba(255,255,255,0.55)' },
     purple: { t: '紫', c: '#c48bff', bg: 'rgba(196,139,255,0.15)', bd: 'rgba(196,139,255,0.28)' },
@@ -8978,8 +8980,8 @@ function GodAnotherGame({ onScore, onClose }) {
     jugRenRef.current = newJugRen; setJugRen(newJugRen);
     const baseMult = 1 + (newJugRen - 1) * 0.1;
     const is1G = hitAt === 1;
-    // ハマリプレミア: 1000超ハマりからの当たりは倍率アップ(1100で×1.2, 1200で×1.4, …+0.2/100G・上限なし)
-    const hamari = hitAt >= 1100 ? 1 + 0.2 * Math.floor((hitAt - 1000) / 100) : 1;
+    // ハマリプレミア: 900以上ハマりからの当たりは倍率アップ(900で×1.2, 1000で×1.4, 1100で×1.6, …+0.2/100G・上限なし)
+    const hamari = hitAt >= 900 ? 1 + 0.2 * Math.floor((hitAt - 800) / 100) : 1;
     const mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
     setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
     spinCountRef.current = 0; setSpinCount(0);
@@ -9216,23 +9218,18 @@ function GodAnotherGame({ onScore, onClose }) {
     let acc = 0, flag = null;
     for (const f of FLAGS) { acc += f[1]; if (u < acc) { flag = f[0]; break; } }
     // P6: GOD/クラッシュはレバーONフリーズ(タップ音もバイブも出さない=完全無音・無反応)
-    const frz = (flag === 'god' || IS_CRASH[flag]) ? FRZ : 0;
+    const frz = (flag === 'god' || flag === 'amazing' || IS_CRASH[flag]) ? FRZ : 0;
     if (!frz) { sndTap(); vib(8); }
     if (!flag) { setReels(rnd3()); return; }
-    if (flag === 'gase') { doGase(); return; }
     if (flag === 'y7') { doY7(Math.random() < 0.75); return; }
     if (flag === 'sin') { doSin(Math.random() < 0.5); return; }
-    // GOD成立: アメイジング・グレイス判定(100G以内 かつ 2回目以降)
-    let amazing = false;
-    if (flag === 'god' || flag === 'cgod') {
-      godCountRef.current++;
-      if (godCountRef.current >= 2 && godGapRef.current <= 100) amazing = true;
-      godGapRef.current = 0;
-    }
-    if (flag === 'god') { startEffect(); seqGod(frz, 'god', amazing, null); const mext = amazing ? 8200 : 0; unlockAt(5000 + frz + mext); return; }   // アメイジング=AG音楽12.1秒+動画10秒を両方収める延長
+    // アメイジング・グレイスは独立フラグ(1/32768)。旧「GOD100G以内連チャン」条件は2026-08-25廃止
+    if (flag === 'god' || flag === 'cgod') { godCountRef.current++; godGapRef.current = 0; }
+    if (flag === 'amazing') { startEffect(); seqGod(frz, 'amazing', true, null); unlockAt(5000 + frz + 8200); return; }   // アメイジング=AG音楽12.1秒+動画10秒を両方収める延長
+    if (flag === 'god') { startEffect(); seqGod(frz, 'god', false, null); unlockAt(5000 + frz); return; }
     if (flag === 'meio') { startEffect(); seqMeio(0, 'meio', null); unlockAt(4500 + MEIO_PRE); return; }
     if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
-    doCrash(flag, amazing);
+    doCrash(flag, false);
   };
 
   const startGame = () => {
@@ -9363,7 +9360,7 @@ function GodAnotherGame({ onScore, onClose }) {
             <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
           )}
           <p style={{ fontSize: 11, opacity: 0.6, margin: '12px 0', lineHeight: 1.9, color: '#a89660' }}>
-            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>1100超の大ハマリはハマリプレミアで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
+            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>900超の大ハマリはハマリプレミアで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
           </p>
           <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #8a6a00, #d4a017)' }}>START</button>
         </div>
