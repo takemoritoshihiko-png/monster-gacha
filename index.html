@@ -3519,8 +3519,8 @@ function MonsterGacha() {
                         width: 44, height: 52,
                         clipPath: 'polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%)',
                         background: owned
-                          ? `linear-gradient(160deg, ${type.color}dd, ${type.color}66, ${type.color}bb)`
-                          : 'linear-gradient(160deg, rgba(80,70,100,0.4), rgba(50,40,70,0.3), rgba(80,70,100,0.4))',
+                          ? `url(assets/ui/hex-open.webp) center/cover no-repeat, linear-gradient(160deg, ${type.color}dd, ${type.color}66, ${type.color}bb)`
+                          : 'url(assets/ui/hex-locked.webp) center/cover no-repeat, linear-gradient(160deg, rgba(80,70,100,0.4), rgba(50,40,70,0.3), rgba(80,70,100,0.4))',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'all 0.3s', position: 'relative',
                         filter: owned ? `drop-shadow(0 0 8px ${type.color}60)` : 'none',
