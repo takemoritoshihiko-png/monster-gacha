@@ -8609,7 +8609,13 @@ function GodAnotherGame({ onScore, onClose }) {
     try { v.pause(); } catch (e) {}
   };
   const vidSt = (k) => vidStRef.current[k] || (vidStRef.current[k] = { armed: false, ready: false, failed: false });
-  const mvReady = (k) => { const st = vidStRef.current[k || 'movie']; return !!(st && st.ready && !st.failed); };
+  // 再生可否はvideo要素のreadyStateを正とする(合成イベント頼みのフラグはsrc切替時に取りこぼす実績あり・2026-08-25)
+  const mvReady = (k) => {
+    const key = k || 'movie', v = vidRef.current;
+    if (!v || vidKeyRef.current !== key) return false;
+    const st = vidSt(key);
+    return v.readyState >= 3 || (st.ready && !st.failed);
+  };
   const armMovie = (key) => {
     const k = key || 'movie';
     const st = vidSt(k), v = vidRef.current;
@@ -8627,15 +8633,19 @@ function GodAnotherGame({ onScore, onClose }) {
   };
   const playMovie = (key) => {
     const k = key || 'movie';
-    if (vidKeyRef.current !== k) return;   // 別ソースがセット中なら再生しない(取り違え防止)
-    const st = vidSt(k), v = vidRef.current;
-    if (!v || !st.ready || st.failed) return;
-    try {
-      v.style.display = 'block';
-      v.currentTime = 0;
-      const p = v.play();
-      if (p && p.catch) p.catch(() => hideMovie());   // 自動再生拒否は無視(現行演出が床)
-    } catch (e) { hideMovie(); }
+    // 未ready・play()拒否とも1回だけ再試行(初回再生の取りこぼし対策・2026-08-25)。それでも駄目なら現行演出が床
+    const attempt = (retry) => {
+      const v = vidRef.current;
+      if (!v || vidKeyRef.current !== k) return;   // 別ソースがセット中なら再生しない(取り違え防止)
+      if (!mvReady(k)) { if (retry) T(() => attempt(false), 700); return; }
+      try {
+        v.style.display = 'block';
+        v.currentTime = 0;
+        const p = v.play();
+        if (p && p.catch) p.catch(() => { if (retry) T(() => attempt(false), 350); else hideMovie(); });
+      } catch (e) { hideMovie(); }
+    };
+    attempt(true);
   };
   // --- リール: 図柄の並び(帯)は idx から決まる固定バンド。停止コマ(stopIdx)だけ狙った図柄に差し替える ---
   const symAt = (i, idx, r, pool) => {
@@ -9239,7 +9249,7 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => { setBigMsgColor('#d9a6ff'); setBigMsg('VIOLET TEMPEST'); }, F + 7800);
     T(() => {
       award('violet', '⚡ 紫7プレミア', '#c48bff', () => setPurpleC(v => v + 1));
-      unlockAt(1000 + (mvReady('movieViolet') ? 7000 : 0));   // ムービー再生中(8秒級)はその終端まで覆う
+      unlockAt(1000 + (mvReady('movieViolet') ? 7800 : 0));   // ムービー再生中(10秒級)はその終端まで覆う
     }, F + 8400);
   };
 
