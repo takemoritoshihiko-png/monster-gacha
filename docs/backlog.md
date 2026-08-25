@@ -95,4 +95,4 @@
 48. 順位メダル`assets/ui/medal-1〜3.webp`が生成完了(実ファイル確認)。項目44の「画像は未生成」は解消
 49. 景品カード画像4種`assets/ui/spend-gift.webp`/`spend-meal.webp`/`spend-furniture.webp`/`spend-travel.webp`が生成完了(実ファイル確認・使用箇所index.html:11576-11579)。項目44の景品カード分も解消
 50. 上記time-of-check後(14:49時点で再確認・変化なし)も**依然未生成**: コインランナー`run-hero-*.webp`、バッティング`bat-*.webp`、コインタワー`tower-block*.webp`、ジュエルキャッチ`gem-lane.webp`/`gem-line.webp`、チェインバースト`cb-gem*.webp`、CONGRATS`congrats-tier2.mp4`/`tier3.mp4`、ピンボール`pin-board.webp`
-51. **要注意(裁定不要・事実確認のみ)**: `assets/games/`配下と`assets/ui/medal-*.webp`・`spend-*.webp`は`git status`で**untracked(未git add)**。`assets/items`(60)/`assets/gacha`(19)/`assets/ui`の既存分/`assets/god-another`(20)はgit管理下だが、上記は生成AIが直接ローカルに書き出したのみでコミット未実施。本番がgit push連動の場合、これらの画像はcommitしない限り本番に反映されない(見え方の裁定・commit実行は本タスクのスコープ外=docs/backlog.mdのみのため未実施)
+51. 【解消2026-08-25】上記untracked分はコミットe8d2065で全て収録済み。同日、竹森氏指示により未push23コミット(78d675b〜e8d2065)を本番へpush完了。push前検証: ①index.html参照アセット174件の実在チェック(欠落は保留リスト#50の意図的未生成分のみ・全て404フォールバック設計) ②ローカル実画面でトップ/ゲーム選択/ガチャ/早撃ちガンマン(qd-scene表示)/ピンボール(pin-board盤面表示)を確認・コンソールエラーゼロ(ニックネーム未入力)
