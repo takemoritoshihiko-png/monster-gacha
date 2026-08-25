@@ -32,8 +32,11 @@ index.html (30行。参照1行以外はFirebase初期化とフォント読込の
 - メインBGM再生系: `mainBgmAudio`(`bgm-main.mp3`)、`mainBgmControl`、`bgmRealVol`
 - 効果音プリセット `BGM_TAP` / `BGM_CALC`、ディスパッチャ `sfx(name)`
 
-### 02-data.js(375行) — ゲームデータ定数 + 共通ヘルパ
-- マスタデータ: `TYPES` / `RARITIES` / `MONSTERS`(★1〜MAXの図鑑データ) / `CONGRATS_TIERS` / `SELL_VALUES` / `POWER_VALUES`
+### 02-data.js — ゲームデータ定数 + 共通ヘルパ
+- マスタデータ: `TYPES`(7種。第7種族「神域」はTier2解放限定) / `RARITIES` / `MONSTERS`(★1〜MAXの図鑑データ) / `CONGRATS_TIERS` / `SELL_VALUES` / `POWER_VALUES`
+- **神域解放ゲート**: `SHRINE_ID` / `BASE_TYPES`(従来6種=★12判定・裏66種・展示69種の不変分母) / `shrineOn(coll)`(cg2_12所持判定) / `typesFor(coll)` / `rollMaxType(coll)`。抽選・展示のTYPES反復はtypesForを、Tier判定・裏・69分母はBASE_TYPESを使う
+- セット効果: `SET_BONUS_EFFECTS`(7種) / `computeSetBonuses` / `gachaCostFor`(ガチャ費用の唯一の算出口・gem/shrine割引が加算) / スコアキー世代交代 `SCORE_KEY_MAP` / `scoreKeyOf`
+- プリズム進化: `PRISM_SUFFIX`('_11k') / `computePrismCandidates` / `entryPower` / `maxEffCount`
 - 表示ヘルパ: `formatYen` / `getChestType` / `renderItemIcon` / `renderLockIcon` / `renderCoinIcon` / `renderMedalIcon` / `renderStars` / `itemIconGlow` / `handleItemImgError`
 - 合成ロジック: `getSynthReq` / `computeSynthCandidates` / `runSynthCascade`
 - **ガチャ抽選の本体はここ**: `rollRarity` / `getCrownLevel` / `rollMonster`、裏図鑑 `URA_ITEMS` / `URA_PROBABILITY` / `rollUraItem`

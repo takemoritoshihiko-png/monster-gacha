@@ -318,7 +318,7 @@ function MonsterGacha() {
           return sum + entryPower(k, typeof cnt === 'number' ? cnt : 0);
         }, 0) + URA_ITEMS.filter(u => (s.uraObtained || []).includes(u.id)).reduce((sum, u) => sum + u.value, 0);
         const cTier = (() => {
-          const mc = TYPES.map(t => maxEffCount(compressed, t.id));
+          const mc = BASE_TYPES.map(t => maxEffCount(compressed, t.id));   // Tier判定は従来6種のみ(minMaxCountと同一規則)
           const mn = Math.min(...mc);
           const uraComplete = (s.uraObtained || []).length >= URA_ITEMS.length;
           return uraComplete ? 3 : mn >= 3 ? 2 : mn >= 1 ? 1 : 0;
@@ -562,10 +562,12 @@ function MonsterGacha() {
   // ★MAX ownership tracking - 3 tiers
   // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
   // 実効数 = _11.count + 3 × _11k.count(煌に進化してもTier判定・展示の所持が落ちない)
-  const maxCounts = useMemo(() => TYPES.map(t => maxEffCount(collection, t.id)), [collection]);
+  // 表示用(ホームのMAX TREASURE列など)。★12 Tier判定には使わない(下のminMaxCountはBASE_TYPES固定)
+  const maxCounts = useMemo(() => typesFor(collection).map(t => maxEffCount(collection, t.id)), [collection]);
   const hasAnyMax = maxCounts.some(c => c > 0);
   const maxTypesOwned = maxCounts.filter(c => c > 0).length;
-  const minMaxCount = Math.min(...maxCounts);
+  // ★12 Congratulations の Tier判定は従来6種のみで行う(神域を算入しない=既存プレイヤーのTierが落ちない)
+  const minMaxCount = Math.min(...BASE_TYPES.map(t => maxEffCount(collection, t.id)));
   const uraComplete = uraObtained.length >= URA_ITEMS.length;
   const congratsTier = uraComplete ? 3 : minMaxCount >= 3 ? 2 : minMaxCount >= 1 ? 1 : 0;
   const isComplete = congratsTier >= 1;
@@ -910,7 +912,8 @@ function MonsterGacha() {
     setCoins(c => c - cost);
     setTotalPulls(t => t + n);
     contributeMission('gacha', n);
-    const res = Array.from({ length: n }, () => rollMonster(crownBonus));
+    // 神域の解放判定に現在のcollectionが要る。pullの依存配列にcollectionが無いためrefで渡す(常に最新)
+    const res = Array.from({ length: n }, () => rollMonster(crownBonus, collectionRef.current));
     const maxRank = Math.max(...res.map(r => r.rank));
 
     // Cue effect (foreshadowing) - 8 patterns, 1.5x probability
@@ -1132,7 +1135,7 @@ function MonsterGacha() {
             rem -= take;
           }
         }
-        const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+        const rt = rollMaxType(n);
         const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
         const nk = `${rt.id}_11`;
         if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
@@ -1187,7 +1190,7 @@ function MonsterGacha() {
       if (n[oldKey] && n[oldKey].count > 1) n[oldKey] = { ...n[oldKey], count: n[oldKey].count - 1 };
       else if (n[oldKey]) delete n[oldKey];
       // Roll new random ★MAX
-      const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+      const rt = rollMaxType(n);
       const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
       const nk = `${rt.id}_11`;
       if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
@@ -1637,7 +1640,7 @@ function MonsterGacha() {
               const data = slotPreviews[id - 1];
               const pwr = data ? calcPower(data.collection) + URA_ITEMS.filter(u => (data.uraObtained || []).includes(u.id)).reduce((s, u) => s + u.value, 0) : 0;
               const colCnt = data ? Object.keys(data.collection || {}).length : 0;
-              const slotCleared = data ? TYPES.every(t => maxEffCount(data.collection || {}, t.id) > 0) : false;
+              const slotCleared = data ? BASE_TYPES.every(t => maxEffCount(data.collection || {}, t.id) > 0) : false;
               return (
                 <div key={id} style={{
                   background: slotCleared ? 'linear-gradient(180deg, rgba(46,36,18,0.75), rgba(20,15,9,0.85))'
@@ -2183,8 +2186,9 @@ function MonsterGacha() {
                 </div>
               </div>
               {/* Crystal slots on floating platforms */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
-                {TYPES.map((type, i) => {
+              {/* 神域解放後は7個になるため折返し許可(44px×7+gapは狭い端末で溢れる) */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {typesFor(collection).map((type, i) => {
                   const owned = maxCounts[i] > 0;
                   const monster = MONSTERS[type.id][10];
                   return (
@@ -2234,7 +2238,7 @@ function MonsterGacha() {
                 ) : congratsTier === 1 ? (
                   <span className="rank-diamond" style={{ fontSize: 12 }}>👑 COMPLETE 👑</span>
                 ) : (
-                  <span style={{ color: 'rgba(167,139,250,0.4)' }}>{maxCounts.filter(c => c > 0).length} / 6</span>
+                  <span style={{ color: 'rgba(167,139,250,0.4)' }}>{maxCounts.filter(c => c > 0).length} / {maxCounts.length}</span>
                 )}
               </div>
             </div>
@@ -3040,7 +3044,7 @@ function MonsterGacha() {
                 <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>{showClearTier.tierLabel}</div>
                 <div className="rank-congrats" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 16 }}>{showClearTier.name}</div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
-                  {TYPES.map((type, i) => (
+                  {BASE_TYPES.map((type, i) => (
                     <div key={type.id} style={{ filter: `drop-shadow(0 0 8px ${type.color})`,
                       animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{renderItemIcon(MONSTERS[type.id][10], 44)}</div>
                   ))}
@@ -3113,7 +3117,7 @@ function MonsterGacha() {
                   <div className="rank-congrats" style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 20, fontWeight: 900, letterSpacing: 3, marginBottom: 6 }}>CONGRATULATIONS</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: showClearTier.tierColor, letterSpacing: 2, marginBottom: 4 }}>{showClearTier.tierLabel}</div>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-                    {TYPES.map((type, i) => (
+                    {BASE_TYPES.map((type, i) => (
                       <div key={type.id} style={{ filter: `drop-shadow(0 0 8px ${type.color})`,
                         animation: `heroIconFloat ${2 + i * 0.3}s ease-in-out infinite` }}>{renderItemIcon(MONSTERS[type.id][10], 40)}</div>
                     ))}

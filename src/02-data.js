@@ -1,5 +1,6 @@
 // ============================================================
-// DATA: 5 Types × 11 Ranks (★1-10 + ★MAX) = 55 Monsters
+// DATA: 7 Types × 11 Ranks (★1-10 + ★MAX)。うち第7種族「神域」はTier2解放限定
+// (従来6種=BASE_TYPESが★12判定/裏66種/展示69種の分母。神域はそこに算入しない)
 // ============================================================
 const TYPES = [
   { id: "gem", name: "宝石", emoji: "💎", color: "#3498db" },
@@ -8,7 +9,24 @@ const TYPES = [
   { id: "art", name: "芸術品", emoji: "🎨", color: "#e74c3c" },
   { id: "space", name: "宇宙の秘宝", emoji: "🛸", color: "#9b59b6" },
   { id: "kingdom", name: "王国", emoji: "🏰", color: "#8b5cf6" },
+  // 第7種族「神域」: cg2_12(Tier2)所持セーブでのみ抽選・展示に登場する。判定は shrineOn()/typesFor()。
+  { id: "shrine", name: "神域", emoji: "⛩️", color: "#2dd4bf" },
 ];
+
+// ============================================================
+// 神域(shrine)解放ゲート ─ 「変えてよい所」と「絶対に変えない所」の唯一の分岐点
+// ・BASE_TYPES(従来6種) = ★12 Congratulations判定 / 裏アイテム66種 / 展示室69種 の分母。永久に不変。
+// ・shrineOn(coll)      = cg2_12(Tier2「永劫の至宝・虹」)を持つセーブだけ true。
+//   collは展開形{key:{count}}でも圧縮形{key:count}でも判定できる(どちらもtruthy)。
+// ・typesFor(coll)      = そのセーブで登場してよい種族。抽選・展示のTYPES反復はこちらを使う。
+// ============================================================
+const SHRINE_ID = 'shrine';
+const SHRINE_UNLOCK_KEY = 'cg2_12';
+const BASE_TYPES = TYPES.filter(t => t.id !== SHRINE_ID);
+const shrineOn = (coll) => !!(coll && coll[SHRINE_UNLOCK_KEY]);
+const typesFor = (coll) => (shrineOn(coll) ? TYPES : BASE_TYPES);
+// ★10×3 → ★MAX のランダム種族抽選。神域は解放セーブでのみ母集団に混ざる。
+const rollMaxType = (coll) => { const p = typesFor(coll); return p[Math.floor(Math.random() * p.length)]; };
 
 // ★6-10=元の1/2, ★5=3%, ★4=8%, 残り87.12%を★1-3に配分
 const RARITIES = [
@@ -92,6 +110,19 @@ const MONSTERS = {
     { name: "ビッグバンの種", icon: "💥", desc: "宇宙誕生の瞬間そのもの", img: "assets/items/it-space-10.webp" },
     { name: "全次元の鍵", icon: "🗝️", desc: "全並行宇宙を開く究極の鍵", img: "max-space.webp" },
   ],
+  shrine: [
+    { name: "お守り", icon: "🧿", desc: "神社で買った小さなお守り", img: "assets/items/it-shrine-01.webp" },
+    { name: "願いの絵馬", icon: "🪧", desc: "願い事を書いた木の板", img: "assets/items/it-shrine-02.webp" },
+    { name: "御神酒の盃", icon: "🍶", desc: "神前に供えられた朱塗りの盃", img: "assets/items/it-shrine-03.webp" },
+    { name: "狛犬の像", icon: "🗿", desc: "参道を守る一対の石像", img: "assets/items/it-shrine-04.webp" },
+    { name: "神楽鈴", icon: "🔔", desc: "巫女の舞に鳴る神聖な鈴", img: "assets/items/it-shrine-05.webp" },
+    { name: "千年杉の御神木", icon: "🌲", desc: "しめ縄を巻いた聖なる大樹", img: "assets/items/it-shrine-06.webp" },
+    { name: "八咫鏡の写し", icon: "🪞", desc: "真実を映すと伝わる神鏡", img: "assets/items/it-shrine-07.webp" },
+    { name: "龍神の逆鱗", icon: "🐉", desc: "触れれば神罰が下る一枚の鱗", img: "assets/items/it-shrine-08.webp" },
+    { name: "天岩戸の欠片", icon: "⛰️", desc: "神話の岩戸から光が漏れる一片", img: "assets/items/it-shrine-09.webp" },
+    { name: "高天原の神璽", icon: "🌟", desc: "神々の国の証たる黄金の勾玉", img: "assets/items/it-shrine-10.webp" },
+    { name: "天地開闢の御柱", icon: "⛩️", desc: "神々が最初に立てた光の柱", img: "max-shrine.webp" },
+  ],
   kingdom: [
     { name: "村の地図", icon: "🗺️", desc: "手書きの村の見取り図", img: "assets/items/it-kingdom-01.webp" },
     { name: "城下町の鍵", icon: "🗝️", desc: "古い町の門の鍵", img: "assets/items/it-kingdom-02.webp" },
@@ -138,6 +169,7 @@ const SET_BONUS_EFFECTS = {
   art:     { label: 'ミニゲーム獲得コイン +5%', rate: 0.05 },
   space:   { label: '裏アイテム 出現率 +10%',   rate: 0.10 },
   kingdom: { label: 'ミッション貢献 +10%',      rate: 0.10 },
+  shrine:  { label: 'ガチャコイン さらに5%引き', discount: 0.05 },
 };
 
 // コレクションから種族ごとの発動状態を求める純関数。{ gem:true, gold:false, ... }
@@ -168,7 +200,8 @@ const scoreKeyOf = (gid) => SCORE_KEY_MAP[gid] || gid;
 // (表示と実支払いのズレを構造的に作らないため)。
 function gachaCostFor(n, setBonuses) {
   const base = n === 40 ? GACHA_COST_40 : n === 10 ? GACHA_COST_10 : GACHA_COST_1;
-  const off = (setBonuses && setBonuses.gem) ? SET_BONUS_EFFECTS.gem.discount : 0;
+  const off = ((setBonuses && setBonuses.gem) ? SET_BONUS_EFFECTS.gem.discount : 0)
+    + ((setBonuses && setBonuses.shrine) ? SET_BONUS_EFFECTS.shrine.discount : 0);
   return Math.round(base * (1 - off));
 }
 
@@ -278,7 +311,7 @@ function runSynthCascade(startColl, onMaxCreated) {
           }
         }
         for (let i = 0; i < c.synthCount; i++) {
-          const rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+          const rt = rollMaxType(n);   // 神域は解放セーブでのみ★MAX抽選に混ざる
           const nm = MONSTERS[rt.id][10]; const nr = RARITIES[10];
           const nk = `${rt.id}_11`;
           if (n[nk]) n[nk] = { ...n[nk], count: n[nk].count + 1 };
@@ -424,6 +457,7 @@ function getCrownLevel(bonus) {
 const URA_ITEMS = (() => {
   const items = [];
   TYPES.forEach(type => {
+    if (type.id === SHRINE_ID) return;   // 裏アイテムは従来6種66件で固定(神域は裏に含めない)
     for (let rank = 1; rank <= 11; rank++) {
       const m = MONSTERS[type.id][rank - 1];
       if (!m) continue;
@@ -462,9 +496,11 @@ function rollUraItem(uraPool, probMult) {
   return uraPool[roll];
 }
 
-function rollMonster(crownBonus) {
+// coll未指定(=undefined)なら従来6種のみ。呼び出し側が解放セーブのcollectionを渡した時だけ神域が混ざる。
+function rollMonster(crownBonus, coll) {
   const rank = rollRarity(crownBonus);
-  const type = TYPES[Math.floor(Math.random() * TYPES.length)];
+  const pool = typesFor(coll);
+  const type = pool[Math.floor(Math.random() * pool.length)];
   const m = MONSTERS[type.id][rank - 1];
   return { ...m, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank, rarity: RARITIES[rank - 1] };
 }

@@ -77,11 +77,17 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
   const [filter, setFilter] = useState("all");
   const [uraDetail, setUraDetail] = useState(null);
   const ownedTiers = CONGRATS_TIERS.filter(t => !!collection[t.key]);
+  // 神域(第7種族)は cg2_12 所持セーブでのみ展示に出す。「N / 69 COLLECTED」の分母は従来6種で固定し、
+  // 神域は別カウント(m/11)として併記する。
+  const vTypes = typesFor(collection);
+  const shrineUnlocked = shrineOn(collection);
+  const shrineOwn = !shrineUnlocked ? 0
+    : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].filter(r => collection[`${SHRINE_ID}_${r}`] || (r === 11 && collection[SHRINE_ID + PRISM_SUFFIX])).length;
   const all = useMemo(() => {
     const list = [];
     RARITIES.slice().reverse().forEach(r => {
       if (r.rank === 12) return; // ★12 is shown separately
-      TYPES.forEach(type => {
+      BASE_TYPES.forEach(type => {   // 「N / 69 COLLECTED」の分母は従来6種で固定(神域は別カウント)
         const key = `${type.id}_${r.rank}`;
         const d = MONSTERS[type.id][r.rank - 1];
         if (!d) return;
@@ -106,7 +112,9 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
         <div className="scrh-t">展示室</div>
         <div className="scrh-r">
           <div className="scrh-d f" />
-          <div className="scrh-s">{ownCount}<span style={{ opacity: 0.6 }}> / 69 COLLECTED</span></div>
+          <div className="scrh-s">{ownCount}<span style={{ opacity: 0.6 }}> / 69 COLLECTED</span>{shrineUnlocked
+            ? <span style={{ color: '#2dd4bf', marginLeft: 10 }}>⛩️ 神域 {shrineOwn} / 11</span>
+            : <span style={{ color: 'rgba(45,212,191,0.30)', marginLeft: 10, fontSize: '0.85em' }}>⛩️ ??? Tier2で解放</span>}</div>
           <div className="scrh-d" />
         </div>
       </div>
@@ -149,7 +157,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
         borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch', borderWidth: 9, borderStyle: 'solid' }}>
         <div style={{ fontSize: 9, letterSpacing: 2, color: 'rgba(232,213,163,0.55)', fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>SET BONUS ─ 種族コンプ特典</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
-          {TYPES.map(t => {
+          {vTypes.map(t => {
             const on = !!(setBonuses && setBonuses[t.id]);
             return (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5,
@@ -281,7 +289,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
           <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), rgba(139,92,246,0.3), rgba(255,255,255,0.15), transparent)' }} />
           <div style={{ padding: '14px 12px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {TYPES.map((type, i) => {
+              {vTypes.map((type, i) => {
                 const k = `${type.id}_11`;
                 const ow = collection[k];
                 // 煌(進化済み)は同じ★MAX枠のバッジで見せる(66種グリッドの分母は変えない)
@@ -363,7 +371,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
           <div style={{ padding: '12px 12px 8px' }}>
             <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.35, marginBottom: 8, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>★10 GOD</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {TYPES.map((type, i) => {
+              {vTypes.map((type, i) => {
                 const k = `${type.id}_10`;
                 const ow = collection[k];
                 const owned = !!ow;
@@ -400,7 +408,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
           <div style={{ padding: '8px 12px 12px' }}>
             <div style={{ fontSize: 8, textAlign: 'center', opacity: 0.35, marginBottom: 8, fontFamily: "'Rajdhani',sans-serif", letterSpacing: 2 }}>★9 MYTHIC</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {TYPES.map((type, i) => {
+              {vTypes.map((type, i) => {
                 const k = `${type.id}_9`;
                 const ow = collection[k];
                 const owned = !!ow;
@@ -455,7 +463,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                   ★{r.rank} {r.label.toUpperCase()}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                  {TYPES.map((type, i) => {
+                  {vTypes.map((type, i) => {
                     const k = `${type.id}_${r.rank}`;
                     const ow = collection[k];
                     const owned = !!ow;
@@ -529,7 +537,7 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     ★{rank} {rank === 11 ? 'MAX' : RARITIES[rank - 1]?.label.toUpperCase()}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
-                    {TYPES.map(type => {
+                    {BASE_TYPES.map(type => {   // 裏展示室は従来6種66件で固定
                       const uraId = `ura_${type.id}_${rank}`;
                       const owned = uraObtained.includes(uraId);
                       const uraItem = URA_ITEMS.find(u => u.id === uraId);
@@ -1019,7 +1027,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>保有トレジャー一覧</div>
       <div className="tf2">
         <button className={`tfb ${filter === "all" ? 'act' : ''}`} onClick={() => setFilter("all")}>全て</button>
-        {TYPES.map(t => (
+        {typesFor(collection).map(t => (
           <button key={t.id} className={`tfb ${filter === t.id ? 'act' : ''}`} onClick={() => setFilter(t.id)}>
             <span className="tfe">{t.emoji}</span>{t.name}
           </button>
