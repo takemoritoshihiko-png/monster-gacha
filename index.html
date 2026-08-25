@@ -3439,10 +3439,12 @@ function MonsterGacha() {
                     const prog = dailyProgress[m.id] || { total: 0, contributions: {}, target: m.target };
                     const done = dailyCompleted[m.id];
                     const pct = Math.min(100, (prog.total / m.target) * 100);
+                    // 未達成の行はゴッドアナザー計器盤と同じ9スライス枠(panel.webp)で装飾。達成済みは緑の差別化を優先して現行のまま
                     return (
                       <div key={m.id} style={{ padding: '5px 10px', borderRadius: 8,
                         background: done ? 'rgba(74,222,128,0.06)' : 'rgba(50,40,70,0.4)',
-                        border: `1px solid ${done ? 'rgba(74,222,128,0.2)' : 'rgba(139,92,246,0.1)'}` }}>
+                        border: `1px solid ${done ? 'rgba(74,222,128,0.2)' : 'rgba(139,92,246,0.1)'}`,
+                        ...(done ? {} : { borderImage: 'url(assets/god-another/panel.webp) 60 fill / 7px stretch', borderWidth: 7, borderStyle: 'solid' }) }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ fontSize: 10, fontWeight: 700, color: done ? '#4ade80' : 'rgba(255,255,255,0.7)', flex: 1 }}>
                             {done ? '✅' : '◻️'} {m.text}
@@ -3585,12 +3587,12 @@ function MonsterGacha() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, maxWidth: 340,
               margin: '20px auto 0', position: 'relative', zIndex: 1 }}>
               {[
-                { screen: 'minigame', icon: '🎮', label: 'コイン稼ぎ', glow: 'rgba(245,158,11,0.2)' },
-                { screen: 'synth', icon: '⚗️', label: '合成', glow: 'rgba(74,222,128,0.2)' },
-                { screen: 'collection', icon: '🏛️', label: '展示室', glow: 'rgba(96,165,250,0.2)' },
-                { screen: 'spend', icon: '🍽️', label: '資産を使う', glow: 'rgba(192,132,252,0.2)' },
-                { screen: 'ranking', icon: '🏆', label: 'ランキング', glow: 'rgba(251,191,36,0.25)' },
-                { screen: 'history', icon: '📋', label: 'ゲーム履歴', glow: 'rgba(148,163,184,0.15)' },
+                { screen: 'minigame', icon: '🎮', img: 'assets/ui/ico-minigame.webp', label: 'コイン稼ぎ', glow: 'rgba(245,158,11,0.2)' },
+                { screen: 'synth', icon: '⚗️', img: 'assets/ui/ico-synth.webp', label: '合成', glow: 'rgba(74,222,128,0.2)' },
+                { screen: 'collection', icon: '🏛️', img: 'assets/ui/ico-collection.webp', label: '展示室', glow: 'rgba(96,165,250,0.2)' },
+                { screen: 'spend', icon: '🍽️', img: 'assets/ui/ico-spend.webp', label: '資産を使う', glow: 'rgba(192,132,252,0.2)' },
+                { screen: 'ranking', icon: '🏆', img: 'assets/ui/ico-ranking.webp', label: 'ランキング', glow: 'rgba(251,191,36,0.25)' },
+                { screen: 'history', icon: '📋', img: 'assets/ui/ico-history.webp', label: 'ゲーム履歴', glow: 'rgba(148,163,184,0.15)' },
               ].map(m => (
                 <div key={m.screen} onClick={() => nav(m.screen)} style={{
                   textAlign: 'center', cursor: 'pointer', transition: 'all 0.25s', position: 'relative',
@@ -3598,8 +3600,15 @@ function MonsterGacha() {
                   onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
                   {m.img ? (
-                    <img src={m.img} alt={m.label} style={{ width: 56, height: 56, objectFit: 'contain',
-                      filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 6px ${m.glow})` }} />
+                    <>
+                      <img src={m.img} alt={m.label} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 12,
+                        filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 6px ${m.glow})` }}
+                        onError={e => { e.currentTarget.style.display = 'none';
+                          const fb = e.currentTarget.nextElementSibling; if (fb) fb.style.display = 'block'; }} />
+                      {/* 画像が読めない環境では従来の絵文字にフォールバック */}
+                      <div style={{ display: 'none', fontSize: 34, marginBottom: 2,
+                        filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${m.glow})` }}>{m.icon}</div>
+                    </>
                   ) : (
                     <div style={{ fontSize: 34, marginBottom: 2,
                       filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${m.glow})` }}>{m.icon}</div>
