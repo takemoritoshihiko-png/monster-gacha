@@ -73,7 +73,7 @@ function SpendForm({ available, spending, onSpend }) {
 // ============================================================
 // COLLECTION VIEW
 // ============================================================
-function CollectionView({ collection, onSelect, requestMode, onRequest, onCancelRequest, uraUnlocked, uraObtained, showUraMuseum, setShowUraMuseum }) {
+function CollectionView({ collection, onSelect, requestMode, onRequest, onCancelRequest, uraUnlocked, uraObtained, showUraMuseum, setShowUraMuseum, setBonuses }) {
   const [filter, setFilter] = useState("all");
   const [uraDetail, setUraDetail] = useState(null);
   const ownedTiers = CONGRATS_TIERS.filter(t => !!collection[t.key]);
@@ -86,14 +86,16 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
         const d = MONSTERS[type.id][r.rank - 1];
         if (!d) return;
         const ow = collection[key];
-        list.push({ key, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, ...d, owned: !!ow, count: ow?.count || 0 });
+        // ★MAXを煌(_11k)に進化させても「69種COLLECTED」の所持は落とさない
+        const pw = r.rank === 11 ? collection[`${type.id}${PRISM_SUFFIX}`] : null;
+        list.push({ key, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: r.rank, rarity: r, ...d, owned: !!ow || !!pw, count: ow?.count || 0 });
       });
     });
     return list;
   }, [collection]);
   const shown = filter === "all" ? all : all.filter(m => m.typeId === filter);
   const ownCount = all.filter(m => m.owned).length + ownedTiers.length;
-  const totalPwr = Object.values(collection).reduce((s, m) => s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+  const totalPwr = Object.entries(collection).reduce((s, [k, m]) => s + entryPower(k, m.count || 0, m.rank), 0);
 
   return (
     <div>
@@ -138,6 +140,27 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
           <div style={{ fontSize: 9, letterSpacing: 2, color: 'rgba(232,213,163,0.55)', fontWeight: 700 }}>総保有数</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 16, fontWeight: 900, color: '#f2e0aa',
             textShadow: '0 0 8px rgba(201,168,76,0.4), 0 1px 2px rgba(0,0,0,0.8)' }}>{Object.values(collection).reduce((s, m) => s + m.count, 0)}</div>
+        </div>
+      </div>
+      {/* 種族セット効果: ★1〜★10コンプで常時発動。発動判定・効果値はSET_BONUS_EFFECTS/computeSetBonusesが正 */}
+      <div style={{ marginBottom: 14, padding: '8px 10px 10px', borderRadius: 6,
+        background: 'linear-gradient(180deg, rgba(28,21,12,0.75), rgba(13,10,7,0.85))',
+        border: '2px solid rgba(201,168,76,0.28)',
+        borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch', borderWidth: 9, borderStyle: 'solid' }}>
+        <div style={{ fontSize: 9, letterSpacing: 2, color: 'rgba(232,213,163,0.55)', fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>SET BONUS ─ 種族コンプ特典</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
+          {TYPES.map(t => {
+            const on = !!(setBonuses && setBonuses[t.id]);
+            return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5,
+                color: on ? '#f2e0aa' : 'rgba(255,255,255,0.32)', fontWeight: on ? 800 : 500,
+                textShadow: on ? '0 0 6px rgba(201,168,76,0.4)' : 'none' }}>
+                <span style={{ fontSize: 11, filter: on ? 'none' : 'grayscale(1) opacity(0.5)' }}>{t.emoji}</span>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{SET_BONUS_EFFECTS[t.id].label}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 8, letterSpacing: 1 }}>{on ? 'ON' : `★1-10`}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       {/* ★12 Congratulations - 3 treasure display cases */}
@@ -261,11 +284,16 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
               {TYPES.map((type, i) => {
                 const k = `${type.id}_11`;
                 const ow = collection[k];
-                const owned = !!ow;
+                // 煌(進化済み)は同じ★MAX枠のバッジで見せる(66種グリッドの分母は変えない)
+                const prismCount = collection[`${type.id}${PRISM_SUFFIX}`]?.count || 0;
+                const owned = !!ow || prismCount > 0;
                 const monster = MONSTERS[type.id][10];
                 const count = ow?.count || 0;
+                const sel = count > 0
+                  ? { key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 11, rarity: RARITIES[10], count }
+                  : { key: `${type.id}${PRISM_SUFFIX}`, ...monster, name: monster.name + PRISM_NAME_SUFFIX, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 11, rarity: RARITIES[10], prism: true, count: prismCount };
                 return (
-                  <div key={type.id} onClick={() => owned && onSelect({ key: k, ...monster, typeId: type.id, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank: 11, rarity: RARITIES[10], count })}
+                  <div key={type.id} onClick={() => owned && onSelect(sel)}
                     style={{
                     borderRadius: 12, padding: '10px 6px', textAlign: 'center',
                     position: 'relative', overflow: 'hidden', cursor: owned ? 'pointer' : 'default',
@@ -296,6 +324,9 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     {owned && count > 1 && <div style={{ position: 'absolute', top: 4, right: 6,
                       fontSize: 8, fontWeight: 900, color: '#fbbf24', background: 'rgba(0,0,0,0.5)',
                       borderRadius: 6, padding: '0 4px' }}>×{count}</div>}
+                    {prismCount > 0 && <div className="rank-rainbow" style={{ position: 'absolute', top: 4, left: 6,
+                      fontSize: 8, fontWeight: 900, background: 'rgba(0,0,0,0.5)',
+                      borderRadius: 6, padding: '0 4px' }}>煌{prismCount > 1 ? '×' + prismCount : ''}</div>}
                     <div className={owned ? 'rank-diamond' : ''} style={{
                       fontSize: 8, fontWeight: 900,
                       color: owned ? undefined : 'rgba(255,255,255,0.15)',
@@ -586,11 +617,13 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
 // ============================================================
 // SYNTHESIS VIEW
 // ============================================================
-function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, onSynthAll }) {
+function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onSynthSingle, onSynthAll }) {
   const [filter, setFilter] = useState("all");
   const [confirmAll, setConfirmAll] = useState(false);
 
   const candidates = useMemo(() => onFindCandidates(), [collection, onFindCandidates]);
+  // ★MAX進化(煌)。一撃合成の件数(totalSynthable / cascadeTotal)には意図的に含めない。
+  const prismCandidates = useMemo(() => onFindPrism ? onFindPrism() : [], [collection, onFindPrism]);
   const totalSynthable = candidates.reduce((sum, c) => sum + c.synthCount, 0);
   // 一撃合成: 連鎖分まで含めた合成予定件数(乱択は種族のみで件数は決定的)
   const cascadeTotal = useMemo(() => runSynthCascade(collection).totalSynths, [collection]);
@@ -620,7 +653,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
           <div className="scrh-d" />
         </div>
         <div style={{ fontSize: 10, lineHeight: 2, color: '#9a8f7a', marginTop: 8, letterSpacing: 0.3 }}>
-          同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム<br/>※各アイテム1個はコレクション用に保持
+          同種族・同ランク: ★1-2=2体, ★3-9=3体 → ランクUP<br/>★10を3体(異種OK) → ★MAXランダム<br/>同じ★MAXを3体 → 「・煌」に進化(資産価値そのまま)<br/>※各アイテム1個はコレクション用に保持
         </div>
       </div>
 
@@ -656,7 +689,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
               {synthResult.name}
             </div>
             <div style={{ fontSize: 13, color: synthResult.rarity.color, marginTop: 8, fontWeight: 700, opacity: 0.8 }}>
-              {synthResult.rarity.label} 獲得！
+              {synthResult.prism ? '★MAX進化 完了！' : `${synthResult.rarity.label} 獲得！`}
             </div>
           </div>
         ) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? (
@@ -874,6 +907,46 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
         </div>
       )}
 
+      {/* ★MAX進化(煌) — 一撃合成には含めない。1件ずつ手動で行う特別な操作 */}
+      {prismCandidates.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>★MAX進化</div>
+          <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 8 }}>
+            同じ★MAXを3体 →「・煌」1体に進化。資産価値は3体分のまま／一撃合成の対象外
+          </div>
+          {prismCandidates.map(c => {
+            const monster = MONSTERS[c.typeId][10];
+            const tp = TYPES.find(t => t.id === c.typeId);
+            return (
+              <div key={'prism_' + c.typeId} style={{
+                background: 'linear-gradient(135deg, rgba(208,107,255,0.1), rgba(107,197,255,0.06))',
+                border: '1px solid rgba(208,107,255,0.25)',
+                borderRadius: 12, padding: 12, marginBottom: 8,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ textAlign: 'center', minWidth: 56 }}>
+                  <div>{renderItemIcon({ ...monster, rank: 11 }, 28)}</div>
+                  <div className="rank-diamond" style={{ fontSize: 8, fontWeight: 700 }}>{monster.name}</div>
+                  <div style={{ fontSize: 8, color: tp.color }}>★MAX ×{c.count}（3体で進化）</div>
+                </div>
+                <div style={{ fontSize: 18, color: '#fbbf24' }}>→</div>
+                <div style={{ textAlign: 'center', minWidth: 56 }}>
+                  <div>{renderItemIcon({ ...monster, rank: 11 }, 28)}</div>
+                  <div className="rank-rainbow" style={{ fontSize: 8, fontWeight: 700 }}>{monster.name}{PRISM_NAME_SUFFIX}</div>
+                  <div className="rank-rainbow" style={{ fontSize: 8, fontWeight: 700 }}>煌</div>
+                </div>
+                <div style={{ marginLeft: 'auto' }}>
+                  <button className="btn bp" style={{ fontSize: 11, padding: '6px 12px' }}
+                    onClick={() => onSynthSingle('prism', c.typeId, 11, 11)}>
+                    進化{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Individual candidates */}
       {candidates.length > 0 && (
         <div style={{ marginBottom: 16 }}>
@@ -954,8 +1027,8 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
       </div>
       <div className="sgl">
         {shown.map(item => {
-          const synthable = candidates.find(c => c.key === item.key);
-          const rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
+          const synthable = candidates.find(c => c.key === item.key) || prismCandidates.find(c => c.key === item.key);
+          const rkCls = item.prism ? 'rank-rainbow' : item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
           return (
             <div key={item.key} className={`ci ${item.rank >= 10 ? 'god' : ''}`}
               style={{
@@ -966,7 +1039,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
               {item.count > 0 && <div className="ic">×{item.count}</div>}
               <div className={rkCls} style={{ fontSize: 7, fontWeight: 700, color: rkCls ? undefined : item.rarity.color }}>{item.name}</div>
               <div className={rkCls} style={{ fontSize: 6, color: rkCls ? undefined : item.rarity.color }}>
-                {item.rank === 11 ? "MAX" : "★" + item.rank}
+                {item.prism ? "煌" : item.rank === 11 ? "MAX" : "★" + item.rank}
               </div>
               {synthable && <div style={{ fontSize: 6, color: '#fbbf24', fontWeight: 700 }}>合成可</div>}
             </div>
@@ -1212,17 +1285,18 @@ function RankingScreen() {
   ];
 
   const sorted = useMemo(() => {
+    const gk = scoreKeyOf(gameTab);   // スコアの世代キー(godAnother=第8次で世代交代済み)
     // Minigame tab: weekly uses weeklyRankings data
     if (tab === 4 && assetMode === 'weekly') {
       const list = [...weeklyData];
-      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
-      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+      list.sort((a, b) => ((b.bestScores?.[gk]) || 0) - ((a.bestScores?.[gk]) || 0));
+      return list.filter(r => (r.bestScores?.[gk] || 0) > 0);
     }
     // Minigame tab: daily uses dailyRankings data
     if (tab === 4 && assetMode === 'daily') {
       const list = [...dailyGameData];
-      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
-      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+      list.sort((a, b) => ((b.bestScores?.[gk]) || 0) - ((a.bestScores?.[gk]) || 0));
+      return list.filter(r => (r.bestScores?.[gk] || 0) > 0);
     }
     // Daily/weekly growth for assets, pulls, gifts
     if ([0, 2, 3].includes(tab) && assetMode !== 'cumulative' && assetGrowth.length > 0) {
@@ -1235,8 +1309,8 @@ function RankingScreen() {
     else if (tab === 3) list.sort((a, b) => (b.totalGiftValue || 0) - (a.totalGiftValue || 0));
     else if (tab === 5) { list.sort((a, b) => (b.uraCount || 0) - (a.uraCount || 0)); return list; }
     else {
-      list.sort((a, b) => ((b.bestScores?.[gameTab]) || 0) - ((a.bestScores?.[gameTab]) || 0));
-      return list.filter(r => (r.bestScores?.[gameTab] || 0) > 0);
+      list.sort((a, b) => ((b.bestScores?.[gk]) || 0) - ((a.bestScores?.[gk]) || 0));
+      return list.filter(r => (r.bestScores?.[gk] || 0) > 0);
     }
     return list;
   }, [rankings, weeklyData, dailyGameData, tab, gameTab, assetMode, assetGrowth]);
@@ -1386,7 +1460,7 @@ function RankingScreen() {
                 )}
                 {tab === 4 && (
                   <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 14, fontWeight: 900, color: '#fbbf24' }}>
-                    🪙{r.bestScores?.[gameTab] || 0}
+                    🪙{r.bestScores?.[scoreKeyOf(gameTab)] || 0}
                   </div>
                 )}
                 {tab === 5 && (

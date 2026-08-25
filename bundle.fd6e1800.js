@@ -1359,6 +1359,77 @@ function formatYen(n) {
 var GACHA_COST_1 = 20;
 var GACHA_COST_10 = 200;
 var GACHA_COST_40 = 800;
+
+// ============================================================
+// 種族セット効果(コレクションボーナス)
+// 1種族の★1〜★10(10種)を全て所持すると、その種族の効果が常時発動する(countは1でよい/★MAX不要)。
+// 効果値を変えるときはここだけを直す(表示ラベルと実装が同じ定数を見るのでズレが起きない)。
+// ============================================================
+var SET_BONUS_EFFECTS = {
+  gem: {
+    label: 'ガチャコイン 5%引き',
+    discount: 0.05
+  },
+  gold: {
+    label: 'コイン自動回復 +25%',
+    rate: 0.25
+  },
+  relic: {
+    label: 'ログインボーナス +20%',
+    rate: 0.20
+  },
+  art: {
+    label: 'ミニゲーム獲得コイン +5%',
+    rate: 0.05
+  },
+  space: {
+    label: '裏アイテム 出現率 +10%',
+    rate: 0.10
+  },
+  kingdom: {
+    label: 'ミッション貢献 +10%',
+    rate: 0.10
+  }
+};
+
+// コレクションから種族ごとの発動状態を求める純関数。{ gem:true, gold:false, ... }
+function computeSetBonuses(coll) {
+  var s = {};
+  TYPES.forEach(function (t) {
+    var complete = true;
+    for (var r = 1; r <= 10; r++) {
+      var it = coll && coll["".concat(t.id, "_").concat(r)];
+      if (!it || !(it.count > 0)) {
+        complete = false;
+        break;
+      }
+    }
+    s[t.id] = complete;
+  });
+  return s;
+}
+
+// ============================================================
+// スコアキーの世代交代(ランキングリセットの仕組み)
+// 配点スケールを大きく変えたゲームは、スコアの記録・表示キーを新世代に切り替える。
+// 旧スコアは旧キーに残置(自動バックアップ)され、端末に残る旧自己ベストの同期でも
+// 新ランキングが汚染されない。playCounts・ミッションは元のgameIdのまま。
+// 2026-08-25: godAnother 第8次(配点60%化)で godAnother2 に世代交代=ランキング一斉リセット。
+// ============================================================
+var SCORE_KEY_MAP = {
+  godAnother: 'godAnother2'
+};
+var scoreKeyOf = function scoreKeyOf(gid) {
+  return SCORE_KEY_MAP[gid] || gid;
+};
+
+// ガチャ費用の唯一の算出口。ボタン表示・コイン不足判定・pull()の支払いは必ずこれを通す
+// (表示と実支払いのズレを構造的に作らないため)。
+function gachaCostFor(n, setBonuses) {
+  var base = n === 40 ? GACHA_COST_40 : n === 10 ? GACHA_COST_10 : GACHA_COST_1;
+  var off = setBonuses && setBonuses.gem ? SET_BONUS_EFFECTS.gem.discount : 0;
+  return Math.round(base * (1 - off));
+}
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
   if (rank >= 5) return "gold";
@@ -1370,6 +1441,64 @@ function getChestType(rank) {
 var getSynthReq = function getSynthReq(rank) {
   return rank <= 2 ? 2 : 3;
 };
+
+// ============================================================
+// ★MAX進化 = プリズム(煌)
+// 同種の★MAX(<typeId>_11)×3 → 「<★MAX名>・煌」1個(コレクションキー <typeId>_11k)
+// 資産価値は★MAX3個分を保つ(進化で総資産が減らない)。Tier判定も実効数(_11 + 3×_11k)で数える。
+// ============================================================
+var PRISM_SUFFIX = '_11k';
+var PRISM_MERGE = 3; // ★MAX3個 → 煌1個
+var PRISM_NAME_SUFFIX = '・煌';
+var isPrismKey = function isPrismKey(k) {
+  return typeof k === 'string' && k.slice(-4) === PRISM_SUFFIX;
+};
+
+// count値の取り出し(圧縮形 {key:count} / 展開形 {key:{count}} の両方に対応)
+var countOf = function countOf(v) {
+  return typeof v === 'number' ? v : v && v.count || 0;
+};
+
+// コレクション1エントリ(key,count)の資産価値。煌は★MAX3個分として数える。
+function entryPower(key, count, rank) {
+  var r = typeof rank === 'number' ? rank : parseInt(String(key).split('_')[1]);
+  var base = POWER_VALUES[r - 1] || 0;
+  return base * (count || 0) * (isPrismKey(key) ? PRISM_MERGE : 1);
+}
+
+// アイテムオブジェクト1個あたりの資産価値(モーダル等の単価表示用)。
+function itemUnitPower(item) {
+  if (!item) return 0;
+  return (POWER_VALUES[item.rank - 1] || 0) * (item.prism ? PRISM_MERGE : 1);
+}
+
+// 種族ごとの★MAX実効所持数 = _11.count + 3 × _11k.count。
+// Tier判定(congratsTier)・★MAXリロール適格判定・展示の所持判定の正本。
+function maxEffCount(coll, typeId) {
+  if (!coll) return 0;
+  return countOf(coll[typeId + '_11']) + countOf(coll[typeId + PRISM_SUFFIX]) * PRISM_MERGE;
+}
+
+// ★MAX×3 → 煌 の合成候補。意思を持ってやる特別操作のため一撃合成(runSynthCascade)には含めない。
+function computePrismCandidates(coll) {
+  var out = [];
+  TYPES.forEach(function (type) {
+    var c = countOf((coll || {})[type.id + '_11']);
+    if (c >= PRISM_MERGE) {
+      out.push({
+        special: 'prism',
+        key: type.id + '_11',
+        typeId: type.id,
+        rank: 11,
+        targetRank: 11,
+        req: PRISM_MERGE,
+        count: c,
+        synthCount: Math.floor(c / PRISM_MERGE)
+      });
+    }
+  });
+  return out;
+}
 
 // 任意のコレクション状態から合成候補を列挙する純関数(一撃合成の連鎖計算にも使う)
 function computeSynthCandidates(coll) {
@@ -1805,10 +1934,13 @@ var URA_PROBABILITY = 16384; // 1/16384 per item in pool
 // 20-63 obtained (pool 46-3): 1/16384 per item
 // 64-65 obtained (pool 2-1): 1/8192 per item
 // Expected total: ~71,800 pulls to complete all 66
-function rollUraItem(uraPool) {
+// probMult: 当選確率の倍率(未指定/1=従来どおり。spaceのセット効果で1.1)。
+// 当選確率は uraPool.length / prob なので、確率をx倍するには分母をxで割る。
+function rollUraItem(uraPool, probMult) {
   if (!uraPool || uraPool.length === 0) return null;
   var obtained = URA_ITEMS.length - uraPool.length;
-  var prob = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  var base = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  var prob = Math.max(1, Math.round(base / (probMult > 0 ? probMult : 1)));
   var roll = Math.floor(Math.random() * prob);
   if (roll >= uraPool.length) return null;
   return uraPool[roll];
@@ -1831,7 +1963,7 @@ function rollMonster(crownBonus) {
 // ============================================================
 // STYLES
 // ============================================================
-var CSS = "\n@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@600;700&display=swap');\n\n* { box-sizing: border-box; margin: 0; padding: 0; }\n.G {\n  font-family: 'Noto Sans JP', sans-serif;\n  width: 100%; min-height: 100vh;\n  background: #06060f; color: #e0e0e0;\n  overflow-x: hidden; position: relative;\n}\n.G::before {\n  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;\n  background:\n    radial-gradient(ellipse at 30% 10%, rgba(139,92,246,0.18) 0%, transparent 50%),\n    radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%),\n    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.06) 0%, transparent 70%);\n}\n.G::after {\n  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;\n  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);\n  background-size: 40px 40px;\n}\n/* ===== \u30B7\u30A7\u30EBUI: \u9EC4\u91D1\u306E\u5B9D\u7269\u5EAB\u30C8\u30FC\u30F3(\u9752\u9285+\u91D1\u5F6B\u91D1) ===== */\n.hdr {\n  position: sticky; top: 0; z-index: 100;\n  max-width: 480px; margin: 0 auto;\n  background:\n    radial-gradient(130% 200% at 50% -70%, rgba(201,168,76,0.12), transparent 62%),\n    linear-gradient(180deg, #141009 0%, #0c0906 55%, #060506 100%);\n  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);\n  border-bottom: none;\n  box-shadow: 0 2px 12px rgba(0,0,0,0.65);\n  padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;\n}\n/* \u5FAE\u7D30\u30CE\u30A4\u30BA(\u91D1\u306E\u7C89\u3058\u3093)\u3002\u88C5\u98FE\u306E\u307F\u3067\u30AF\u30EA\u30C3\u30AF\u4E0D\u53EF */\n.hdr::before {\n  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.45;\n  background-image: radial-gradient(rgba(255,235,180,0.05) 1px, transparent 1px);\n  background-size: 3px 3px;\n}\n/* \u4E0B\u7AEF\u306E\u91D1\u30B0\u30E9\u30C7\u30E9\u30A4\u30F3(\u5E2F\u306E\u7E01\u53D6\u308A) */\n.hdr::after {\n  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.65) 14%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.65) 86%, transparent);\n}\n.hdr > div { position: relative; z-index: 1; }\n.hdr-t {\n  font-family: 'Cinzel', 'Orbitron', serif; font-size: 15px; font-weight: 700;\n  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 44%, #a8842f 58%, #f2e0aa 100%);\n  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;\n  letter-spacing: 2.5px; white-space: nowrap;\n  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));\n}\n.hdr-logo { height: 22px; width: auto; display: block;\n  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }\n.hdr-slot {\n  font-family: 'Rajdhani', 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;\n  letter-spacing: 1.5px; color: #e6cd90; line-height: 1.35;\n  background: linear-gradient(180deg, #2b2215, #16110a);\n  border: 1px solid rgba(201,168,76,0.5);\n  border-radius: 4px; padding: 2px 7px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 0 6px rgba(201,168,76,0.14);\n  text-shadow: 0 0 5px rgba(201,168,76,0.35);\n}\n.hdr-ib {\n  display: inline-flex; align-items: center; justify-content: center;\n  width: 30px; height: 30px; padding: 0; flex-shrink: 0;\n  background: linear-gradient(180deg, #251d12, #120e08);\n  border: 1px solid rgba(201,168,76,0.42); border-radius: 7px;\n  color: #e6cd90; font-size: 14px; line-height: 1; cursor: pointer;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 3px rgba(0,0,0,0.6);\n  transition: all 0.2s;\n}\n.hdr-ib:hover { border-color: rgba(240,214,145,0.75); box-shadow: inset 0 1px 0 rgba(240,214,145,0.24), 0 0 9px rgba(201,168,76,0.3); }\n.hdr-ib.off { color: rgba(205,193,170,0.3); border-color: rgba(150,130,90,0.25); }\n.hdr-ib.off img { opacity: 0.45; }\n.hdr-ib img { width: 20px; height: 20px; object-fit: contain; display: block; mix-blend-mode: screen; }\n.coin {\n  display: flex; align-items: center; gap: 6px;\n  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);\n  border: 1px solid rgba(201,168,76,0.48);\n  border-radius: 6px; padding: 3px 11px;\n  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 13px; color: #f2e0aa;\n  letter-spacing: 0.5px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 7px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5);\n  text-shadow: 0 0 6px rgba(201,168,76,0.35);\n  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;\n}\n.coin img { width: 15px; height: 15px; object-fit: contain; display: block; flex-shrink: 0; }\n.cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }\n.nav {\n  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);\n  width: 100%; max-width: 480px; z-index: 100;\n  background:\n    radial-gradient(130% 220% at 50% 150%, rgba(201,168,76,0.11), transparent 62%),\n    linear-gradient(180deg, #110d07 0%, #0a0806 58%, #060506 100%);\n  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);\n  border-top: none;\n  display: flex; justify-content: space-around; padding: 5px 0 7px;\n  border-radius: 14px 14px 0 0;\n  box-shadow: 0 -3px 16px rgba(0,0,0,0.65);\n}\n/* \u4E0A\u7AEF\u306E\u91D1\u30B0\u30E9\u30C7\u30E9\u30A4\u30F3 */\n.nav::before {\n  content: ''; position: absolute; left: 10px; right: 10px; top: 0; height: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.6) 12%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.6) 88%, transparent);\n}\n.nb {\n  background: none; border: none; color: rgba(190,170,120,0.5);\n  display: flex; flex-direction: column; align-items: center; gap: 2px;\n  font-size: 11px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;\n  letter-spacing: 0.15em;\n  cursor: pointer; padding: 4px 8px 6px; transition: all 0.3s;\n  position: relative;\n}\n.nb.act { color: #f2e0aa; text-shadow: 0 0 8px rgba(201,168,76,0.5); }\n.nb img { pointer-events: none; }\n.nb-l { line-height: 1; padding-left: 0.15em; }\n/* \u30A2\u30AF\u30C6\u30A3\u30D6\u30BF\u30D6\u4E0B\u90E8\u306E\u91D1\u30A4\u30F3\u30B8\u30B1\u30FC\u30BF */\n.nb-ind {\n  position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;\n  width: 22px; height: 2px; border-radius: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, #f2e0aa, transparent);\n  box-shadow: 0 0 6px rgba(240,214,145,0.85);\n}\n/* \u753B\u9762\u898B\u51FA\u3057(\u5C55\u793A\u5BA4/\u5408\u6210 \u5171\u901A) */\n.scrh {\n  text-align: center; margin: 0 -16px 16px; padding: 16px 16px 13px; position: relative;\n  background: linear-gradient(180deg, rgba(26,20,11,0.8), rgba(10,8,6,0.35));\n  border-bottom: 1px solid rgba(201,168,76,0.28);\n}\n.scrh-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; font-weight: 700;\n  letter-spacing: 5px; color: rgba(201,168,76,0.6); margin-bottom: 5px; }\n.scrh-t {\n  font-family: 'Cinzel', 'Orbitron', 'Noto Sans JP', sans-serif; font-size: 21px; font-weight: 700;\n  letter-spacing: 6px; line-height: 1.25;\n  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 46%, #a8842f 60%, #f2e0aa 100%);\n  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;\n  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75));\n}\n.scrh-r { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 7px; }\n.scrh-d { width: 72px; height: 9px; flex-shrink: 0; opacity: 0.75;\n  background: url(assets/ui/divider.webp) center/contain no-repeat; }\n.scrh-d.f { transform: scaleX(-1); }\n.scrh-s { font-size: 10px; color: rgba(232,213,163,0.6); letter-spacing: 1px; white-space: nowrap; }\n/* \u901A\u77E5\u30D0\u30CA\u30FC(\u9752\u9285+\u91D1\u306E\u5E2F) */\n.gbanner {\n  position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 300;\n  max-width: min(92vw, 430px);\n  background: linear-gradient(180deg, #2b2215 0%, #171108 58%, #221a0f 100%);\n  border: 1px solid rgba(201,168,76,0.6);\n  border-radius: 6px; padding: 7px 20px;\n  font-size: 13px; font-weight: 700; color: #f2e0aa; letter-spacing: 0.5px;\n  text-align: center; line-height: 1.5;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 5px 20px rgba(0,0,0,0.6), 0 0 14px rgba(201,168,76,0.16);\n  animation: ri 0.3s ease-out;\n}\n.gbanner .gb-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; letter-spacing: 4px;\n  color: rgba(201,168,76,0.7); margin-bottom: 3px; }\n.gbanner .gb-sub { font-size: 10px; color: rgba(232,213,163,0.55); margin-top: 4px; font-weight: 400; }\n/* \u91D1\u30D7\u30EC\u30FC\u30C8(\u79F0\u53F7\u30D0\u30C3\u30B8\u30FB\u30E1\u30C0\u30EB\u5E2F \u5171\u901A) */\n.gplate {\n  display: inline-flex; align-items: center; gap: 6px;\n  background: linear-gradient(180deg, #2b2215, #17110a);\n  border: 1px solid rgba(201,168,76,0.45); border-radius: 6px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 4px rgba(0,0,0,0.5);\n}\n.btn {\n  border: none; border-radius: 14px; padding: 12px 24px;\n  font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700;\n  cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;\n  position: relative; overflow: hidden;\n}\n.btn:active { transform: scale(0.95); }\n.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }\n.bp {\n  background: linear-gradient(135deg, #f59e0b, #ec4899);\n  color: #fff; box-shadow: 0 4px 20px rgba(245,158,11,0.3), 0 0 40px rgba(236,72,153,0.15);\n  text-shadow: 0 1px 2px rgba(0,0,0,0.3);\n}\n.bp:hover { box-shadow: 0 6px 30px rgba(245,158,11,0.4), 0 0 60px rgba(236,72,153,0.2); }\n/* \u30AC\u30C1\u30E3\u300C\u5F15\u304F\u300D\u30DC\u30BF\u30F3(\u91D1\u5F6B\u91D1+\u5B9D\u77F3\u9762): 10\u9023=\u30B5\u30D5\u30A1\u30A4\u30A2/40\u9023=\u30EB\u30D3\u30FC\u3002\u30E1\u30A4\u30F3(\u5927=.gpb-lg)/\u9023\u7D9A(\u5C0F=.gpb-sm)\u5171\u901A\u3002\n   \u4E88\u7D04\u30A2\u30BB\u30C3\u30C8(assets/ui/btn-p10.webp\u30FBbtn-p40.webp)\u304C404\u306E\u5834\u5408\u306FJSX\u5074onError\u3067img\u3092\u6D88\u3057\u3001\u3053\u306E.gpb-bg\u4EE5\u4E0B\u306E\u91D1\u5F6B\u91D1CSS\u304C\u305D\u306E\u307E\u307E\u5E8A\u306B\u306A\u308B */\n.gpb {\n  position: relative; overflow: hidden; border: none; border-radius: 12px; padding: 0;\n  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;\n  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 12px rgba(0,0,0,0.55);\n}\n.gpb::before {\n  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;\n  border: 2px solid rgba(201,168,76,0.55);\n}\n.gpb10 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(37,99,235,0.32); }\n.gpb10::before { border-color: rgba(96,165,250,0.6); }\n.gpb40 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(220,38,38,0.32); }\n.gpb40::before { border-color: rgba(248,113,113,0.6); }\n.gpb:hover:not(:disabled) { filter: brightness(1.08); }\n.btn.gpb:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(240,214,145,0.1), inset 0 -1px 4px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4); }\n.gpb-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }\n.gpb10 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(96,165,250,0.35), transparent 60%), linear-gradient(180deg, #1c2a44 0%, #101a2c 60%, #182338 100%); }\n.gpb40 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(248,113,113,0.32), transparent 60%), linear-gradient(180deg, #3a1414 0%, #200b0b 60%, #2c0f0f 100%); }\n.gpb-img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }\n.gpb-shine {\n  position: absolute; inset: 0; z-index: 3; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);\n  background-size: 200% 100%; animation: gradShift 3s ease infinite;\n}\n.gpb-label {\n  position: relative; z-index: 4; font-family: 'Orbitron', 'Noto Sans JP', sans-serif; font-weight: 900;\n  color: #f8ecc4; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.5);\n}\n.gpb-cost {\n  position: relative; z-index: 4; font-family: 'Rajdhani', sans-serif; font-weight: 700;\n  color: rgba(248,230,190,0.78); text-shadow: 0 1px 2px rgba(0,0,0,0.8);\n}\n.gpb-lg { min-height: 66px; padding: 0 10px; }\n.gpb-lg .gpb-label { font-size: 18px; }\n.gpb-lg .gpb-cost { font-size: 11px; }\n.gpb-sm { min-height: 42px; padding: 0 14px; }\n.gpb-sm .gpb-label { font-size: 13px; }\n.gpb-sm .gpb-cost { font-size: 9px; }\n.bs {\n  background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.2); color: #ccc;\n  backdrop-filter: blur(4px);\n}\n.bs:hover { background: rgba(80,60,140,0.3); border-color: rgba(139,92,246,0.4); }\n.bd { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; }\n.st { font-size: 18px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }\n\n/* Home hero */\n.hero-bg {\n  position: relative; margin: -16px -16px 0; padding: 32px 16px 24px;\n  background: url('bg.jpg') center top / cover no-repeat;\n  border-bottom: 1px solid rgba(139,92,246,0.15);\n  overflow: hidden;\n}\n.hero-bg::before {\n  content: ''; position: absolute; inset: 0; pointer-events: none;\n  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 50%, rgba(6,6,15,0.85) 100%);\n}\n.hero-orb {\n  position: absolute; border-radius: 50%; filter: blur(40px); pointer-events: none; opacity: 0.4;\n  animation: orbFloat 8s ease-in-out infinite;\n}\n@keyframes orbFloat {\n  0%,100% { transform: translateY(0) scale(1); }\n  50% { transform: translateY(-15px) scale(1.1); }\n}\n.hero-icon {\n  font-size: 72px; position: relative; z-index: 1;\n  animation: heroIconFloat 3s ease-in-out infinite;\n  filter: drop-shadow(0 0 30px rgba(139,92,246,0.4));\n}\n@keyframes heroIconFloat {\n  0%,100% { transform: translateY(0); }\n  50% { transform: translateY(-10px); }\n}\n.hero-title {\n  font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900;\n  background: linear-gradient(135deg, #c084fc, #f472b6, #fbbf24, #a78bfa);\n  background-size: 300% 300%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: gradShift 4s ease infinite;\n  letter-spacing: 3px; margin-top: 12px; position: relative; z-index: 1;\n}\n@keyframes gradShift {\n  0%,100% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n}\n.hero-sub {\n  font-family: 'Rajdhani', sans-serif; font-size: 14px; color: rgba(196,132,252,0.6);\n  letter-spacing: 6px; margin-top: 4px; position: relative; z-index: 1;\n}\n\n/* Odometer */\n.odo-wrap {\n  margin: 20px 0 16px; position: relative; z-index: 1;\n}\n.odo-label {\n  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(251,191,36,0.5);\n  letter-spacing: 4px; margin-bottom: 8px;\n}\n.odo-digits { display: flex; justify-content: center; gap: 5px; }\n.odo-d {\n  width: 36px; height: 50px;\n  background: linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(22,22,44,0.95) 49%, rgba(10,10,25,0.95) 50%, rgba(18,18,36,0.95) 100%);\n  border: 1px solid rgba(139,92,246,0.25);\n  border-radius: 8px;\n  display: flex; align-items: center; justify-content: center;\n  font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);\n  transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;\n}\n.odo-d.lit {\n  color: #fbbf24; border-color: rgba(245,158,11,0.4);\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 15px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.04);\n  text-shadow: 0 0 10px rgba(245,158,11,0.5);\n}\n.odo-d.dim { color: rgba(139,92,246,0.15); }\n\n/* Stat cards */\n.stat-cards {\n  display: flex; gap: 10px; justify-content: center; margin: 16px 0;\n  position: relative; z-index: 1;\n}\n.stat-card {\n  flex: 1; max-width: 140px;\n  background: rgba(255,255,255,0.04);\n  border: 1px solid rgba(139,92,246,0.12);\n  border-radius: 14px; padding: 12px 8px;\n  text-align: center; backdrop-filter: blur(4px);\n}\n.stat-card-val {\n  font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 900;\n  color: #c084fc;\n}\n.stat-card-label {\n  font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px;\n}\n\n/* Menu buttons */\n.menu-grid {\n  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;\n  max-width: 340px; margin: 20px auto 0; position: relative; z-index: 1;\n}\n.menu-card {\n  background: linear-gradient(180deg, rgba(40,35,50,0.85), rgba(25,20,35,0.9));\n  border: 1px solid rgba(139,92,246,0.2);\n  border-radius: 14px; padding: 16px 8px;\n  text-align: center; cursor: pointer; transition: all 0.25s;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n.menu-card:hover {\n  border-color: rgba(139,92,246,0.4);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(139,92,246,0.25), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n.menu-card-icon { font-size: 30px; margin-bottom: 6px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }\n.menu-card-label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); }\n.menu-card.primary {\n  grid-column: 1 / -1;\n  background: linear-gradient(180deg, rgba(40,35,50,0.85), rgba(25,20,35,0.9));\n  border-color: rgba(139,92,246,0.2);\n}\n.menu-card.primary:hover {\n  border-color: rgba(139,92,246,0.4);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(139,92,246,0.25), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n@keyframes menuShimmer {\n  0% { background-position: -200% 0; }\n  100% { background-position: 200% 0; }\n}\n\n/* Gacha */\n.gs { display: flex; flex-direction: column; align-items: center; gap: 12px; }\n.cr { display: grid; gap: 6px; width: 100%; max-width: 440px; }\n.chest {\n  width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;\n  font-size: 50px; animation: cb 1.5s ease-in-out infinite; transition: transform 0.2s;\n}\n@keyframes cb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }\n.chest.rbw { animation: cb 1.5s ease-in-out infinite, rbs 2s linear infinite; }\n.chest.silver-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)); }\n.chest.gold-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255,215,0,0.5)); }\n\n/* Chest styled boxes */\n.chest-box {\n  width: 56px; height: 56px; border-radius: 12px;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 24px; font-weight: 900; position: relative;\n  font-family: 'Orbitron', sans-serif;\n}\n.chest-box.wood-box {\n  background: linear-gradient(135deg, #8B6914, #A0782C, #6B4F10);\n  border: 2px solid #C4A54D; color: #F5E6C4;\n  box-shadow: 0 4px 12px rgba(139,105,20,0.4), inset 0 1px 0 rgba(255,255,255,0.15);\n}\n.chest-box.silver-box {\n  background: linear-gradient(135deg, #9EABBE, #D5DDE8, #B8C4D4, #E8EDF3, #A8B6C8);\n  border: 2px solid #E8EDF3; color: #fff;\n  box-shadow: 0 4px 18px rgba(200,214,229,0.5), 0 0 12px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.5);\n  text-shadow: 0 1px 3px rgba(0,0,0,0.2);\n}\n.chest-box.gold-box {\n  background: linear-gradient(135deg, #B8860B, #FFD700, #DAA520);\n  border: 2px solid #FFE44D; color: #fff;\n  box-shadow: 0 4px 18px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);\n}\n.chest-box.rainbow-box {\n  background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff);\n  background-size: 300% 300%;\n  border: 2px solid rgba(255,255,255,0.6); color: #fff;\n  box-shadow: 0 4px 20px rgba(255,107,107,0.3), 0 0 30px rgba(107,197,255,0.2);\n  animation: rainbowBg 3s ease infinite;\n}\n@keyframes rainbowBg { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }\n@keyframes crownPulse {\n  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(255,215,0,0.3); }\n  50% { transform: scale(1.03); box-shadow: 0 0 16px rgba(255,215,0,0.5); }\n}\n@keyframes rbs { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }\n.rc {\n  background: rgba(15,15,30,0.95); border-radius: 10px; padding: 6px 4px; text-align: center;\n  border: 2px solid; animation: ri 0.25s ease-out; min-width: 0; overflow: hidden;\n}\n/* 40\u9023: 8\u5217\xD75\u884C\u306E\u30B3\u30F3\u30D1\u30AF\u30C8\u8868\u793A\u30671\u753B\u9762\u306B\u53CE\u3081\u308B(\u5C0F\u753B\u9762\u306E .chest 64px \u6307\u5B9A\u3088\u308A\u512A\u5148) */\n.cr.cr-40 { gap: 4px !important; }\n.cr-40 .chest { width: 34px !important; height: 34px !important; }\n.cr-40 .chest img { width: 32px !important; height: 32px !important; border-radius: 7px !important; }\n.cr-40 .rc { padding: 3px 2px !important; border-width: 1px !important; border-radius: 7px !important; width: 100%; }\n@keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }\n/* \u5B9D\u7BB1\u958B\u5C014\u30B3\u30DE(A7 2026-08-25): 120ms\xD74\u3067\u5207\u308A\u66FF\u308F\u308A\u3001\u4EE5\u964Dopacity:0\u306E\u307E\u307E\u6B8B\u308B(pointer-events:none\u306A\u306E\u3067\u64CD\u4F5C\u306B\u7121\u5F71\u97FF) */\n@keyframes chestFrame4 { 0%,24%{opacity:1} 25%,100%{opacity:0} }\n.god { animation: gp 1s ease-in-out infinite; }\n@keyframes gp { 0%,100%{box-shadow:0 0 20px rgba(255,255,255,0.3),0 0 60px rgba(139,92,246,0.3)} 50%{box-shadow:0 0 40px rgba(255,255,255,0.6),0 0 100px rgba(245,158,11,0.4)} }\n.ci.god { background: rgba(255,215,0,0.08); border-color: rgba(255,255,255,0.4) !important; }\n\n/* Rank color effects - \u26056 Ultra */\n.rank-ultra {\n  color: #e67e22;\n  text-shadow: 0 0 6px rgba(230,126,34,0.4), 0 0 12px rgba(230,126,34,0.2);\n}\n/* \u26057 Epic */\n.rank-epic {\n  background: linear-gradient(90deg, #ff4757, #ff6b81, #ff4757);\n  background-size: 200% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 3s linear infinite;\n  filter: drop-shadow(0 0 4px rgba(255,71,87,0.4));\n}\n/* \u26058 Legend */\n.rank-silver {\n  background: linear-gradient(90deg, #a8b6c8, #e8edf3, #c8d6e5, #e8edf3, #a8b6c8);\n  background-size: 300% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 4s linear infinite;\n  filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)) drop-shadow(0 0 12px rgba(200,214,229,0.2));\n}\n/* \u26059 Mythic */\n.rank-gold {\n  background: linear-gradient(90deg, #b8860b, #ffd700, #fff8dc, #ffd700, #b8860b);\n  background-size: 300% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 3s linear infinite;\n  filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)) drop-shadow(0 0 16px rgba(255,215,0,0.2));\n}\n/* \u260510 God */\n.rank-rainbow {\n  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b);\n  background-size: 200% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 1.5s linear infinite;\n  filter: drop-shadow(0 0 6px rgba(255,215,0,0.5));\n}\n@keyframes rainbowText { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }\n/* \u2605MAX */\n.rank-diamond {\n  background: linear-gradient(135deg, #fff, #ffd700, #fff, #ff69b4, #fff, #7b68ee, #fff);\n  background-size: 400% 400%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: diamondShift 2s ease infinite;\n  filter: drop-shadow(0 0 8px rgba(255,215,0,0.8)) drop-shadow(0 0 16px rgba(255,255,255,0.4));\n}\n@keyframes diamondShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }\n/* \u260512 CONGRATULATIONS */\n.rank-congrats {\n  background: linear-gradient(135deg, #ffd700, #fff, #ff69b4, #7b68ee, #00ffcc, #ffd700, #fff, #ff69b4);\n  background-size: 600% 600%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: congratsShift 3s ease infinite;\n  filter: drop-shadow(0 0 12px rgba(255,215,0,1)) drop-shadow(0 0 24px rgba(255,105,180,0.7)) drop-shadow(0 0 36px rgba(123,104,238,0.5));\n}\n@keyframes congratsShift { 0%,100%{background-position:0% 50%} 33%{background-position:100% 0%} 66%{background-position:50% 100%} }\n/* \u260512 Tier3 Ultimate - distinct from rank-congrats */\n.rank-ultimate {\n  background: linear-gradient(135deg, #00ffcc, #fff, #7b68ee, #00ffcc, #ffd700, #ff69b4, #00ffcc, #fff);\n  background-size: 800% 800%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: ultimateShift 2s ease infinite;\n  filter: drop-shadow(0 0 14px rgba(0,255,204,1)) drop-shadow(0 0 28px rgba(123,104,238,0.8)) drop-shadow(0 0 42px rgba(255,215,0,0.5));\n}\n@keyframes ultimateShift { 0%,100%{background-position:0% 0%} 25%{background-position:100% 50%} 50%{background-position:50% 100%} 75%{background-position:0% 50%} }\n@keyframes congratsGlow {\n  0%,100% { box-shadow: 0 0 20px rgba(255,215,0,0.4), 0 0 40px rgba(255,105,180,0.3), 0 0 60px rgba(123,104,238,0.2); }\n  50% { box-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,105,180,0.5), 0 0 120px rgba(123,104,238,0.3); }\n}\n\n/* Card glow per rank */\n.rc.rank6-card {\n  border-color: #e67e22 !important;\n  box-shadow: 0 0 12px rgba(230,126,34,0.25), 0 0 24px rgba(230,126,34,0.1) !important;\n}\n.rc.rank7-card {\n  border-color: #ff4757 !important;\n  box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1) !important;\n  animation: rank7Pulse 2s ease-in-out infinite;\n}\n@keyframes rank7Pulse {\n  0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1); }\n  50% { box-shadow: 0 0 24px rgba(255,71,87,0.4), 0 0 40px rgba(255,71,87,0.15); }\n}\n.rc.rank8-card {\n  border-color: #c8d6e5 !important;\n  box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15) !important;\n  animation: rank8Shine 3s ease-in-out infinite;\n}\n@keyframes rank8Shine {\n  0%,100% { box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15); border-color: #a8b6c8; }\n  50% { box-shadow: 0 0 30px rgba(232,237,243,0.5), 0 0 50px rgba(200,214,229,0.25); border-color: #e8edf3; }\n}\n.rc.rank9-card {\n  border-color: #ffd700 !important;\n  box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15), 0 0 80px rgba(255,215,0,0.05) !important;\n  animation: rank9Glow 2.5s ease-in-out infinite;\n}\n@keyframes rank9Glow {\n  0%,100% { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15); border-color: #b8860b; }\n  50% { box-shadow: 0 0 35px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.25), 0 0 90px rgba(255,215,0,0.1); border-color: #ffd700; }\n}\n.rc.rank10-card {\n  box-shadow: 0 0 30px rgba(255,107,129,0.4), 0 0 60px rgba(107,197,255,0.3), 0 0 90px rgba(208,107,255,0.2) !important;\n  animation: rainbowGlow 2s ease-in-out infinite;\n  border-width: 3px !important;\n}\n@keyframes rainbowGlow {\n  0%,100% { box-shadow: 0 0 30px rgba(255,107,107,0.5), 0 0 60px rgba(255,209,61,0.3); border-color: #ff6b6b; }\n  25% { box-shadow: 0 0 30px rgba(255,209,61,0.5), 0 0 60px rgba(107,255,107,0.3); border-color: #ffd93d; }\n  50% { box-shadow: 0 0 30px rgba(107,255,107,0.5), 0 0 60px rgba(107,197,255,0.3); border-color: #6bff6b; }\n  75% { box-shadow: 0 0 30px rgba(107,197,255,0.5), 0 0 60px rgba(208,107,255,0.3); border-color: #6bc5ff; }\n}\n.rc.rank11-card {\n  box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2) !important;\n  animation: rank11Pulse 1.5s ease-in-out infinite;\n  border: 3px solid #ffd700 !important;\n  background: linear-gradient(160deg, rgba(30,20,50,0.95), rgba(50,30,20,0.95)) !important;\n}\n@keyframes rank11Pulse {\n  0%,100% { box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2); transform: scale(1); }\n  50% { box-shadow: 0 0 60px rgba(255,215,0,0.8), 0 0 100px rgba(255,255,255,0.5), 0 0 150px rgba(255,107,255,0.3); transform: scale(1.03); }\n}\n\n/* Minigames */\n.mgc {\n  background: linear-gradient(180deg, rgba(50,45,65,0.7), rgba(35,30,48,0.85));\n  border: 1px solid rgba(139,92,246,0.15);\n  border-radius: 14px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;\n}\n.mgc:hover { background: rgba(80,60,140,0.2); border-color: rgba(139,92,246,0.3); transform: translateX(4px); }\n.tap {\n  width: 180px; height: 180px; border-radius: 50%;\n  background: radial-gradient(circle, #ec4899, #be185d);\n  display: flex; align-items: center; justify-content: center; font-size: 56px;\n  cursor: pointer; box-shadow: 0 8px 40px rgba(236,72,153,0.4);\n  user-select: none; -webkit-user-select: none; transition: transform 0.05s;\n}\n.tap:active { transform: scale(0.92); }\n.ft {\n  position: absolute; font-weight: 900; font-size: 22px;\n  pointer-events: none; animation: fu 0.8s ease-out forwards;\n}\n@keyframes fu { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-70px) scale(1.4)} }\n@keyframes gemFall { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 60%{opacity:1} 100%{opacity:0;transform:translateY(120px) rotate(180deg)} }\n.md { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; text-align: center; margin: 16px 0; color: #fbbf24; }\n.mi {\n  background: rgba(255,255,255,0.08); border: 2px solid rgba(139,92,246,0.25);\n  border-radius: 12px; padding: 10px 16px; font-size: 22px; color: #fff;\n  text-align: center; width: 180px; font-family: 'Orbitron', sans-serif; outline: none;\n}\n.mi:focus { border-color: #a78bfa; box-shadow: 0 0 20px rgba(139,92,246,0.2); }\n\n/* Collection & Synth */\n.cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }\n.ci {\n  aspect-ratio: 1; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9));\n  border: 1px solid rgba(139,92,246,0.15);\n  border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;\n  font-size: 26px; cursor: pointer; transition: all 0.2s; position: relative;\n  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);\n}\n.ci:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.35); transform: scale(1.05); }\n.ci.un { opacity: 0.2; cursor: default; }\n.ci.un:hover { transform: none; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9)); }\n.ic { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.7); border-radius: 6px; padding: 1px 4px; font-size: 9px; font-weight: 700; }\n.cn { font-size: 7px; font-weight: 700; margin-top: 1px; text-align: center; line-height: 1.1; max-width: 100%; padding: 0 2px; }\n.tb { width: 100%; height: 5px; background: rgba(50,45,65,0.4); border-radius: 3px; overflow: hidden; margin: 8px 0; }\n.tf { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #c084fc); transition: width 0.1s linear; }\n.sr { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }\n.sb { background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.15); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }\n.tf2 { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }\n.tfb {\n  background: linear-gradient(180deg, #241c11, #14100a);\n  border: 1px solid rgba(201,168,76,0.32);\n  border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer;\n  color: #cbb37e; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.10);\n}\n.tfb:hover { border-color: rgba(240,214,145,0.6); color: #f2e0aa; }\n.tfb.act {\n  background: linear-gradient(180deg, #f4e2ac 0%, #d0aa50 55%, #b8913c 100%);\n  border-color: rgba(255,240,200,0.85); color: #1a1206;\n  box-shadow: 0 0 10px rgba(201,168,76,0.4), inset 0 1px 0 rgba(255,255,255,0.5);\n}\n.tfe { font-size: 12px; margin-right: 2px; line-height: 1; }\n\n/* Modal */\n.mo {\n  position: fixed; inset: 0; background: rgba(0,0,0,0.85);\n  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px;\n  backdrop-filter: blur(4px);\n}\n.mc {\n  background: linear-gradient(160deg, rgba(30,25,50,0.98), rgba(20,15,35,0.98));\n  border-radius: 20px; padding: 24px; max-width: 340px; width: 100%;\n  text-align: center; border: 2px solid; animation: ri 0.3s ease-out;\n  box-shadow: 0 20px 60px rgba(0,0,0,0.5);\n}\n\n/* Synth */\n.ss { display: flex; gap: 14px; align-items: center; justify-content: center; margin: 16px 0; }\n.sl {\n  width: 72px; height: 72px; border: 2px dashed rgba(139,92,246,0.25); border-radius: 14px;\n  display: flex; align-items: center; justify-content: center; font-size: 32px;\n  cursor: pointer; background: rgba(50,45,65,0.3); transition: all 0.2s;\n}\n.sl.fl { border-style: solid; background: rgba(80,60,140,0.2); }\n.sgl { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 6px; margin-top: 12px; max-height: 280px; overflow-y: auto; }\n\n/* ===== RESPONSIVE / MOBILE ===== */\nhtml { -webkit-text-size-adjust: 100%; }\nbody { overscroll-behavior: none; }\n.G { -webkit-tap-highlight-color: transparent; max-width: 480px; margin: 0 auto; }\n\n@media (max-width: 380px) {\n  .hero-title { font-size: 22px !important; letter-spacing: 2px !important; }\n  .hero-icon { font-size: 56px !important; }\n  .hero-sub { font-size: 12px !important; letter-spacing: 4px !important; }\n  .odo-d { width: 30px !important; height: 42px !important; font-size: 20px !important; }\n  .stat-cards { gap: 6px !important; }\n  .stat-card { padding: 10px 4px !important; }\n  .stat-card-val { font-size: 15px !important; }\n  .menu-grid { gap: 6px !important; }\n  .menu-card { padding: 12px 6px !important; }\n  .menu-card-icon { font-size: 22px !important; }\n  .menu-card-label { font-size: 11px !important; }\n  .hdr-t { font-size: 12px !important; }\n  .coin { font-size: 12px !important; padding: 3px 10px !important; }\n  .cg { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; }\n  .sgl { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important; }\n  .cr { gap: 8px !important; }\n  .chest { width: 64px !important; height: 64px !important; font-size: 40px !important; }\n  .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }\n  .md { font-size: 28px !important; }\n  .mi { font-size: 20px !important; width: 160px !important; }\n  .nb img { width: 34px !important; height: 34px !important; }\n  .nb { font-size: 10px !important; padding: 4px 5px 6px !important; }\n  .scrh-t { font-size: 18px !important; letter-spacing: 4px !important; }\n  .scrh-d { width: 52px !important; }\n}\n\n@media (min-width: 381px) and (max-width: 480px) {\n  .hero-title { font-size: 26px !important; }\n}\n\n/* Safe area for notched phones */\n.nav { padding-bottom: max(8px, env(safe-area-inset-bottom)) !important; }\n.hdr { padding-top: max(10px, env(safe-area-inset-top)) !important; }\n\n/* Prevent zoom on input focus (iOS) */\ninput[type=\"number\"] { font-size: 16px; }\n\n/* Touch targets */\n.btn { min-height: 44px; }\n.nb { min-height: 44px; min-width: 44px; }\n.mgc { min-height: 44px; }\n.menu-card { min-height: 44px; }\n.tfb { min-height: 32px; display: inline-flex; align-items: center; }\n.ci { min-height: 60px; }\n\n/* Rare effects */\n@keyframes rareFlash {\n  0% { opacity: 0; }\n  30% { opacity: 1; }\n  100% { opacity: 0; }\n}\n@keyframes rareShake {\n  0%, 100% { transform: translate(0, 0); }\n  10% { transform: translate(-4px, 2px); }\n  20% { transform: translate(4px, -2px); }\n  30% { transform: translate(-3px, -3px); }\n  40% { transform: translate(3px, 3px); }\n  50% { transform: translate(-2px, 1px); }\n  60% { transform: translate(2px, -1px); }\n  70% { transform: translate(-1px, 2px); }\n  80% { transform: translate(1px, -2px); }\n  90% { transform: translate(-1px, -1px); }\n}\n@keyframes rareRainbow {\n  0% { filter: hue-rotate(0deg) brightness(1.2); }\n  100% { filter: hue-rotate(360deg) brightness(1.2); }\n}\n@keyframes rareGodText {\n  0% { transform: scale(0.3); opacity: 0; }\n  50% { transform: scale(1.15); opacity: 1; }\n  100% { transform: scale(1); opacity: 1; }\n}\n.rare-flash {\n  position: fixed; inset: 0; z-index: 9999; pointer-events: none;\n  animation: rareFlash 0.4s ease-out forwards;\n}\n.rare-shake { animation: rareShake 0.5s ease-out; }\n.rare-rainbow { animation: rareRainbow 2s linear; }\n.rare-god-text {\n  animation: rareGodText 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;\n}\n@keyframes synthMaxPulse {\n  0%, 100% { box-shadow: 0 0 60px rgba(255,215,0,0.3), 0 0 120px rgba(255,107,255,0.2), inset 0 0 60px rgba(255,215,0,0.1); }\n  50% { box-shadow: 0 0 100px rgba(255,215,0,0.6), 0 0 200px rgba(255,107,255,0.4), inset 0 0 100px rgba(255,215,0,0.2); }\n}\n@keyframes synthMaxRotate {\n  0% { transform: rotate(0deg); }\n  100% { transform: rotate(360deg); }\n}\n@keyframes synthMaxIcon {\n  0% { transform: scale(0) rotate(-180deg); opacity: 0; }\n  60% { transform: scale(1.3) rotate(10deg); opacity: 1; }\n  80% { transform: scale(0.95) rotate(-3deg); }\n  100% { transform: scale(1) rotate(0deg); opacity: 1; }\n}\n@keyframes synthMaxBurst {\n  0% { transform: scale(0); opacity: 1; }\n  100% { transform: scale(3); opacity: 0; }\n}\n@keyframes synthGodIcon {\n  0% { transform: scale(0.3); opacity: 0; }\n  50% { transform: scale(1.15); opacity: 1; }\n  100% { transform: scale(1); opacity: 1; }\n}\n@keyframes cardFlip {\n  0% { transform: scaleX(1); }\n  50% { transform: scaleX(0); }\n  100% { transform: scaleX(1); }\n}\n@keyframes cardMatch {\n  0% { transform: scale(1); }\n  50% { transform: scale(1.15); }\n  100% { transform: scale(1); opacity: 0.5; }\n}\n.card-flip { animation: cardFlip 0.3s ease-in-out; }\n.card-match { animation: cardMatch 0.4s ease-out; }\n@keyframes bubblePop {\n  0% { transform: scale(1); opacity: 1; }\n  50% { transform: scale(1.5); opacity: 0.5; }\n  100% { transform: scale(0); opacity: 0; }\n}\n@keyframes bubbleGrow {\n  0% { transform: scale(0.95); }\n  50% { transform: scale(1.08); }\n  100% { transform: scale(1); }\n}\n@keyframes bubbleDanger {\n  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.3); }\n  50% { box-shadow: 0 0 20px rgba(239,68,68,0.6); }\n}\n.bubble-pop { animation: bubblePop 0.4s ease-out forwards; }\n.bubble-grow { animation: bubbleGrow 0.15s ease-out; }\n.bubble-danger { animation: bubbleDanger 1s ease-in-out infinite; }\n@keyframes drawFlash {\n  0% { background: rgba(239,68,68,0); }\n  20% { background: rgba(239,68,68,0.15); }\n  100% { background: rgba(239,68,68,0); }\n}\n@keyframes enemyShake {\n  0%, 100% { transform: translateX(0); }\n  25% { transform: translateX(-5px); }\n  75% { transform: translateX(5px); }\n}\n@keyframes drawText {\n  0% { transform: scale(0.5); opacity: 0; }\n  50% { transform: scale(1.2); }\n  100% { transform: scale(1); opacity: 1; }\n}\n.draw-flash { animation: drawFlash 0.3s ease-out; }\n.enemy-shake { animation: enemyShake 0.3s ease-in-out; }\n.draw-text { animation: drawText 0.3s ease-out; }\n";
+var CSS = "\n@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@600;700&display=swap');\n\n* { box-sizing: border-box; margin: 0; padding: 0; }\n.G {\n  font-family: 'Noto Sans JP', sans-serif;\n  width: 100%; min-height: 100vh;\n  background: #06060f; color: #e0e0e0;\n  overflow-x: hidden; position: relative;\n}\n.G::before {\n  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;\n  background:\n    radial-gradient(ellipse at 30% 10%, rgba(139,92,246,0.18) 0%, transparent 50%),\n    radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%),\n    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,0.06) 0%, transparent 70%);\n}\n.G::after {\n  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;\n  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);\n  background-size: 40px 40px;\n}\n/* ===== \u30B7\u30A7\u30EBUI: \u9EC4\u91D1\u306E\u5B9D\u7269\u5EAB\u30C8\u30FC\u30F3(\u9752\u9285+\u91D1\u5F6B\u91D1) ===== */\n.hdr {\n  position: sticky; top: 0; z-index: 100;\n  max-width: 480px; margin: 0 auto;\n  background:\n    radial-gradient(130% 200% at 50% -70%, rgba(201,168,76,0.12), transparent 62%),\n    linear-gradient(180deg, #141009 0%, #0c0906 55%, #060506 100%);\n  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);\n  border-bottom: none;\n  box-shadow: 0 2px 12px rgba(0,0,0,0.65);\n  padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;\n}\n/* \u5FAE\u7D30\u30CE\u30A4\u30BA(\u91D1\u306E\u7C89\u3058\u3093)\u3002\u88C5\u98FE\u306E\u307F\u3067\u30AF\u30EA\u30C3\u30AF\u4E0D\u53EF */\n.hdr::before {\n  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.45;\n  background-image: radial-gradient(rgba(255,235,180,0.05) 1px, transparent 1px);\n  background-size: 3px 3px;\n}\n/* \u4E0B\u7AEF\u306E\u91D1\u30B0\u30E9\u30C7\u30E9\u30A4\u30F3(\u5E2F\u306E\u7E01\u53D6\u308A) */\n.hdr::after {\n  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.65) 14%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.65) 86%, transparent);\n}\n.hdr > div { position: relative; z-index: 1; }\n.hdr-t {\n  font-family: 'Cinzel', 'Orbitron', serif; font-size: 15px; font-weight: 700;\n  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 44%, #a8842f 58%, #f2e0aa 100%);\n  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;\n  letter-spacing: 2.5px; white-space: nowrap;\n  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));\n}\n.hdr-logo { height: 22px; width: auto; display: block;\n  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }\n.hdr-slot {\n  font-family: 'Rajdhani', 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;\n  letter-spacing: 1.5px; color: #e6cd90; line-height: 1.35;\n  background: linear-gradient(180deg, #2b2215, #16110a);\n  border: 1px solid rgba(201,168,76,0.5);\n  border-radius: 4px; padding: 2px 7px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 0 6px rgba(201,168,76,0.14);\n  text-shadow: 0 0 5px rgba(201,168,76,0.35);\n}\n.hdr-ib {\n  display: inline-flex; align-items: center; justify-content: center;\n  width: 30px; height: 30px; padding: 0; flex-shrink: 0;\n  background: linear-gradient(180deg, #251d12, #120e08);\n  border: 1px solid rgba(201,168,76,0.42); border-radius: 7px;\n  color: #e6cd90; font-size: 14px; line-height: 1; cursor: pointer;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 3px rgba(0,0,0,0.6);\n  transition: all 0.2s;\n}\n.hdr-ib:hover { border-color: rgba(240,214,145,0.75); box-shadow: inset 0 1px 0 rgba(240,214,145,0.24), 0 0 9px rgba(201,168,76,0.3); }\n.hdr-ib.off { color: rgba(205,193,170,0.3); border-color: rgba(150,130,90,0.25); }\n.hdr-ib.off img { opacity: 0.45; }\n.hdr-ib img { width: 20px; height: 20px; object-fit: contain; display: block; mix-blend-mode: screen; }\n.coin {\n  display: flex; align-items: center; gap: 6px;\n  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);\n  border: 1px solid rgba(201,168,76,0.48);\n  border-radius: 6px; padding: 3px 11px;\n  font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 13px; color: #f2e0aa;\n  letter-spacing: 0.5px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 7px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5);\n  text-shadow: 0 0 6px rgba(201,168,76,0.35);\n  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;\n}\n.coin img { width: 15px; height: 15px; object-fit: contain; display: block; flex-shrink: 0; }\n.cnt { position: relative; z-index: 1; padding: 16px; padding-bottom: 90px; }\n.nav {\n  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);\n  width: 100%; max-width: 480px; z-index: 100;\n  background:\n    radial-gradient(130% 220% at 50% 150%, rgba(201,168,76,0.11), transparent 62%),\n    linear-gradient(180deg, #110d07 0%, #0a0806 58%, #060506 100%);\n  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);\n  border-top: none;\n  display: flex; justify-content: space-around; padding: 5px 0 7px;\n  border-radius: 14px 14px 0 0;\n  box-shadow: 0 -3px 16px rgba(0,0,0,0.65);\n}\n/* \u4E0A\u7AEF\u306E\u91D1\u30B0\u30E9\u30C7\u30E9\u30A4\u30F3 */\n.nav::before {\n  content: ''; position: absolute; left: 10px; right: 10px; top: 0; height: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.6) 12%, rgba(240,214,145,0.95) 50%, rgba(201,168,76,0.6) 88%, transparent);\n}\n.nb {\n  background: none; border: none; color: rgba(190,170,120,0.5);\n  display: flex; flex-direction: column; align-items: center; gap: 2px;\n  font-size: 11px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;\n  letter-spacing: 0.15em;\n  cursor: pointer; padding: 4px 8px 6px; transition: all 0.3s;\n  position: relative;\n}\n.nb.act { color: #f2e0aa; text-shadow: 0 0 8px rgba(201,168,76,0.5); }\n.nb img { pointer-events: none; }\n.nb-l { line-height: 1; padding-left: 0.15em; }\n/* \u30A2\u30AF\u30C6\u30A3\u30D6\u30BF\u30D6\u4E0B\u90E8\u306E\u91D1\u30A4\u30F3\u30B8\u30B1\u30FC\u30BF */\n.nb-ind {\n  position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;\n  width: 22px; height: 2px; border-radius: 1px; pointer-events: none;\n  background: linear-gradient(90deg, transparent, #f2e0aa, transparent);\n  box-shadow: 0 0 6px rgba(240,214,145,0.85);\n}\n/* \u753B\u9762\u898B\u51FA\u3057(\u5C55\u793A\u5BA4/\u5408\u6210 \u5171\u901A) */\n.scrh {\n  text-align: center; margin: 0 -16px 16px; padding: 16px 16px 13px; position: relative;\n  background: linear-gradient(180deg, rgba(26,20,11,0.8), rgba(10,8,6,0.35));\n  border-bottom: 1px solid rgba(201,168,76,0.28);\n}\n.scrh-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; font-weight: 700;\n  letter-spacing: 5px; color: rgba(201,168,76,0.6); margin-bottom: 5px; }\n.scrh-t {\n  font-family: 'Cinzel', 'Orbitron', 'Noto Sans JP', sans-serif; font-size: 21px; font-weight: 700;\n  letter-spacing: 6px; line-height: 1.25;\n  background: linear-gradient(180deg, #f8ecc4 0%, #dcba68 46%, #a8842f 60%, #f2e0aa 100%);\n  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;\n  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75));\n}\n.scrh-r { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 7px; }\n.scrh-d { width: 72px; height: 9px; flex-shrink: 0; opacity: 0.75;\n  background: url(assets/ui/divider.webp) center/contain no-repeat; }\n.scrh-d.f { transform: scaleX(-1); }\n.scrh-s { font-size: 10px; color: rgba(232,213,163,0.6); letter-spacing: 1px; white-space: nowrap; }\n/* \u901A\u77E5\u30D0\u30CA\u30FC(\u9752\u9285+\u91D1\u306E\u5E2F) */\n.gbanner {\n  position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 300;\n  max-width: min(92vw, 430px);\n  background: linear-gradient(180deg, #2b2215 0%, #171108 58%, #221a0f 100%);\n  border: 1px solid rgba(201,168,76,0.6);\n  border-radius: 6px; padding: 7px 20px;\n  font-size: 13px; font-weight: 700; color: #f2e0aa; letter-spacing: 0.5px;\n  text-align: center; line-height: 1.5;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.18), 0 5px 20px rgba(0,0,0,0.6), 0 0 14px rgba(201,168,76,0.16);\n  animation: ri 0.3s ease-out;\n}\n.gbanner .gb-k { font-family: 'Rajdhani', sans-serif; font-size: 9px; letter-spacing: 4px;\n  color: rgba(201,168,76,0.7); margin-bottom: 3px; }\n.gbanner .gb-sub { font-size: 10px; color: rgba(232,213,163,0.55); margin-top: 4px; font-weight: 400; }\n/* \u91D1\u30D7\u30EC\u30FC\u30C8(\u79F0\u53F7\u30D0\u30C3\u30B8\u30FB\u30E1\u30C0\u30EB\u5E2F \u5171\u901A) */\n.gplate {\n  display: inline-flex; align-items: center; gap: 6px;\n  background: linear-gradient(180deg, #2b2215, #17110a);\n  border: 1px solid rgba(201,168,76,0.45); border-radius: 6px;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.14), 0 1px 4px rgba(0,0,0,0.5);\n}\n.btn {\n  border: none; border-radius: 14px; padding: 12px 24px;\n  font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700;\n  cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;\n  position: relative; overflow: hidden;\n}\n.btn:active { transform: scale(0.95); }\n.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }\n.bp {\n  background: linear-gradient(135deg, #f59e0b, #ec4899);\n  color: #fff; box-shadow: 0 4px 20px rgba(245,158,11,0.3), 0 0 40px rgba(236,72,153,0.15);\n  text-shadow: 0 1px 2px rgba(0,0,0,0.3);\n}\n.bp:hover { box-shadow: 0 6px 30px rgba(245,158,11,0.4), 0 0 60px rgba(236,72,153,0.2); }\n/* \u30AC\u30C1\u30E3\u300C\u5F15\u304F\u300D\u30DC\u30BF\u30F3(\u91D1\u5F6B\u91D1+\u5B9D\u77F3\u9762): 10\u9023=\u30B5\u30D5\u30A1\u30A4\u30A2/40\u9023=\u30EB\u30D3\u30FC\u3002\u30E1\u30A4\u30F3(\u5927=.gpb-lg)/\u9023\u7D9A(\u5C0F=.gpb-sm)\u5171\u901A\u3002\n   \u4E88\u7D04\u30A2\u30BB\u30C3\u30C8(assets/ui/btn-p10.webp\u30FBbtn-p40.webp)\u304C404\u306E\u5834\u5408\u306FJSX\u5074onError\u3067img\u3092\u6D88\u3057\u3001\u3053\u306E.gpb-bg\u4EE5\u4E0B\u306E\u91D1\u5F6B\u91D1CSS\u304C\u305D\u306E\u307E\u307E\u5E8A\u306B\u306A\u308B */\n.gpb {\n  position: relative; overflow: hidden; border: none; border-radius: 12px; padding: 0;\n  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;\n  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 12px rgba(0,0,0,0.55);\n}\n.gpb::before {\n  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;\n  border: 2px solid rgba(201,168,76,0.55);\n}\n.gpb10 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(37,99,235,0.32); }\n.gpb10::before { border-color: rgba(96,165,250,0.6); }\n.gpb40 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(220,38,38,0.32); }\n.gpb40::before { border-color: rgba(248,113,113,0.6); }\n.gpb:hover:not(:disabled) { filter: brightness(1.08); }\n.btn.gpb:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(240,214,145,0.1), inset 0 -1px 4px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4); }\n.gpb-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }\n.gpb10 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(96,165,250,0.35), transparent 60%), linear-gradient(180deg, #1c2a44 0%, #101a2c 60%, #182338 100%); }\n.gpb40 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(248,113,113,0.32), transparent 60%), linear-gradient(180deg, #3a1414 0%, #200b0b 60%, #2c0f0f 100%); }\n.gpb-img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }\n.gpb-shine {\n  position: absolute; inset: 0; z-index: 3; pointer-events: none;\n  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);\n  background-size: 200% 100%; animation: gradShift 3s ease infinite;\n}\n.gpb-label {\n  position: relative; z-index: 4; font-family: 'Orbitron', 'Noto Sans JP', sans-serif; font-weight: 900;\n  color: #f8ecc4; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.5);\n}\n.gpb-cost {\n  position: relative; z-index: 4; font-family: 'Rajdhani', sans-serif; font-weight: 700;\n  color: rgba(248,230,190,0.78); text-shadow: 0 1px 2px rgba(0,0,0,0.8);\n}\n.gpb-lg { min-height: 86px; padding: 0 12px; }\n.gpb-lg .gpb-label { font-size: 25px; letter-spacing: 2px; text-shadow: 0 2px 3px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.6); }\n.gpb-lg .gpb-cost { font-size: 12px; }\n.gpb-sm { min-height: 64px; padding: 0 22px; }\n.gpb-sm .gpb-label { font-size: 19px; letter-spacing: 1.5px; }\n.gpb-sm .gpb-cost { font-size: 10px; }\n.bs {\n  background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.2); color: #ccc;\n  backdrop-filter: blur(4px);\n}\n.bs:hover { background: rgba(80,60,140,0.3); border-color: rgba(139,92,246,0.4); }\n.bd { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; }\n.st { font-size: 18px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }\n\n/* Home hero */\n.hero-bg {\n  position: relative; margin: -16px -16px 0; padding: 32px 16px 24px;\n  background: url('bg.jpg') center top / cover no-repeat;\n  border-bottom: 1px solid rgba(139,92,246,0.15);\n  overflow: hidden;\n}\n.hero-bg::before {\n  content: ''; position: absolute; inset: 0; pointer-events: none;\n  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 50%, rgba(6,6,15,0.85) 100%);\n}\n.hero-orb {\n  position: absolute; border-radius: 50%; filter: blur(40px); pointer-events: none; opacity: 0.4;\n  animation: orbFloat 8s ease-in-out infinite;\n}\n@keyframes orbFloat {\n  0%,100% { transform: translateY(0) scale(1); }\n  50% { transform: translateY(-15px) scale(1.1); }\n}\n.hero-icon {\n  font-size: 72px; position: relative; z-index: 1;\n  animation: heroIconFloat 3s ease-in-out infinite;\n  filter: drop-shadow(0 0 30px rgba(139,92,246,0.4));\n}\n@keyframes heroIconFloat {\n  0%,100% { transform: translateY(0); }\n  50% { transform: translateY(-10px); }\n}\n.hero-title {\n  font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900;\n  background: linear-gradient(135deg, #c084fc, #f472b6, #fbbf24, #a78bfa);\n  background-size: 300% 300%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: gradShift 4s ease infinite;\n  letter-spacing: 3px; margin-top: 12px; position: relative; z-index: 1;\n}\n@keyframes gradShift {\n  0%,100% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n}\n.hero-sub {\n  font-family: 'Rajdhani', sans-serif; font-size: 14px; color: rgba(196,132,252,0.6);\n  letter-spacing: 6px; margin-top: 4px; position: relative; z-index: 1;\n}\n\n/* Odometer */\n.odo-wrap {\n  margin: 20px 0 16px; position: relative; z-index: 1;\n}\n.odo-label {\n  font-family: 'Rajdhani', sans-serif; font-size: 11px; color: rgba(251,191,36,0.5);\n  letter-spacing: 4px; margin-bottom: 8px;\n}\n.odo-digits { display: flex; justify-content: center; gap: 5px; }\n.odo-d {\n  width: 36px; height: 50px;\n  background: linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(22,22,44,0.95) 49%, rgba(10,10,25,0.95) 50%, rgba(18,18,36,0.95) 100%);\n  border: 1px solid rgba(139,92,246,0.25);\n  border-radius: 8px;\n  display: flex; align-items: center; justify-content: center;\n  font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);\n  transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;\n}\n.odo-d.lit {\n  color: #fbbf24; border-color: rgba(245,158,11,0.4);\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 15px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.04);\n  text-shadow: 0 0 10px rgba(245,158,11,0.5);\n}\n.odo-d.dim { color: rgba(139,92,246,0.15); }\n\n/* Stat cards */\n.stat-cards {\n  display: flex; gap: 10px; justify-content: center; margin: 16px 0;\n  position: relative; z-index: 1;\n}\n.stat-card {\n  flex: 1; max-width: 140px;\n  background: rgba(255,255,255,0.04);\n  border: 1px solid rgba(139,92,246,0.12);\n  border-radius: 14px; padding: 12px 8px;\n  text-align: center; backdrop-filter: blur(4px);\n}\n.stat-card-val {\n  font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 900;\n  color: #c084fc;\n}\n.stat-card-label {\n  font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px;\n}\n\n/* Menu buttons */\n.menu-grid {\n  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;\n  max-width: 340px; margin: 20px auto 0; position: relative; z-index: 1;\n}\n.menu-card {\n  background: linear-gradient(180deg, rgba(40,35,50,0.85), rgba(25,20,35,0.9));\n  border: 1px solid rgba(139,92,246,0.2);\n  border-radius: 14px; padding: 16px 8px;\n  text-align: center; cursor: pointer; transition: all 0.25s;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n.menu-card:hover {\n  border-color: rgba(139,92,246,0.4);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(139,92,246,0.25), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n.menu-card-icon { font-size: 30px; margin-bottom: 6px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }\n.menu-card-label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); }\n.menu-card.primary {\n  grid-column: 1 / -1;\n  background: linear-gradient(180deg, rgba(40,35,50,0.85), rgba(25,20,35,0.9));\n  border-color: rgba(139,92,246,0.2);\n}\n.menu-card.primary:hover {\n  border-color: rgba(139,92,246,0.4);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(139,92,246,0.25), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);\n}\n@keyframes menuShimmer {\n  0% { background-position: -200% 0; }\n  100% { background-position: 200% 0; }\n}\n\n/* Gacha */\n.gs { display: flex; flex-direction: column; align-items: center; gap: 12px; }\n.cr { display: grid; gap: 6px; width: 100%; max-width: 440px; }\n.chest {\n  width: 78px; height: 78px; display: flex; align-items: center; justify-content: center;\n  font-size: 50px; animation: cb 1.5s ease-in-out infinite; transition: transform 0.2s;\n}\n.chest-img { width: 76px; height: 76px; }\n@keyframes cb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }\n.chest.rbw { animation: cb 1.5s ease-in-out infinite, rbs 2s linear infinite; }\n.chest.silver-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)); }\n.chest.gold-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255,215,0,0.5)); }\n\n/* Chest styled boxes */\n.chest-box {\n  width: 56px; height: 56px; border-radius: 12px;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 24px; font-weight: 900; position: relative;\n  font-family: 'Orbitron', sans-serif;\n}\n.chest-box.wood-box {\n  background: linear-gradient(135deg, #8B6914, #A0782C, #6B4F10);\n  border: 2px solid #C4A54D; color: #F5E6C4;\n  box-shadow: 0 4px 12px rgba(139,105,20,0.4), inset 0 1px 0 rgba(255,255,255,0.15);\n}\n.chest-box.silver-box {\n  background: linear-gradient(135deg, #9EABBE, #D5DDE8, #B8C4D4, #E8EDF3, #A8B6C8);\n  border: 2px solid #E8EDF3; color: #fff;\n  box-shadow: 0 4px 18px rgba(200,214,229,0.5), 0 0 12px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.5);\n  text-shadow: 0 1px 3px rgba(0,0,0,0.2);\n}\n.chest-box.gold-box {\n  background: linear-gradient(135deg, #B8860B, #FFD700, #DAA520);\n  border: 2px solid #FFE44D; color: #fff;\n  box-shadow: 0 4px 18px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);\n}\n.chest-box.rainbow-box {\n  background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff);\n  background-size: 300% 300%;\n  border: 2px solid rgba(255,255,255,0.6); color: #fff;\n  box-shadow: 0 4px 20px rgba(255,107,107,0.3), 0 0 30px rgba(107,197,255,0.2);\n  animation: rainbowBg 3s ease infinite;\n}\n@keyframes rainbowBg { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }\n@keyframes crownPulse {\n  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(255,215,0,0.3); }\n  50% { transform: scale(1.03); box-shadow: 0 0 16px rgba(255,215,0,0.5); }\n}\n@keyframes rbs { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }\n.rc {\n  background: rgba(15,15,30,0.95); border-radius: 10px; padding: 6px 4px; text-align: center;\n  border: 2px solid; animation: ri 0.25s ease-out; min-width: 0; overflow: hidden;\n}\n/* 40\u9023: 8\u5217\xD75\u884C\u306E\u30B3\u30F3\u30D1\u30AF\u30C8\u8868\u793A\u30671\u753B\u9762\u306B\u53CE\u3081\u308B(\u5C0F\u753B\u9762\u306E .chest 64px \u6307\u5B9A\u3088\u308A\u512A\u5148) */\n.cr.cr-40 { gap: 4px !important; }\n.cr-40 .chest { width: 40px !important; height: 40px !important; }\n.cr-40 .chest img { width: 38px !important; height: 38px !important; border-radius: 7px !important; }\n.cr-40 .rc { padding: 3px 2px !important; border-width: 1px !important; border-radius: 7px !important; width: 100%; }\n@keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }\n/* \u5B9D\u7BB1\u958B\u5C014\u30B3\u30DE(A7 2026-08-25): 120ms\xD74\u3067\u5207\u308A\u66FF\u308F\u308A\u3001\u4EE5\u964Dopacity:0\u306E\u307E\u307E\u6B8B\u308B(pointer-events:none\u306A\u306E\u3067\u64CD\u4F5C\u306B\u7121\u5F71\u97FF) */\n@keyframes chestFrame4 { 0%,24%{opacity:1} 25%,100%{opacity:0} }\n.god { animation: gp 1s ease-in-out infinite; }\n@keyframes gp { 0%,100%{box-shadow:0 0 20px rgba(255,255,255,0.3),0 0 60px rgba(139,92,246,0.3)} 50%{box-shadow:0 0 40px rgba(255,255,255,0.6),0 0 100px rgba(245,158,11,0.4)} }\n.ci.god { background: rgba(255,215,0,0.08); border-color: rgba(255,255,255,0.4) !important; }\n\n/* Rank color effects - \u26056 Ultra */\n.rank-ultra {\n  color: #e67e22;\n  text-shadow: 0 0 6px rgba(230,126,34,0.4), 0 0 12px rgba(230,126,34,0.2);\n}\n/* \u26057 Epic */\n.rank-epic {\n  background: linear-gradient(90deg, #ff4757, #ff6b81, #ff4757);\n  background-size: 200% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 3s linear infinite;\n  filter: drop-shadow(0 0 4px rgba(255,71,87,0.4));\n}\n/* \u26058 Legend */\n.rank-silver {\n  background: linear-gradient(90deg, #a8b6c8, #e8edf3, #c8d6e5, #e8edf3, #a8b6c8);\n  background-size: 300% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 4s linear infinite;\n  filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)) drop-shadow(0 0 12px rgba(200,214,229,0.2));\n}\n/* \u26059 Mythic */\n.rank-gold {\n  background: linear-gradient(90deg, #b8860b, #ffd700, #fff8dc, #ffd700, #b8860b);\n  background-size: 300% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 3s linear infinite;\n  filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)) drop-shadow(0 0 16px rgba(255,215,0,0.2));\n}\n/* \u260510 God */\n.rank-rainbow {\n  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff6b, #6bc5ff, #d06bff, #ff6b6b);\n  background-size: 200% 100%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: rainbowText 1.5s linear infinite;\n  filter: drop-shadow(0 0 6px rgba(255,215,0,0.5));\n}\n@keyframes rainbowText { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }\n/* \u2605MAX */\n.rank-diamond {\n  background: linear-gradient(135deg, #fff, #ffd700, #fff, #ff69b4, #fff, #7b68ee, #fff);\n  background-size: 400% 400%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: diamondShift 2s ease infinite;\n  filter: drop-shadow(0 0 8px rgba(255,215,0,0.8)) drop-shadow(0 0 16px rgba(255,255,255,0.4));\n}\n@keyframes diamondShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }\n/* \u260512 CONGRATULATIONS */\n.rank-congrats {\n  background: linear-gradient(135deg, #ffd700, #fff, #ff69b4, #7b68ee, #00ffcc, #ffd700, #fff, #ff69b4);\n  background-size: 600% 600%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: congratsShift 3s ease infinite;\n  filter: drop-shadow(0 0 12px rgba(255,215,0,1)) drop-shadow(0 0 24px rgba(255,105,180,0.7)) drop-shadow(0 0 36px rgba(123,104,238,0.5));\n}\n@keyframes congratsShift { 0%,100%{background-position:0% 50%} 33%{background-position:100% 0%} 66%{background-position:50% 100%} }\n/* \u260512 Tier3 Ultimate - distinct from rank-congrats */\n.rank-ultimate {\n  background: linear-gradient(135deg, #00ffcc, #fff, #7b68ee, #00ffcc, #ffd700, #ff69b4, #00ffcc, #fff);\n  background-size: 800% 800%;\n  -webkit-background-clip: text; -webkit-text-fill-color: transparent;\n  animation: ultimateShift 2s ease infinite;\n  filter: drop-shadow(0 0 14px rgba(0,255,204,1)) drop-shadow(0 0 28px rgba(123,104,238,0.8)) drop-shadow(0 0 42px rgba(255,215,0,0.5));\n}\n@keyframes ultimateShift { 0%,100%{background-position:0% 0%} 25%{background-position:100% 50%} 50%{background-position:50% 100%} 75%{background-position:0% 50%} }\n@keyframes congratsGlow {\n  0%,100% { box-shadow: 0 0 20px rgba(255,215,0,0.4), 0 0 40px rgba(255,105,180,0.3), 0 0 60px rgba(123,104,238,0.2); }\n  50% { box-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,105,180,0.5), 0 0 120px rgba(123,104,238,0.3); }\n}\n\n/* Card glow per rank */\n.rc.rank6-card {\n  border-color: #e67e22 !important;\n  box-shadow: 0 0 12px rgba(230,126,34,0.25), 0 0 24px rgba(230,126,34,0.1) !important;\n}\n.rc.rank7-card {\n  border-color: #ff4757 !important;\n  box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1) !important;\n  animation: rank7Pulse 2s ease-in-out infinite;\n}\n@keyframes rank7Pulse {\n  0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.3), 0 0 32px rgba(255,71,87,0.1); }\n  50% { box-shadow: 0 0 24px rgba(255,71,87,0.4), 0 0 40px rgba(255,71,87,0.15); }\n}\n.rc.rank8-card {\n  border-color: #c8d6e5 !important;\n  box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15) !important;\n  animation: rank8Shine 3s ease-in-out infinite;\n}\n@keyframes rank8Shine {\n  0%,100% { box-shadow: 0 0 20px rgba(200,214,229,0.35), 0 0 40px rgba(200,214,229,0.15); border-color: #a8b6c8; }\n  50% { box-shadow: 0 0 30px rgba(232,237,243,0.5), 0 0 50px rgba(200,214,229,0.25); border-color: #e8edf3; }\n}\n.rc.rank9-card {\n  border-color: #ffd700 !important;\n  box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15), 0 0 80px rgba(255,215,0,0.05) !important;\n  animation: rank9Glow 2.5s ease-in-out infinite;\n}\n@keyframes rank9Glow {\n  0%,100% { box-shadow: 0 0 25px rgba(255,215,0,0.4), 0 0 50px rgba(255,215,0,0.15); border-color: #b8860b; }\n  50% { box-shadow: 0 0 35px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.25), 0 0 90px rgba(255,215,0,0.1); border-color: #ffd700; }\n}\n.rc.rank10-card {\n  box-shadow: 0 0 30px rgba(255,107,129,0.4), 0 0 60px rgba(107,197,255,0.3), 0 0 90px rgba(208,107,255,0.2) !important;\n  animation: rainbowGlow 2s ease-in-out infinite;\n  border-width: 3px !important;\n}\n@keyframes rainbowGlow {\n  0%,100% { box-shadow: 0 0 30px rgba(255,107,107,0.5), 0 0 60px rgba(255,209,61,0.3); border-color: #ff6b6b; }\n  25% { box-shadow: 0 0 30px rgba(255,209,61,0.5), 0 0 60px rgba(107,255,107,0.3); border-color: #ffd93d; }\n  50% { box-shadow: 0 0 30px rgba(107,255,107,0.5), 0 0 60px rgba(107,197,255,0.3); border-color: #6bff6b; }\n  75% { box-shadow: 0 0 30px rgba(107,197,255,0.5), 0 0 60px rgba(208,107,255,0.3); border-color: #6bc5ff; }\n}\n.rc.rank11-card {\n  box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2) !important;\n  animation: rank11Pulse 1.5s ease-in-out infinite;\n  border: 3px solid #ffd700 !important;\n  background: linear-gradient(160deg, rgba(30,20,50,0.95), rgba(50,30,20,0.95)) !important;\n}\n@keyframes rank11Pulse {\n  0%,100% { box-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,255,255,0.3), 0 0 120px rgba(255,107,255,0.2); transform: scale(1); }\n  50% { box-shadow: 0 0 60px rgba(255,215,0,0.8), 0 0 100px rgba(255,255,255,0.5), 0 0 150px rgba(255,107,255,0.3); transform: scale(1.03); }\n}\n\n/* Minigames */\n.mgc {\n  background: linear-gradient(180deg, rgba(50,45,65,0.7), rgba(35,30,48,0.85));\n  border: 1px solid rgba(139,92,246,0.15);\n  border-radius: 14px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;\n}\n.mgc:hover { background: rgba(80,60,140,0.2); border-color: rgba(139,92,246,0.3); transform: translateX(4px); }\n.tap {\n  width: 180px; height: 180px; border-radius: 50%;\n  background: radial-gradient(circle, #ec4899, #be185d);\n  display: flex; align-items: center; justify-content: center; font-size: 56px;\n  cursor: pointer; box-shadow: 0 8px 40px rgba(236,72,153,0.4);\n  user-select: none; -webkit-user-select: none; transition: transform 0.05s;\n}\n.tap:active { transform: scale(0.92); }\n.ft {\n  position: absolute; font-weight: 900; font-size: 22px;\n  pointer-events: none; animation: fu 0.8s ease-out forwards;\n}\n@keyframes fu { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-70px) scale(1.4)} }\n@keyframes gemFall { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 60%{opacity:1} 100%{opacity:0;transform:translateY(120px) rotate(180deg)} }\n.md { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; text-align: center; margin: 16px 0; color: #fbbf24; }\n.mi {\n  background: rgba(255,255,255,0.08); border: 2px solid rgba(139,92,246,0.25);\n  border-radius: 12px; padding: 10px 16px; font-size: 22px; color: #fff;\n  text-align: center; width: 180px; font-family: 'Orbitron', sans-serif; outline: none;\n}\n.mi:focus { border-color: #a78bfa; box-shadow: 0 0 20px rgba(139,92,246,0.2); }\n\n/* Collection & Synth */\n.cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }\n.ci {\n  aspect-ratio: 1; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9));\n  border: 1px solid rgba(139,92,246,0.15);\n  border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;\n  font-size: 26px; cursor: pointer; transition: all 0.2s; position: relative;\n  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);\n}\n.ci:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.35); transform: scale(1.05); }\n.ci.un { opacity: 0.2; cursor: default; }\n.ci.un:hover { transform: none; background: linear-gradient(180deg, rgba(50,45,65,0.85), rgba(30,25,42,0.9)); }\n.ic { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.7); border-radius: 6px; padding: 1px 4px; font-size: 9px; font-weight: 700; }\n.cn { font-size: 7px; font-weight: 700; margin-top: 1px; text-align: center; line-height: 1.1; max-width: 100%; padding: 0 2px; }\n.tb { width: 100%; height: 5px; background: rgba(50,45,65,0.4); border-radius: 3px; overflow: hidden; margin: 8px 0; }\n.tf { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #a78bfa, #c084fc); transition: width 0.1s linear; }\n.sr { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }\n.sb { background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.15); border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; }\n.tf2 { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }\n.tfb {\n  background: linear-gradient(180deg, #241c11, #14100a);\n  border: 1px solid rgba(201,168,76,0.32);\n  border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer;\n  color: #cbb37e; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif; font-weight: 700;\n  box-shadow: inset 0 1px 0 rgba(240,214,145,0.10);\n}\n.tfb:hover { border-color: rgba(240,214,145,0.6); color: #f2e0aa; }\n.tfb.act {\n  background: linear-gradient(180deg, #f4e2ac 0%, #d0aa50 55%, #b8913c 100%);\n  border-color: rgba(255,240,200,0.85); color: #1a1206;\n  box-shadow: 0 0 10px rgba(201,168,76,0.4), inset 0 1px 0 rgba(255,255,255,0.5);\n}\n.tfe { font-size: 12px; margin-right: 2px; line-height: 1; }\n\n/* Modal */\n.mo {\n  position: fixed; inset: 0; background: rgba(0,0,0,0.85);\n  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px;\n  backdrop-filter: blur(4px);\n}\n.mc {\n  background: linear-gradient(160deg, rgba(30,25,50,0.98), rgba(20,15,35,0.98));\n  border-radius: 20px; padding: 24px; max-width: 340px; width: 100%;\n  text-align: center; border: 2px solid; animation: ri 0.3s ease-out;\n  box-shadow: 0 20px 60px rgba(0,0,0,0.5);\n}\n\n/* Synth */\n.ss { display: flex; gap: 14px; align-items: center; justify-content: center; margin: 16px 0; }\n.sl {\n  width: 72px; height: 72px; border: 2px dashed rgba(139,92,246,0.25); border-radius: 14px;\n  display: flex; align-items: center; justify-content: center; font-size: 32px;\n  cursor: pointer; background: rgba(50,45,65,0.3); transition: all 0.2s;\n}\n.sl.fl { border-style: solid; background: rgba(80,60,140,0.2); }\n.sgl { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 6px; margin-top: 12px; max-height: 280px; overflow-y: auto; }\n\n/* ===== RESPONSIVE / MOBILE ===== */\nhtml { -webkit-text-size-adjust: 100%; }\nbody { overscroll-behavior: none; }\n.G { -webkit-tap-highlight-color: transparent; max-width: 480px; margin: 0 auto; }\n\n@media (max-width: 380px) {\n  .hero-title { font-size: 22px !important; letter-spacing: 2px !important; }\n  .hero-icon { font-size: 56px !important; }\n  .hero-sub { font-size: 12px !important; letter-spacing: 4px !important; }\n  .odo-d { width: 30px !important; height: 42px !important; font-size: 20px !important; }\n  .stat-cards { gap: 6px !important; }\n  .stat-card { padding: 10px 4px !important; }\n  .stat-card-val { font-size: 15px !important; }\n  .menu-grid { gap: 6px !important; }\n  .menu-card { padding: 12px 6px !important; }\n  .menu-card-icon { font-size: 22px !important; }\n  .menu-card-label { font-size: 11px !important; }\n  .hdr-t { font-size: 12px !important; }\n  .coin { font-size: 12px !important; padding: 3px 10px !important; }\n  .cg { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; }\n  .sgl { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important; }\n  .cr { gap: 8px !important; }\n  .chest { width: 70px !important; height: 70px !important; font-size: 44px !important; }\n  .chest-img { width: 68px !important; height: 68px !important; }\n  .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }\n  .md { font-size: 28px !important; }\n  .mi { font-size: 20px !important; width: 160px !important; }\n  .nb img { width: 34px !important; height: 34px !important; }\n  .nb { font-size: 10px !important; padding: 4px 5px 6px !important; }\n  .scrh-t { font-size: 18px !important; letter-spacing: 4px !important; }\n  .scrh-d { width: 52px !important; }\n}\n\n@media (min-width: 381px) and (max-width: 480px) {\n  .hero-title { font-size: 26px !important; }\n}\n\n/* Safe area for notched phones */\n.nav { padding-bottom: max(8px, env(safe-area-inset-bottom)) !important; }\n.hdr { padding-top: max(10px, env(safe-area-inset-top)) !important; }\n\n/* Prevent zoom on input focus (iOS) */\ninput[type=\"number\"] { font-size: 16px; }\n\n/* Touch targets */\n.btn { min-height: 44px; }\n.nb { min-height: 44px; min-width: 44px; }\n.mgc { min-height: 44px; }\n.menu-card { min-height: 44px; }\n.tfb { min-height: 32px; display: inline-flex; align-items: center; }\n.ci { min-height: 60px; }\n\n/* Rare effects */\n@keyframes rareFlash {\n  0% { opacity: 0; }\n  30% { opacity: 1; }\n  100% { opacity: 0; }\n}\n@keyframes rareShake {\n  0%, 100% { transform: translate(0, 0); }\n  10% { transform: translate(-4px, 2px); }\n  20% { transform: translate(4px, -2px); }\n  30% { transform: translate(-3px, -3px); }\n  40% { transform: translate(3px, 3px); }\n  50% { transform: translate(-2px, 1px); }\n  60% { transform: translate(2px, -1px); }\n  70% { transform: translate(-1px, 2px); }\n  80% { transform: translate(1px, -2px); }\n  90% { transform: translate(-1px, -1px); }\n}\n@keyframes rareRainbow {\n  0% { filter: hue-rotate(0deg) brightness(1.2); }\n  100% { filter: hue-rotate(360deg) brightness(1.2); }\n}\n@keyframes rareGodText {\n  0% { transform: scale(0.3); opacity: 0; }\n  50% { transform: scale(1.15); opacity: 1; }\n  100% { transform: scale(1); opacity: 1; }\n}\n.rare-flash {\n  position: fixed; inset: 0; z-index: 9999; pointer-events: none;\n  animation: rareFlash 0.4s ease-out forwards;\n}\n.rare-shake { animation: rareShake 0.5s ease-out; }\n.rare-rainbow { animation: rareRainbow 2s linear; }\n.rare-god-text {\n  animation: rareGodText 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;\n}\n@keyframes synthMaxPulse {\n  0%, 100% { box-shadow: 0 0 60px rgba(255,215,0,0.3), 0 0 120px rgba(255,107,255,0.2), inset 0 0 60px rgba(255,215,0,0.1); }\n  50% { box-shadow: 0 0 100px rgba(255,215,0,0.6), 0 0 200px rgba(255,107,255,0.4), inset 0 0 100px rgba(255,215,0,0.2); }\n}\n@keyframes synthMaxRotate {\n  0% { transform: rotate(0deg); }\n  100% { transform: rotate(360deg); }\n}\n@keyframes synthMaxIcon {\n  0% { transform: scale(0) rotate(-180deg); opacity: 0; }\n  60% { transform: scale(1.3) rotate(10deg); opacity: 1; }\n  80% { transform: scale(0.95) rotate(-3deg); }\n  100% { transform: scale(1) rotate(0deg); opacity: 1; }\n}\n@keyframes synthMaxBurst {\n  0% { transform: scale(0); opacity: 1; }\n  100% { transform: scale(3); opacity: 0; }\n}\n@keyframes synthGodIcon {\n  0% { transform: scale(0.3); opacity: 0; }\n  50% { transform: scale(1.15); opacity: 1; }\n  100% { transform: scale(1); opacity: 1; }\n}\n@keyframes cardFlip {\n  0% { transform: scaleX(1); }\n  50% { transform: scaleX(0); }\n  100% { transform: scaleX(1); }\n}\n@keyframes cardMatch {\n  0% { transform: scale(1); }\n  50% { transform: scale(1.15); }\n  100% { transform: scale(1); opacity: 0.5; }\n}\n.card-flip { animation: cardFlip 0.3s ease-in-out; }\n.card-match { animation: cardMatch 0.4s ease-out; }\n@keyframes bubblePop {\n  0% { transform: scale(1); opacity: 1; }\n  50% { transform: scale(1.5); opacity: 0.5; }\n  100% { transform: scale(0); opacity: 0; }\n}\n@keyframes bubbleGrow {\n  0% { transform: scale(0.95); }\n  50% { transform: scale(1.08); }\n  100% { transform: scale(1); }\n}\n@keyframes bubbleDanger {\n  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.3); }\n  50% { box-shadow: 0 0 20px rgba(239,68,68,0.6); }\n}\n.bubble-pop { animation: bubblePop 0.4s ease-out forwards; }\n.bubble-grow { animation: bubbleGrow 0.15s ease-out; }\n.bubble-danger { animation: bubbleDanger 1s ease-in-out infinite; }\n@keyframes drawFlash {\n  0% { background: rgba(239,68,68,0); }\n  20% { background: rgba(239,68,68,0.15); }\n  100% { background: rgba(239,68,68,0); }\n}\n@keyframes enemyShake {\n  0%, 100% { transform: translateX(0); }\n  25% { transform: translateX(-5px); }\n  75% { transform: translateX(5px); }\n}\n@keyframes drawText {\n  0% { transform: scale(0.5); opacity: 0; }\n  50% { transform: scale(1.2); }\n  100% { transform: scale(1); opacity: 1; }\n}\n.draw-flash { animation: drawFlash 0.3s ease-out; }\n.enemy-shake { animation: enemyShake 0.3s ease-in-out; }\n.draw-text { animation: drawText 0.3s ease-out; }\n";
 
 // Local date string (YYYY-MM-DD) - NOT UTC
 function getLocalDate(date) {
@@ -2012,7 +2144,7 @@ function MonsterGacha() {
   var _useState25 = useState(null),
     _useState26 = _slicedToArray(_useState25, 2),
     synthRetry = _useState26[0],
-    setSynthRetry = _useState26[1]; // {oldTypeId, oldName, oldIcon} for ★MAX retry
+    setSynthRetry = _useState26[1]; // 表示中の★MAXリロール確認 {resultTypeId, resultName, resultIcon, pendingNotif}。待機列は synthRetryQueueRef
   var _useState27 = useState(1),
     _useState28 = _slicedToArray(_useState27, 2),
     loginDay = _useState28[0],
@@ -2344,7 +2476,9 @@ function MonsterGacha() {
           _k$split2 = _slicedToArray(_k$split, 2),
           typeId = _k$split2[0],
           rankStr = _k$split2[1];
-        var rank = parseInt(rankStr);
+        // ★MAX進化(煌): キーは <typeId>_11k。rank自体は11のまま・名前に「・煌」・prismフラグを付ける
+        var prism = rankStr === '11k';
+        var rank = prism ? 11 : parseInt(rankStr);
         var type = TYPES.find(function (t) {
           return t.id === typeId;
         });
@@ -2360,6 +2494,10 @@ function MonsterGacha() {
           rarity: rarity,
           count: count
         });
+        if (prism) {
+          col[k].name = m.name + PRISM_NAME_SUFFIX;
+          col[k].prism = true;
+        }
       },
       _ret;
     for (var k in c) {
@@ -2769,11 +2907,15 @@ function MonsterGacha() {
             // Write ranking data on save
             if (s.nickname) {
               try {
-                bs = s.bestScores || {};
-                bestMiniGame = Object.entries(bs).reduce(function (best, _ref9) {
-                  var _ref0 = _slicedToArray(_ref9, 2),
-                    k = _ref0[0],
-                    v = _ref0[1];
+                bs = s.bestScores || {}; // 旧世代キー(SCORE_KEY_MAPの左辺=godAnother旧配点)はベスト集計から除外する
+                bestMiniGame = Object.entries(bs).filter(function (_ref9) {
+                  var _ref0 = _slicedToArray(_ref9, 1),
+                    k = _ref0[0];
+                  return !(k in SCORE_KEY_MAP);
+                }).reduce(function (best, _ref1) {
+                  var _ref10 = _slicedToArray(_ref1, 2),
+                    k = _ref10[0],
+                    v = _ref10[1];
                   return v > (best.score || 0) ? {
                     id: k,
                     score: v
@@ -2783,12 +2925,12 @@ function MonsterGacha() {
                   score: 0
                 });
                 _colCount = Object.keys(compressed).length;
-                colPower = Object.entries(compressed).reduce(function (sum, _ref1) {
-                  var _ref10 = _slicedToArray(_ref1, 2),
-                    k = _ref10[0],
-                    cnt = _ref10[1];
-                  var rank = parseInt(k.split('_')[1]) || 0;
-                  return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
+                colPower = Object.entries(compressed).reduce(function (sum, _ref11) {
+                  var _ref12 = _slicedToArray(_ref11, 2),
+                    k = _ref12[0],
+                    cnt = _ref12[1];
+                  // 煌(_11k)は★MAX3個分として数える(進化でランキング資産が減らない)
+                  return sum + entryPower(k, typeof cnt === 'number' ? cnt : 0);
                 }, 0) + URA_ITEMS.filter(function (u) {
                   return (s.uraObtained || []).includes(u.id);
                 }).reduce(function (sum, u) {
@@ -2796,8 +2938,7 @@ function MonsterGacha() {
                 }, 0);
                 cTier = function () {
                   var mc = TYPES.map(function (t) {
-                    var c = compressed["".concat(t.id, "_11")];
-                    return typeof c === 'number' ? c : 0;
+                    return maxEffCount(compressed, t.id);
                   });
                   var mn = Math.min.apply(Math, _toConsumableArray(mc));
                   var uraComplete = (s.uraObtained || []).length >= URA_ITEMS.length;
@@ -2825,10 +2966,10 @@ function MonsterGacha() {
                     }
                     window.fbDb.ref('rankings/' + s.nickname).update(rankBase).catch(function () {});
                     if (Object.keys(bs).length > 0) {
-                      Object.entries(bs).forEach(function (_ref11) {
-                        var _ref12 = _slicedToArray(_ref11, 2),
-                          gid = _ref12[0],
-                          score = _ref12[1];
+                      Object.entries(bs).forEach(function (_ref13) {
+                        var _ref14 = _slicedToArray(_ref13, 2),
+                          gid = _ref14[0],
+                          score = _ref14[1];
                         window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(function (current) {
                           return Math.max(current || 0, score);
                         }).catch(function () {});
@@ -2836,10 +2977,10 @@ function MonsterGacha() {
                     }
                     if (s.playCounts && Object.keys(s.playCounts).length > 0) {
                       // bestScoresと同様にMath.maxのtransactionで保護(絶対値updateはFirebase側の大きい値を潰す)
-                      Object.entries(s.playCounts).forEach(function (_ref13) {
-                        var _ref14 = _slicedToArray(_ref13, 2),
-                          gid = _ref14[0],
-                          c = _ref14[1];
+                      Object.entries(s.playCounts).forEach(function (_ref15) {
+                        var _ref16 = _slicedToArray(_ref15, 2),
+                          gid = _ref16[0],
+                          c = _ref16[1];
                         window.fbDb.ref('rankings/' + s.nickname + '/playCounts/' + gid).transaction(function (cur) {
                           return Math.max(cur || 0, c);
                         }).catch(function () {});
@@ -2975,6 +3116,19 @@ function MonsterGacha() {
     receivingRef.current = false;
   }, [pendingGifts, nickname]);
 
+  // 種族セット効果(コレクションボーナス): ★1〜★10の10種を揃えた種族の効果が常時発動する。
+  // contributeMission/pull/回復タイマーより前に宣言する(依存配列は即時評価されるためTDZ回避)。
+  var setBonuses = useMemo(function () {
+    return computeSetBonuses(collection);
+  }, [collection]);
+  // コールバック・タイマーからはref経由で読む(既存の依存配列を一切変えないため。
+  // 描画のたびに最新値へ更新されるので、クリック時・タイマー発火時は常に現在値)
+  var setBonusesRef = useRef(setBonuses);
+  setBonusesRef.current = setBonuses;
+  // ガチャ費用: 表示・コイン不足判定・支払いが必ず同じ値を見るよう1箇所に集約
+  var gachaCost10 = gachaCostFor(10, setBonuses);
+  var gachaCost40 = gachaCostFor(40, setBonuses);
+
   // デイリーミッションへの加算。呼び出し側(sendGift/pull/doSynthSingle/handleMiniGameScore)より
   // 先に宣言する必要がある(依存配列は即時評価されるためTDZ回避)
   var contributeMission = useCallback(function (missionType, amount) {
@@ -2986,9 +3140,11 @@ function MonsterGacha() {
     });
     if (!mission) return;
     var ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
+    // 王国セット効果: 貢献量+10%(共有DBに入る唯一のセット効果。+10%は許容済み)
+    var contributed = setBonusesRef.current.kingdom ? Math.round(amount * (1 + SET_BONUS_EFFECTS.kingdom.rate)) : amount;
     // 1人あたりの上限は撤廃(加算はtransactionでサーバ側集計のまま)
     ref.transaction(function (current) {
-      return (current || 0) + amount;
+      return (current || 0) + contributed;
     }).catch(function () {});
   }, [nickname, missionDate]);
   var sendGift = useCallback(function (itemKey, recipientName) {
@@ -3078,7 +3234,9 @@ function MonsterGacha() {
       if (lastLoginDate === today) return;
       var yesterday = getLocalDate(new Date(Date.now() - 86400000));
       var newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
-      var bonusCoins = Math.min(newStreak, 10) * 400;
+      var baseBonus = Math.min(newStreak, 10) * 400;
+      // 古代秘宝セット効果: ログインボーナス+20%
+      var bonusCoins = setBonusesRef.current.relic ? Math.round(baseBonus * (1 + SET_BONUS_EFFECTS.relic.rate)) : baseBonus;
       setLoginStreak(newStreak);
       setLastLoginDate(today);
       setCoins(function (c) {
@@ -3099,12 +3257,17 @@ function MonsterGacha() {
   }, [loaded, slotId, lastLoginDate, loginStreak, missionDate]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
+  // 黄金遺産セット効果: 回復量+25%。1tickの回復量が小さい整数なので端数は確率で+1し、
+  // 期待値をちょうど+25%に合わせる(base=1なら25%の確率で+1)。
   var loginStreakRef = useRef(0);
   loginStreakRef.current = loginStreak;
   useEffect(function () {
     var t = setInterval(function () {
       return setCoins(function (c) {
-        return c + 1 + Math.floor(loginStreakRef.current * 0.01);
+        var base = 1 + Math.floor(loginStreakRef.current * 0.01);
+        if (!setBonusesRef.current.gold) return c + base;
+        var extra = base * SET_BONUS_EFFECTS.gold.rate;
+        return c + base + Math.floor(extra) + (Math.random() < extra % 1 ? 1 : 0);
       });
     }, 2000);
     return function () {
@@ -3126,10 +3289,10 @@ function MonsterGacha() {
 
   // ★MAX ownership tracking - 3 tiers
   // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
+  // 実効数 = _11.count + 3 × _11k.count(煌に進化してもTier判定・展示の所持が落ちない)
   var maxCounts = useMemo(function () {
     return TYPES.map(function (t) {
-      var _collection;
-      return ((_collection = collection["".concat(t.id, "_11")]) === null || _collection === void 0 ? void 0 : _collection.count) || 0;
+      return maxEffCount(collection, t.id);
     });
   }, [collection]);
   var hasAnyMax = maxCounts.some(function (c) {
@@ -3199,8 +3362,11 @@ function MonsterGacha() {
     }, 0);
   }, [spending]);
   var totalPower = useMemo(function () {
-    var colAssets = Object.values(collection).reduce(function (sum, m) {
-      return sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+    var colAssets = Object.entries(collection).reduce(function (sum, _ref17) {
+      var _ref18 = _slicedToArray(_ref17, 2),
+        k = _ref18[0],
+        m = _ref18[1];
+      return sum + entryPower(k, m.count || 0, m.rank);
     }, 0);
     var uraAssets = URA_ITEMS.filter(function (u) {
       return uraObtained.includes(u.id);
@@ -3345,7 +3511,8 @@ function MonsterGacha() {
       var uraWins = []; // 複数当選を全て演出する(従来は最後の1個しか演出されず無言付与だった)
       var _loop2 = function _loop2() {
         if (localPool.length === 0) return 1; // break
-        var uraResult = rollUraItem(localPool);
+        // 宇宙の秘宝セット効果: 裏アイテム抽選確率+10%
+        var uraResult = rollUraItem(localPool, setBonusesRef.current.space ? 1 + SET_BONUS_EFFECTS.space.rate : 1);
         if (uraResult) {
           uraWins.push(uraResult);
           var idx2 = localPool.findIndex(function (u) {
@@ -3436,10 +3603,10 @@ function MonsterGacha() {
       var getRevealDelay = function getRevealDelay(rank) {
         return rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
       };
-      var groupEntries = Object.entries(timeGroups).map(function (_ref15) {
-        var _ref16 = _slicedToArray(_ref15, 2),
-          time = _ref16[0],
-          group = _ref16[1];
+      var groupEntries = Object.entries(timeGroups).map(function (_ref19) {
+        var _ref20 = _slicedToArray(_ref19, 2),
+          time = _ref20[0],
+          group = _ref20[1];
         var maxGroupRank = Math.max.apply(Math, _toConsumableArray(group.map(function (o) {
           return o.rank;
         })));
@@ -3459,11 +3626,11 @@ function MonsterGacha() {
           lastIdx = gi;
         }
       });
-      groupEntries.forEach(function (_ref17, gIdx) {
-        var time = _ref17.time,
-          group = _ref17.group,
-          maxGroupRank = _ref17.maxGroupRank,
-          revealDelay = _ref17.revealDelay;
+      groupEntries.forEach(function (_ref21, gIdx) {
+        var time = _ref21.time,
+          group = _ref21.group,
+          maxGroupRank = _ref21.maxGroupRank,
+          revealDelay = _ref21.revealDelay;
         return autoOpenRef.current.push(setTimeout(function () {
           var isLastGroup = gIdx === lastIdx;
           // Open all cards in this time group at once
@@ -3658,7 +3825,8 @@ function MonsterGacha() {
     }, uraDelay)); // Delay chest animation if ura item was shown
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
   var pull = useCallback(function (n) {
-    var cost = n === 10 ? GACHA_COST_10 : GACHA_COST_40;
+    // 表示・disabled判定と同じ算出口を通す(setBonusesRefは描画のたびに更新済み=クリック時点の現在値)
+    var cost = gachaCostFor(n, setBonusesRef.current);
     if (coins < cost) return;
     if (window.__gPullBusy) return; // 多重実行ガード(連打による二重課金+開封タイマー消失の防止)
     window.__gPullBusy = true;
@@ -3769,6 +3937,10 @@ function MonsterGacha() {
   var findSynthCandidates = useCallback(function () {
     return computeSynthCandidates(collection);
   }, [collection]);
+  // ★MAX進化(煌)の候補。一撃合成には混ぜないため findSynthCandidates とは別経路で渡す。
+  var findPrismCandidates = useCallback(function () {
+    return computePrismCandidates(collection);
+  }, [collection]);
   var playSynthSound = function playSynthSound(targetRank) {
     if (targetRank >= 11) {
       // ★MAX: 壮大なファンファーレ
@@ -3843,7 +4015,61 @@ function MonsterGacha() {
     }
   };
   var synthQueueRef = useRef(null);
+
+  // ★MAXリロールの直列化(2026-08-25 修正): 一撃合成で★MAXが複数生まれた時、最後の1個にしか
+  // ダイアログが出ていなかった。表示中の1個は synthRetry、待機列は synthRetryQueueRef で持つ。
+  var synthRetryQueueRef = useRef([]);
+  var collectionRef = useRef(collection);
+  collectionRef.current = collection;
+  var sendMaxNotif = useCallback(function (name, icon) {
+    if (nickname && window.fbDb) {
+      window.fbDb.ref('notifications').push({
+        name: nickname,
+        rank: 11,
+        item: name,
+        icon: icon,
+        rarity: '★MAX',
+        timestamp: Date.now(),
+        isSynth: true
+      }).catch(function () {});
+    }
+  }, [nickname]);
+
+  // 次の★MAXをダイアログに出す。適格(★MAXを4種類以上所持)でない分はダイアログを出さず通知だけ送る。
+  var advanceSynthRetry = useCallback(function () {
+    var cur = collectionRef.current || {};
+    var eligible = TYPES.filter(function (t) {
+      return maxEffCount(cur, t.id) > 0;
+    }).length >= 4;
+    while (synthRetryQueueRef.current.length > 0) {
+      var next = synthRetryQueueRef.current.shift();
+      if (eligible && next.resultTypeId) {
+        setSynthRetry(next);
+        return;
+      }
+      if (next.pendingNotif) sendMaxNotif(next.resultName, next.resultIcon);
+    }
+    setSynthRetry(null);
+  }, [sendMaxNotif]);
+
+  // 「このままでOK」/ 背景タップ = 確定 → 通知を送り、次の★MAXへ進む
+  var acceptSynthRetry = useCallback(function () {
+    if (synthRetry && synthRetry.pendingNotif) sendMaxNotif(synthRetry.resultName, synthRetry.resultIcon);
+    advanceSynthRetry();
+  }, [synthRetry, sendMaxNotif, advanceSynthRetry]);
+
+  // 未処理のキューを捨てる時は、確定済みアイテムの通知だけ送っておく(通知の無言欠落防止)
+  var flushSynthRetryQueue = useCallback(function () {
+    var rest = synthRetryQueueRef.current;
+    synthRetryQueueRef.current = [];
+    rest.forEach(function (it) {
+      if (it.pendingNotif) sendMaxNotif(it.resultName, it.resultIcon);
+    });
+  }, [sendMaxNotif]);
   var doSynthSingle = useCallback(function (keyOrSpecial, typeId, rank, targetRank) {
+    var _collection;
+    // ★MAX進化(煌): 消費元が足りない時は演出も鳴らさず何もしない(先に弾く)
+    if (keyOrSpecial === 'prism' && (((_collection = collection["".concat(typeId, "_11")]) === null || _collection === void 0 ? void 0 : _collection.count) || 0) < PRISM_MERGE) return;
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) {
       synthQueueRef.current.forEach(function (t) {
@@ -3851,13 +4077,53 @@ function MonsterGacha() {
       });
       synthQueueRef.current = null;
     }
+    flushSynthRetryQueue();
     bgm.stop();
     stopMainBgm();
     setTimeout(function () {
       return playSynthSound(targetRank);
     }, 200);
     contributeMission('synth', 1);
-    if (rank === 10 && targetRank === 11) {
+    if (keyOrSpecial === 'prism') {
+      // ★MAX×3 → 「・煌」1個。リロール対象外(意思を持ってやる特別な操作)・通知も送らない。
+      setCollection(function (prev) {
+        var _n$bk;
+        var n = _objectSpread({}, prev);
+        var bk = "".concat(typeId, "_11");
+        var left = (((_n$bk = n[bk]) === null || _n$bk === void 0 ? void 0 : _n$bk.count) || 0) - PRISM_MERGE;
+        if (left > 0) n[bk] = _objectSpread(_objectSpread({}, n[bk]), {}, {
+          count: left
+        });else delete n[bk];
+        var tp = TYPES.find(function (t) {
+          return t.id === typeId;
+        });
+        var nm = MONSTERS[typeId][10];
+        var nr = RARITIES[10];
+        var pk = typeId + PRISM_SUFFIX;
+        if (n[pk]) n[pk] = _objectSpread(_objectSpread({}, n[pk]), {}, {
+          count: n[pk].count + 1
+        });else n[pk] = _objectSpread(_objectSpread({}, nm), {}, {
+          name: nm.name + PRISM_NAME_SUFFIX,
+          typeId: typeId,
+          typeName: tp.name,
+          typeEmoji: tp.emoji,
+          typeColor: tp.color,
+          rank: 11,
+          rarity: nr,
+          prism: true,
+          count: 1
+        });
+        setSynthResult({
+          icon: nm.icon,
+          name: nm.name + PRISM_NAME_SUFFIX,
+          rank: 11,
+          rarity: nr,
+          img: nm.img,
+          prism: true
+        });
+        return n;
+      });
+    } else if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(function (prev) {
         var n = _objectSpread({}, prev);
@@ -3906,7 +4172,7 @@ function MonsterGacha() {
         });
         // Check if player owns 4+ unique ★MAX types → offer retry
         var maxPatternsOwned = TYPES.filter(function (t) {
-          return n["".concat(t.id, "_11")] && n["".concat(t.id, "_11")].count > 0;
+          return maxEffCount(n, t.id) > 0;
         }).length;
         if (maxPatternsOwned >= 4) {
           // Don't send notification yet - wait for retry decision
@@ -3983,7 +4249,7 @@ function MonsterGacha() {
       setSynthResult(null);
       resumeMainBgm();
     }, synthDuration)];
-  }, [collection, contributeMission]);
+  }, [collection, contributeMission, flushSynthRetryQueue]);
   var doSynthMaxRetry = useCallback(function () {
     if (!synthRetry) return;
     // Remove the old result
@@ -4028,13 +4294,15 @@ function MonsterGacha() {
         }).catch(function () {});
       }
       playSynthSound(11);
+      // 再抽選の演出が終わってから次の★MAXのダイアログへ進む(直列化)
       synthQueueRef.current = [setTimeout(function () {
-        return setSynthResult(null);
+        setSynthResult(null);
+        advanceSynthRetry();
       }, 3600)];
       return n;
     });
     setSynthRetry(null);
-  }, [synthRetry]);
+  }, [synthRetry, advanceSynthRetry]);
   var doSynthAll = useCallback(function () {
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) {
@@ -4044,23 +4312,13 @@ function MonsterGacha() {
       synthQueueRef.current = null;
     }
     if (computeSynthCandidates(collection).length === 0) return;
+    flushSynthRetryQueue();
     bgm.stop();
     stopMainBgm();
 
     // 一撃合成: 合成で生まれたアイテムも連鎖して合成し尽くす(2026-08-25 竹森氏指示)
-    var _runSynthCascade = runSynthCascade(collection, function (nm) {
-        if (nickname && window.fbDb) {
-          window.fbDb.ref('notifications').push({
-            name: nickname,
-            rank: 11,
-            item: nm.name,
-            icon: nm.icon,
-            rarity: '★MAX',
-            timestamp: Date.now(),
-            isSynth: true
-          }).catch(function () {});
-        }
-      }),
+    // 通知(notifications)は生成時ではなく、リロール確定後の最終アイテムに対して送る(2026-08-25 修正)
+    var _runSynthCascade = runSynthCascade(collection),
       n = _runSynthCascade.coll,
       rareItems = _runSynthCascade.rareItems,
       totalSynths = _runSynthCascade.totalSynths;
@@ -4118,25 +4376,21 @@ function MonsterGacha() {
       timers.push(setTimeout(function () {
         setSynthResult(null);
         resumeMainBgm();
-        // Check ★MAX retry for last ★11 item from batch
-        var lastMax = rareItems.filter(function (r) {
+        // ★MAXが複数生まれた時は1個ずつ直列に確認する(2026-08-25 修正: 最後の1個にしか出ていなかった)
+        synthRetryQueueRef.current = rareItems.filter(function (r) {
           return r.rank === 11;
-        }).pop();
-        if (lastMax) {
-          var maxPatternsOwned = TYPES.filter(function (t) {
-            return n["".concat(t.id, "_11")] && n["".concat(t.id, "_11")].count > 0;
-          }).length;
-          if (maxPatternsOwned >= 4) {
-            var rt = TYPES.find(function (t) {
-              return MONSTERS[t.id][10].name === lastMax.name;
-            });
-            if (rt) setSynthRetry({
-              resultTypeId: rt.id,
-              resultName: lastMax.name,
-              resultIcon: lastMax.icon
-            });
-          }
-        }
+        }).map(function (it) {
+          var rt = TYPES.find(function (t) {
+            return MONSTERS[t.id][10].name === it.name;
+          });
+          return {
+            resultTypeId: rt ? rt.id : null,
+            resultName: it.name,
+            resultIcon: it.icon,
+            pendingNotif: true
+          };
+        });
+        advanceSynthRetry();
       }, elapsed + 1300));
       synthQueueRef.current = timers;
     } else {
@@ -4150,7 +4404,7 @@ function MonsterGacha() {
         resumeMainBgm();
       }, 2100)];
     }
-  }, [collection, findSynthCandidates, contributeMission]);
+  }, [collection, findSynthCandidates, contributeMission, advanceSynthRetry, flushSynthRetryQueue]);
   var nav = function nav(s) {
     sfx('click');
     setScreen(s);
@@ -4264,10 +4518,10 @@ function MonsterGacha() {
     GAME_IDS.forEach(function (gid) {
       var scores = entries.filter(function (e) {
         var _e$bestScores;
-        return (((_e$bestScores = e.bestScores) === null || _e$bestScores === void 0 ? void 0 : _e$bestScores[gid]) || 0) > 0;
+        return (((_e$bestScores = e.bestScores) === null || _e$bestScores === void 0 ? void 0 : _e$bestScores[scoreKeyOf(gid)]) || 0) > 0;
       }).sort(function (a, b) {
         var _b$bestScores, _a$bestScores;
-        return (((_b$bestScores = b.bestScores) === null || _b$bestScores === void 0 ? void 0 : _b$bestScores[gid]) || 0) - (((_a$bestScores = a.bestScores) === null || _a$bestScores === void 0 ? void 0 : _a$bestScores[gid]) || 0);
+        return (((_b$bestScores = b.bestScores) === null || _b$bestScores === void 0 ? void 0 : _b$bestScores[scoreKeyOf(gid)]) || 0) - (((_a$bestScores = a.bestScores) === null || _a$bestScores === void 0 ? void 0 : _a$bestScores[scoreKeyOf(gid)]) || 0);
       });
       if (scores.length > 0 && scores[0].name === nick) {
         gold++;
@@ -4314,10 +4568,10 @@ function MonsterGacha() {
     var ws = weeklyScores || {};
     if (ws._weekId === weekId) {
       var updates = {};
-      Object.entries(ws).forEach(function (_ref18) {
-        var _ref19 = _slicedToArray(_ref18, 2),
-          gid = _ref19[0],
-          score = _ref19[1];
+      Object.entries(ws).forEach(function (_ref22) {
+        var _ref23 = _slicedToArray(_ref22, 2),
+          gid = _ref23[0],
+          score = _ref23[1];
         if (gid !== '_weekId' && score > 0) updates[gid] = score;
       });
       if (Object.keys(updates).length > 0) {
@@ -4495,8 +4749,10 @@ function MonsterGacha() {
   // Phase 1: Called immediately when game ends - coins + scores recorded instantly
   var handleMiniGameScore = useCallback(function (gameId, earned) {
     var boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
+    // 芸術品セット効果: 獲得コイン+5%(コインのみ。スコア・ランキング・ミッションはboostedのまま)
+    var gained = setBonusesRef.current.art ? Math.round(boosted * (1 + SET_BONUS_EFFECTS.art.rate)) : boosted;
     setCoins(function (p) {
-      return p + boosted;
+      return p + gained;
     });
     if (!nickname) {
       // 無言欠落の可視化: 記録されないことをその場で知らせる(2026-08-24 RCA)
@@ -4505,21 +4761,23 @@ function MonsterGacha() {
         return setSaveMsg('');
       }, 5000);
     }
+    // スコアは世代キー(scoreKeyOf)で記録する(godAnother=第8次で世代交代済み)
+    var sk = scoreKeyOf(gameId);
     setBestScores(function (prev) {
-      var isNewBest = boosted > (prev[gameId] || 0);
+      var isNewBest = boosted > (prev[sk] || 0);
       if (isNewBest) {
         setNewRecord({
           gameId: gameId,
           score: boosted,
-          prev: prev[gameId] || 0
+          prev: prev[sk] || 0
         });
         setTimeout(function () {
           return setNewRecord(null);
         }, 3000);
       }
-      var updated = isNewBest ? _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, gameId, boosted)) : prev;
+      var updated = isNewBest ? _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, sk, boosted)) : prev;
       if (isNewBest && nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted).catch(function () {});
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + sk).set(boosted).catch(function () {});
       }
       return updated;
     });
@@ -4538,14 +4796,14 @@ function MonsterGacha() {
       var weekData = prev._weekId === weekId ? prev : {
         _weekId: weekId
       };
-      var isNewWeekBest = boosted > (weekData[gameId] || 0);
-      var updated = isNewWeekBest ? _objectSpread(_objectSpread({}, weekData), {}, _defineProperty({}, gameId, boosted)) : weekData;
+      var isNewWeekBest = boosted > (weekData[sk] || 0);
+      var updated = isNewWeekBest ? _objectSpread(_objectSpread({}, weekData), {}, _defineProperty({}, sk, boosted)) : weekData;
       if (isNewWeekBest && nickname && window.fbDb) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted).catch(function () {});
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + sk).set(boosted).catch(function () {});
       }
       var today = getLocalDate();
       if (nickname && window.fbDb) {
-        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(function (current) {
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + sk).transaction(function (current) {
           return Math.max(current || 0, boosted);
         }).catch(function () {});
       }
@@ -4575,13 +4833,12 @@ function MonsterGacha() {
   // Calculate power from a save data object
   var calcPower = function calcPower(col) {
     if (!col) return 0;
-    return Object.entries(col).reduce(function (s, _ref20) {
-      var _ref21 = _slicedToArray(_ref20, 2),
-        k = _ref21[0],
-        v = _ref21[1];
+    return Object.entries(col).reduce(function (s, _ref24) {
+      var _ref25 = _slicedToArray(_ref24, 2),
+        k = _ref25[0],
+        v = _ref25[1];
       var count = typeof v === 'number' ? v : (v === null || v === void 0 ? void 0 : v.count) || 0;
-      var rank = parseInt(k.split('_')[1]) || 0;
-      return s + (POWER_VALUES[rank - 1] || 0) * count;
+      return s + entryPower(k, count);
     }, 0);
   };
 
@@ -4874,7 +5131,7 @@ function MonsterGacha() {
       }, 0) : 0;
       var colCnt = data ? Object.keys(data.collection || {}).length : 0;
       var slotCleared = data ? TYPES.every(function (t) {
-        return data.collection["".concat(t.id, "_11")];
+        return maxEffCount(data.collection || {}, t.id) > 0;
       }) : false;
       return /*#__PURE__*/React.createElement("div", {
         key: id,
@@ -6853,7 +7110,7 @@ function MonsterGacha() {
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb10 gpb-lg",
-    disabled: coins < GACHA_COST_10,
+    disabled: coins < gachaCost10,
     onClick: function onClick() {
       return pull(10);
     },
@@ -6875,9 +7132,9 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "10\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99 ", GACHA_COST_10)), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDE99 ", gachaCost10)), /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb40 gpb-lg",
-    disabled: coins < GACHA_COST_40,
+    disabled: coins < gachaCost40,
     onClick: function onClick() {
       return pull(40);
     },
@@ -6899,7 +7156,7 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "40\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99 ", GACHA_COST_40))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83E\uDE99 ", gachaCost40))), /*#__PURE__*/React.createElement("div", {
     style: {
       maxWidth: 320,
       margin: '0 auto'
@@ -7025,7 +7282,7 @@ function MonsterGacha() {
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb10 gpb-sm",
-    disabled: !allOpened || coins < GACHA_COST_10,
+    disabled: !allOpened || coins < gachaCost10,
     onClick: function onClick() {
       return pull(10);
     }
@@ -7044,9 +7301,9 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "10\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99", GACHA_COST_10)), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDE99", gachaCost10)), /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb40 gpb-sm",
-    disabled: !allOpened || coins < GACHA_COST_40,
+    disabled: !allOpened || coins < gachaCost40,
     onClick: function onClick() {
       return pull(40);
     }
@@ -7065,7 +7322,7 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "40\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99", GACHA_COST_40))), !allOpened && /*#__PURE__*/React.createElement("p", {
+  }, "\uD83E\uDE99", gachaCost40))), !allOpened && /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 13,
       fontWeight: 700,
@@ -7092,17 +7349,14 @@ function MonsterGacha() {
     }, !opened.has(i) ? /*#__PURE__*/React.createElement("div", {
       className: "chest",
       style: {
-        width: 56,
-        height: 56,
         margin: '0 auto',
         position: 'relative'
       }
     }, /*#__PURE__*/React.createElement("img", {
       src: ct === 'rainbow' ? 'chest-rainbow.png' : ct === 'gold' ? 'chest-gold.png' : ct === 'silver' ? 'chest-silver.png' : 'chest-wood.png',
       alt: "chest",
+      className: "chest-img",
       style: {
-        width: 54,
-        height: 54,
         borderRadius: 10,
         objectFit: 'cover',
         filter: ct === 'rainbow' ? 'drop-shadow(0 0 8px rgba(200,100,255,0.6)) drop-shadow(0 0 16px rgba(100,200,255,0.4)) brightness(1.15)' : ct === 'gold' ? 'drop-shadow(0 0 6px rgba(255,215,0,0.6)) drop-shadow(0 0 12px rgba(255,215,0,0.3)) brightness(1.1)' : 'none'
@@ -7623,6 +7877,7 @@ function MonsterGacha() {
   }), screen === "collection" && /*#__PURE__*/React.createElement(CollectionView, {
     collection: collection,
     onSelect: setModal,
+    setBonuses: setBonuses,
     uraUnlocked: uraUnlocked,
     uraObtained: uraObtained,
     showUraMuseum: showUraMuseum,
@@ -7682,11 +7937,15 @@ function MonsterGacha() {
     collection: collection,
     synthResult: synthResult,
     onFindCandidates: findSynthCandidates,
+    onFindPrism: findPrismCandidates,
     onSynthSingle: doSynthSingle,
     onSynthAll: doSynthAll
   }), screen === "spend" && function () {
-    var grossAssets = Object.values(collection).reduce(function (sum, m) {
-      return sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+    var grossAssets = Object.entries(collection).reduce(function (sum, _ref28) {
+      var _ref29 = _slicedToArray(_ref28, 2),
+        k = _ref29[0],
+        m = _ref29[1];
+      return sum + entryPower(k, m.count || 0, m.rank);
     }, 0) + URA_ITEMS.filter(function (u) {
       return uraObtained.includes(u.id);
     }).reduce(function (s, u) {
@@ -7923,7 +8182,7 @@ function MonsterGacha() {
       className: "nb-ind"
     }));
   })), modal && function () {
-    var rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
+    var rkCls = modal.prism ? 'rank-rainbow' : modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
     var cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : modal.rank === 7 ? 'rank7-card' : modal.rank === 6 ? 'rank6-card' : '';
     return /*#__PURE__*/React.createElement("div", {
       className: "mo",
@@ -8004,13 +8263,13 @@ function MonsterGacha() {
         fontWeight: 900,
         color: '#c084fc'
       }
-    }, formatYen(POWER_VALUES[modal.rank - 1])), modal.count > 1 && /*#__PURE__*/React.createElement("span", {
+    }, formatYen(itemUnitPower(modal))), modal.count > 1 && /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 11,
         opacity: 0.4,
         marginLeft: 8
       }
-    }, "(\u5408\u8A08: ", formatYen(POWER_VALUES[modal.rank - 1] * modal.count), ")")), /*#__PURE__*/React.createElement("div", {
+    }, "(\u5408\u8A08: ", formatYen(itemUnitPower(modal) * modal.count), ")")), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 8,
@@ -8789,9 +9048,7 @@ function MonsterGacha() {
     }
   }), synthRetry && !rareEffect && /*#__PURE__*/React.createElement("div", {
     className: "mo",
-    onClick: function onClick() {
-      return setSynthRetry(null);
-    }
+    onClick: acceptSynthRetry
   }, /*#__PURE__*/React.createElement("div", {
     className: "mc",
     style: {
@@ -8838,21 +9095,7 @@ function MonsterGacha() {
       fontSize: 13,
       padding: '10px 20px'
     },
-    onClick: function onClick() {
-      // Send the pending notification for the accepted item
-      if (synthRetry && synthRetry.pendingNotif && nickname && window.fbDb) {
-        window.fbDb.ref('notifications').push({
-          name: nickname,
-          rank: 11,
-          item: synthRetry.resultName,
-          icon: synthRetry.resultIcon,
-          rarity: '★MAX',
-          timestamp: Date.now(),
-          isSynth: true
-        }).catch(function () {});
-      }
-      setSynthRetry(null);
-    }
+    onClick: acceptSynthRetry
   }, "\u3053\u306E\u307E\u307E\u3067OK")))), showSaveModal && /*#__PURE__*/React.createElement("div", {
     className: "mo",
     onClick: function onClick() {
@@ -9225,9 +9468,9 @@ function MonsterGacha() {
 // ============================================================
 // TAP GAME
 // ============================================================
-function TapGame(_ref24) {
-  var onScore = _ref24.onScore,
-    onClose = _ref24.onClose;
+function TapGame(_ref30) {
+  var onScore = _ref30.onScore,
+    onClose = _ref30.onClose;
   var _useState129 = useState("ready"),
     _useState130 = _slicedToArray(_useState129, 2),
     phase = _useState130[0],
@@ -9596,9 +9839,9 @@ function TapGame(_ref24) {
 // ============================================================
 // KUKU GAME (計算ゲーム【初級】九九)
 // ============================================================
-function KukuGame(_ref25) {
-  var onScore = _ref25.onScore,
-    onClose = _ref25.onClose;
+function KukuGame(_ref31) {
+  var onScore = _ref31.onScore,
+    onClose = _ref31.onClose;
   var _useState143 = useState("ready"),
     _useState144 = _slicedToArray(_useState143, 2),
     phase = _useState144[0],
@@ -9815,9 +10058,9 @@ function KukuGame(_ref25) {
 // ============================================================
 // MATH MID GAME (計算ゲーム【中級】足し算引き算)
 // ============================================================
-function MathMidGame(_ref26) {
-  var onScore = _ref26.onScore,
-    onClose = _ref26.onClose;
+function MathMidGame(_ref32) {
+  var onScore = _ref32.onScore,
+    onClose = _ref32.onClose;
   var _useState159 = useState("ready"),
     _useState160 = _slicedToArray(_useState159, 2),
     phase = _useState160[0],
@@ -10043,9 +10286,9 @@ function MathMidGame(_ref26) {
 // ============================================================
 // MATH EASY GAME (計算ゲーム【初級】足し算引き算 2桁±1桁)
 // ============================================================
-function MathEasyGame(_ref27) {
-  var onScore = _ref27.onScore,
-    onClose = _ref27.onClose;
+function MathEasyGame(_ref33) {
+  var onScore = _ref33.onScore,
+    onClose = _ref33.onClose;
   var _useState175 = useState("ready"),
     _useState176 = _slicedToArray(_useState175, 2),
     phase = _useState176[0],
@@ -10269,9 +10512,9 @@ function MathEasyGame(_ref27) {
 // ============================================================
 // MATH HARD ADD/SUB GAME (計算ゲーム【上級】足し算引き算 2桁±2桁)
 // ============================================================
-function MathHardAddGame(_ref28) {
-  var onScore = _ref28.onScore,
-    onClose = _ref28.onClose;
+function MathHardAddGame(_ref34) {
+  var onScore = _ref34.onScore,
+    onClose = _ref34.onClose;
   var _useState191 = useState("ready"),
     _useState192 = _slicedToArray(_useState191, 2),
     phase = _useState192[0],
@@ -10495,9 +10738,9 @@ function MathHardAddGame(_ref28) {
 // ============================================================
 // MATH HARD MULT/DIV GAME (計算ゲーム【上級】掛け算割り算 2桁×1桁, 2桁÷1桁)
 // ============================================================
-function MathHardMultGame(_ref29) {
-  var onScore = _ref29.onScore,
-    onClose = _ref29.onClose;
+function MathHardMultGame(_ref35) {
+  var onScore = _ref35.onScore,
+    onClose = _ref35.onClose;
   var _useState207 = useState("ready"),
     _useState208 = _slicedToArray(_useState207, 2),
     phase = _useState208[0],
@@ -10789,9 +11032,9 @@ var TIMING_BGM = [{
   v: 0.025
 }];
 var TOTAL_TAPS = 10;
-function TimingGame(_ref30) {
-  var onScore = _ref30.onScore,
-    onClose = _ref30.onClose;
+function TimingGame(_ref36) {
+  var onScore = _ref36.onScore,
+    onClose = _ref36.onClose;
   var _useState223 = useState("ready"),
     _useState224 = _slicedToArray(_useState223, 2),
     phase = _useState224[0],
@@ -11951,9 +12194,9 @@ var GEM_BGM = [{
 // ============================================================
 // SHOOTING GALLERY GAME
 // ============================================================
-function ShootingGame(_ref31) {
-  var onScore = _ref31.onScore,
-    onClose = _ref31.onClose;
+function ShootingGame(_ref37) {
+  var onScore = _ref37.onScore,
+    onClose = _ref37.onClose;
   var _useState231 = useState("ready"),
     _useState232 = _slicedToArray(_useState231, 2),
     phase = _useState232[0],
@@ -12232,7 +12475,7 @@ function ShootingGame(_ref31) {
     rafRef.current = requestAnimationFrame(_loop4);
   };
   var handleTap = function handleTap(e) {
-    var _ref32, _e$clientX, _e$touches, _ref33, _e$clientY, _e$touches2;
+    var _ref38, _e$clientX, _e$touches, _ref39, _e$clientY, _e$touches2;
     if (phase !== "play") return;
     var now = Date.now();
     if (now - lastTapTimeRef.current < 50) return;
@@ -12240,8 +12483,8 @@ function ShootingGame(_ref31) {
     var cvs = canvasRef.current;
     if (!cvs) return;
     var rect = cvs.getBoundingClientRect();
-    var tapX = ((_ref32 = (_e$clientX = e.clientX) !== null && _e$clientX !== void 0 ? _e$clientX : (_e$touches = e.touches) === null || _e$touches === void 0 || (_e$touches = _e$touches[0]) === null || _e$touches === void 0 ? void 0 : _e$touches.clientX) !== null && _ref32 !== void 0 ? _ref32 : 0) - rect.left;
-    var tapY = ((_ref33 = (_e$clientY = e.clientY) !== null && _e$clientY !== void 0 ? _e$clientY : (_e$touches2 = e.touches) === null || _e$touches2 === void 0 || (_e$touches2 = _e$touches2[0]) === null || _e$touches2 === void 0 ? void 0 : _e$touches2.clientY) !== null && _ref33 !== void 0 ? _ref33 : 0) - rect.top;
+    var tapX = ((_ref38 = (_e$clientX = e.clientX) !== null && _e$clientX !== void 0 ? _e$clientX : (_e$touches = e.touches) === null || _e$touches === void 0 || (_e$touches = _e$touches[0]) === null || _e$touches === void 0 ? void 0 : _e$touches.clientX) !== null && _ref38 !== void 0 ? _ref38 : 0) - rect.left;
+    var tapY = ((_ref39 = (_e$clientY = e.clientY) !== null && _e$clientY !== void 0 ? _e$clientY : (_e$touches2 = e.touches) === null || _e$touches2 === void 0 || (_e$touches2 = _e$touches2[0]) === null || _e$touches2 === void 0 ? void 0 : _e$touches2.clientY) !== null && _ref39 !== void 0 ? _ref39 : 0) - rect.top;
     var scaleX = CANVAS_W / rect.width;
     var scaleY = CANVAS_H / rect.height;
     var cx = tapX * scaleX;
@@ -12488,9 +12731,9 @@ function towerPreloadAssets() {
     } catch (e) {}
   });
 }
-function CoinTowerGame(_ref34) {
-  var onScore = _ref34.onScore,
-    onClose = _ref34.onClose;
+function CoinTowerGame(_ref40) {
+  var onScore = _ref40.onScore,
+    onClose = _ref40.onClose;
   var _useState245 = useState("ready"),
     _useState246 = _slicedToArray(_useState245, 2),
     phase = _useState246[0],
@@ -12980,9 +13223,9 @@ function CoinTowerGame(_ref34) {
 // ============================================================
 // MEMORY SPEED GAME (神経衰弱スピード)
 // ============================================================
-function MemoryGame(_ref35) {
-  var onScore = _ref35.onScore,
-    onClose = _ref35.onClose;
+function MemoryGame(_ref41) {
+  var onScore = _ref41.onScore,
+    onClose = _ref41.onClose;
   var _useState259 = useState("ready"),
     _useState260 = _slicedToArray(_useState259, 2),
     phase = _useState260[0],
@@ -13035,9 +13278,9 @@ function MemoryGame(_ref35) {
     });
     for (var i = deck.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
-      var _ref36 = [deck[j], deck[i]];
-      deck[i] = _ref36[0];
-      deck[j] = _ref36[1];
+      var _ref42 = [deck[j], deck[i]];
+      deck[i] = _ref42[0];
+      deck[j] = _ref42[1];
     }
     return deck.map(function (c, i) {
       return _objectSpread(_objectSpread({}, c), {}, {
@@ -13313,8 +13556,8 @@ function MemoryGame(_ref35) {
   }, "\u30DF\u30B9: ", misses, "\u56DE"))));
 }
 function _BubbleGame_REMOVED() {/* removed */}
-function BubbleGame_PLACEHOLDER(_ref37) {
-  var onDone = _ref37.onDone;
+function BubbleGame_PLACEHOLDER(_ref43) {
+  var onDone = _ref43.onDone;
   var _useState275 = useState("ready"),
     _useState276 = _slicedToArray(_useState275, 2),
     phase = _useState276[0],
@@ -13593,9 +13836,9 @@ function BubbleGame_PLACEHOLDER(_ref37) {
 // ============================================================
 // QUICK DRAW GUNMAN GAME (早撃ちガンマン)
 // ============================================================
-function QuickDrawGame(_ref38) {
-  var onScore = _ref38.onScore,
-    onClose = _ref38.onClose;
+function QuickDrawGame(_ref44) {
+  var onScore = _ref44.onScore,
+    onClose = _ref44.onClose;
   var _useState287 = useState("ready"),
     _useState288 = _slicedToArray(_useState287, 2),
     phase = _useState288[0],
@@ -14137,9 +14380,9 @@ function jugWarmup() {
   };
   ric(_step5);
 }
-function JugglerGame(_ref39) {
-  var onScore = _ref39.onScore,
-    onClose = _ref39.onClose;
+function JugglerGame(_ref45) {
+  var onScore = _ref45.onScore,
+    onClose = _ref45.onClose;
   var _useState303 = useState("ready"),
     _useState304 = _slicedToArray(_useState303, 2),
     phase = _useState304[0],
@@ -16667,15 +16910,15 @@ var gaMV = function gaMV(c) {
 // 角飾り(神殿モチーフの二重ブラケット)。装飾専用でイベントは通さない
 var GA_CNR_D = 'M1 14 L1 1 L14 1 L14 3.2 L3.2 3.2 L3.2 14 Z M6 11 L6 6 L11 6 L11 7.6 L7.6 7.6 L7.6 11 Z';
 var GA_CNR_POS = [[0, 0, '1,1'], [1, 0, '-1,1'], [0, 1, '1,-1'], [1, 1, '-1,-1']];
-function GaCorners(_ref40) {
-  var _ref40$size = _ref40.size,
-    size = _ref40$size === void 0 ? 12 : _ref40$size,
-    _ref40$inset = _ref40.inset,
-    inset = _ref40$inset === void 0 ? 2 : _ref40$inset,
-    _ref40$color = _ref40.color,
-    color = _ref40$color === void 0 ? '#c9a227' : _ref40$color,
-    _ref40$op = _ref40.op,
-    op = _ref40$op === void 0 ? 0.72 : _ref40$op;
+function GaCorners(_ref46) {
+  var _ref46$size = _ref46.size,
+    size = _ref46$size === void 0 ? 12 : _ref46$size,
+    _ref46$inset = _ref46.inset,
+    inset = _ref46$inset === void 0 ? 2 : _ref46$inset,
+    _ref46$color = _ref46.color,
+    color = _ref46$color === void 0 ? '#c9a227' : _ref46$color,
+    _ref46$op = _ref46.op,
+    op = _ref46$op === void 0 ? 0.72 : _ref46$op;
   return /*#__PURE__*/React.createElement(React.Fragment, null, GA_CNR_POS.map(function (p, i) {
     var st = {
       position: 'absolute',
@@ -16698,41 +16941,48 @@ function GaCorners(_ref40) {
     }));
   }));
 }
-function GodAnotherGame(_ref41) {
-  var onScore = _ref41.onScore,
-    onClose = _ref41.onClose;
+function GodAnotherGame(_ref47) {
+  var onScore = _ref47.onScore,
+    onClose = _ref47.onClose;
   var _useState349 = useState("ready"),
     _useState350 = _slicedToArray(_useState349, 2),
     phase = _useState350[0],
     setPhase = _useState350[1];
-  var _useState351 = useState(0),
+  // オート回転(2026-08-25 竹森氏指示): 1分間に1,500回転=40ms間隔。演出ロック中は自動スキップ→解除後そのまま継続
+  var _useState351 = useState(false),
     _useState352 = _slicedToArray(_useState351, 2),
-    gameN = _useState352[0],
-    setGameN = _useState352[1];
-  var _useState353 = useState(180),
+    autoOn = _useState352[0],
+    setAutoOn = _useState352[1];
+  var autoRef = useRef(false);
+  var doSpinRef = useRef(null);
+  var _useState353 = useState(0),
     _useState354 = _slicedToArray(_useState353, 2),
-    timeLeft = _useState354[0],
-    setTimeLeft = _useState354[1];
-  var _useState355 = useState(0),
+    gameN = _useState354[0],
+    setGameN = _useState354[1];
+  var _useState355 = useState(180),
     _useState356 = _slicedToArray(_useState355, 2),
-    coins = _useState356[0],
-    setCoins = _useState356[1];
+    timeLeft = _useState356[0],
+    setTimeLeft = _useState356[1];
   var _useState357 = useState(0),
     _useState358 = _slicedToArray(_useState357, 2),
-    godC = _useState358[0],
-    setGodC = _useState358[1];
+    coins = _useState358[0],
+    setCoins = _useState358[1];
   var _useState359 = useState(0),
     _useState360 = _slicedToArray(_useState359, 2),
-    meioC = _useState360[0],
-    setMeioC = _useState360[1];
+    godC = _useState360[0],
+    setGodC = _useState360[1];
   var _useState361 = useState(0),
     _useState362 = _slicedToArray(_useState361, 2),
-    purpleC = _useState362[0],
-    setPurpleC = _useState362[1];
+    meioC = _useState362[0],
+    setMeioC = _useState362[1];
   var _useState363 = useState(0),
     _useState364 = _slicedToArray(_useState363, 2),
-    y7C = _useState364[0],
-    setY7C = _useState364[1];
+    purpleC = _useState364[0],
+    setPurpleC = _useState364[1];
+  var _useState365 = useState(0),
+    _useState366 = _slicedToArray(_useState365, 2),
+    y7C = _useState366[0],
+    setY7C = _useState366[1];
   // PC(幅1000px以上・マウス環境): 画面にジャストフィットする表示倍率を実測で算出。スマホは等倍のまま
   var zoomFitRef = useRef(null);
   useEffect(function () {
@@ -16763,102 +17013,102 @@ function GodAnotherGame(_ref41) {
       window.removeEventListener('resize', fit);
     };
   }, [phase]);
-  var _useState365 = useState(0),
-    _useState366 = _slicedToArray(_useState365, 2),
-    crashC = _useState366[0],
-    setCrashC = _useState366[1];
   var _useState367 = useState(0),
     _useState368 = _slicedToArray(_useState367, 2),
-    sinC = _useState368[0],
-    setSinC = _useState368[1];
+    crashC = _useState368[0],
+    setCrashC = _useState368[1];
   var _useState369 = useState(0),
     _useState370 = _slicedToArray(_useState369, 2),
-    spinCount = _useState370[0],
-    setSpinCount = _useState370[1];
-  var _useState371 = useState([]),
+    sinC = _useState370[0],
+    setSinC = _useState370[1];
+  var _useState371 = useState(0),
     _useState372 = _slicedToArray(_useState371, 2),
-    history = _useState372[0],
-    setHistory = _useState372[1];
-  var _useState373 = useState(0),
+    spinCount = _useState372[0],
+    setSpinCount = _useState372[1];
+  var _useState373 = useState([]),
     _useState374 = _slicedToArray(_useState373, 2),
-    jugRen = _useState374[0],
-    setJugRen = _useState374[1];
-  var _useState375 = useState(''),
+    history = _useState374[0],
+    setHistory = _useState374[1];
+  var _useState375 = useState(0),
     _useState376 = _slicedToArray(_useState375, 2),
-    msg = _useState376[0],
-    setMsg = _useState376[1];
-  var _useState377 = useState('#c8a24a'),
+    jugRen = _useState376[0],
+    setJugRen = _useState376[1];
+  var _useState377 = useState(''),
     _useState378 = _slicedToArray(_useState377, 2),
-    msgColor = _useState378[0],
-    setMsgColor = _useState378[1];
-  var _useState379 = useState(''),
+    msg = _useState378[0],
+    setMsg = _useState378[1];
+  var _useState379 = useState('#c8a24a'),
     _useState380 = _slicedToArray(_useState379, 2),
-    bigMsg = _useState380[0],
-    setBigMsg = _useState380[1];
-  var _useState381 = useState('#ffd700'),
+    msgColor = _useState380[0],
+    setMsgColor = _useState380[1];
+  var _useState381 = useState(''),
     _useState382 = _slicedToArray(_useState381, 2),
-    bigMsgColor = _useState382[0],
-    setBigMsgColor = _useState382[1];
-  var _useState383 = useState(false),
+    bigMsg = _useState382[0],
+    setBigMsg = _useState382[1];
+  var _useState383 = useState('#ffd700'),
     _useState384 = _slicedToArray(_useState383, 2),
-    locked = _useState384[0],
-    setLocked = _useState384[1];
+    bigMsgColor = _useState384[0],
+    setBigMsgColor = _useState384[1];
   var _useState385 = useState(false),
     _useState386 = _slicedToArray(_useState385, 2),
-    shaking = _useState386[0],
-    setShaking = _useState386[1];
+    locked = _useState386[0],
+    setLocked = _useState386[1];
   var _useState387 = useState(false),
     _useState388 = _slicedToArray(_useState387, 2),
-    crtActive = _useState388[0],
-    setCrtActive = _useState388[1];
-  var _useState389 = useState(0),
+    shaking = _useState388[0],
+    setShaking = _useState388[1];
+  var _useState389 = useState(false),
     _useState390 = _slicedToArray(_useState389, 2),
-    flashAlpha = _useState390[0],
-    setFlashAlpha = _useState390[1];
-  var _useState391 = useState('#fff'),
+    crtActive = _useState390[0],
+    setCrtActive = _useState390[1];
+  var _useState391 = useState(0),
     _useState392 = _slicedToArray(_useState391, 2),
-    flashColor = _useState392[0],
-    setFlashColor = _useState392[1];
-  var _useState393 = useState(0),
+    flashAlpha = _useState392[0],
+    setFlashAlpha = _useState392[1];
+  var _useState393 = useState('#fff'),
     _useState394 = _slicedToArray(_useState393, 2),
-    dim = _useState394[0],
-    setDim = _useState394[1];
-  var _useState395 = useState('none'),
+    flashColor = _useState394[0],
+    setFlashColor = _useState394[1];
+  var _useState395 = useState(0),
     _useState396 = _slicedToArray(_useState395, 2),
-    tint = _useState396[0],
-    setTint = _useState396[1];
-  var _useState397 = useState(0),
+    dim = _useState396[0],
+    setDim = _useState396[1];
+  var _useState397 = useState('none'),
     _useState398 = _slicedToArray(_useState397, 2),
-    crackLv = _useState398[0],
-    setCrackLv = _useState398[1];
-  var _useState399 = useState(''),
+    tint = _useState398[0],
+    setTint = _useState398[1];
+  var _useState399 = useState(0),
     _useState400 = _slicedToArray(_useState399, 2),
-    lampMainText = _useState400[0],
-    setLampMainText = _useState400[1];
-  var _useState401 = useState('min(24vw,100px)'),
+    crackLv = _useState400[0],
+    setCrackLv = _useState400[1];
+  var _useState401 = useState(''),
     _useState402 = _slicedToArray(_useState401, 2),
-    lampMainSize = _useState402[0],
-    setLampMainSize = _useState402[1];
-  var _useState403 = useState('ANOTHER'),
+    lampMainText = _useState402[0],
+    setLampMainText = _useState402[1];
+  var _useState403 = useState('min(24vw,100px)'),
     _useState404 = _slicedToArray(_useState403, 2),
-    lampSubText = _useState404[0],
-    setLampSubText = _useState404[1];
-  var _useState405 = useState(false),
+    lampMainSize = _useState404[0],
+    setLampMainSize = _useState404[1];
+  var _useState405 = useState('ANOTHER'),
     _useState406 = _slicedToArray(_useState405, 2),
-    sinPlus = _useState406[0],
-    setSinPlus = _useState406[1];
-  var _useState407 = useState(1),
+    lampSubText = _useState406[0],
+    setLampSubText = _useState406[1];
+  var _useState407 = useState(false),
     _useState408 = _slicedToArray(_useState407, 2),
-    lastMult = _useState408[0],
-    setLastMult = _useState408[1]; // 直近の当たりで実際に適用された倍率(1G連の+1.0込み)
-  var _useState409 = useState(false),
+    sinPlus = _useState408[0],
+    setSinPlus = _useState408[1];
+  var _useState409 = useState(1),
     _useState410 = _slicedToArray(_useState409, 2),
-    cutinOn = _useState410[0],
-    setCutinOn = _useState410[1]; // 画像カットイン表示中は巨大GOD文字を隠す
-  var _useState411 = useState(['bell', 'cherry', 'replay']),
+    lastMult = _useState410[0],
+    setLastMult = _useState410[1]; // 直近の当たりで実際に適用された倍率(1G連の+1.0込み)
+  var _useState411 = useState(false),
     _useState412 = _slicedToArray(_useState411, 2),
-    reels = _useState412[0],
-    setReels = _useState412[1];
+    cutinOn = _useState412[0],
+    setCutinOn = _useState412[1]; // 画像カットイン表示中は巨大GOD文字を隠す
+  var _useState413 = useState(['bell', 'cherry', 'replay']),
+    _useState414 = _slicedToArray(_useState413, 2),
+    reels = _useState414[0],
+    setReels = _useState414[1];
   var lampRef = useRef(null);
   var lampTypeRef = useRef('off');
   var lampStartRef = useRef(null);
@@ -16943,9 +17193,9 @@ function GodAnotherGame(_ref41) {
   var sprRef = useRef(null);
   var pRafRef = useRef(null);
   // アセット層(画像が無い間は全て何もしない)
-  var _useState413 = useState(0),
-    _useState414 = _slicedToArray(_useState413, 2),
-    setAssetTick = _useState414[1]; // アセットが1つロードされた時だけ再レンダーする
+  var _useState415 = useState(0),
+    _useState416 = _slicedToArray(_useState415, 2),
+    setAssetTick = _useState416[1]; // アセットが1つロードされた時だけ再レンダーする
   var cutinRef = useRef(null);
   var vidRef = useRef(null);
   var vidStRef = useRef({}); // 動画キー('movie'/'movieHades'/'movieViolet') -> { armed, ready, failed }
@@ -17012,21 +17262,22 @@ function GodAnotherGame(_ref41) {
   // 冥王揃い 1/10922.7
   ['purple', 10],
   // 紫7揃い 1/6553.6
-  ['y7', 140] // 中段黄7 1/468.1
+  ['y7', 64] // 中段黄7 64/65536 = 1/1024(2026-08-25 竹森氏指示: 1/1024・配点1800に変更)
   // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
+  // 2026-08-25 竹森氏指示: 全配点を約60%に減額(GODは7続きの遊び心を残して4777。AG=GOD×4、クラッシュGOD=GOD×2の関係は維持)
   var BASE = {
-    sin: 20000,
-    amazing: 31108,
-    hades: 20000,
-    violet: 14000,
-    cgod: 15554,
-    cmeio: 10000,
-    cpurple: 7000,
-    god: 7777,
-    meio: 5000,
-    purple: 3500,
-    y7: 1200
+    sin: 12000,
+    amazing: 19108,
+    hades: 12000,
+    violet: 8400,
+    cgod: 9554,
+    cmeio: 6000,
+    cpurple: 4200,
+    god: 4777,
+    meio: 3000,
+    purple: 2100,
+    y7: 1080
   };
   var SYMS = {
     y7: {
@@ -18461,12 +18712,15 @@ function GodAnotherGame(_ref41) {
     var newJugRen = hitAt <= 100 ? jugRenRef.current + 1 : 1;
     jugRenRef.current = newJugRen;
     setJugRen(newJugRen);
-    var baseMult = 1 + (newJugRen - 1) * 0.1;
+    // 2026-08-25 竹森氏指示: 連チャン倍率を0.5刻みに(連チャン=1.5倍、以後+0.5ずつ。非連チャンの初当りは1倍)
+    var baseMult = 1 + (newJugRen - 1) * 0.5;
     var is1G = hitAt === 1;
-    // ハマリプレミア: 900以上ハマりからの当たりは倍率アップ(900で×1.2, 1000で×1.4, 1100で×1.6, …+0.2/100G・上限なし)
-    var hamari = hitAt >= 900 ? 1 + 0.2 * Math.floor((hitAt - 800) / 100) : 1;
-    var mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
-    setLastMult(mult); // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
+    // ハマリプレミア: 1000以上ハマりからの当たりは倍率アップ(1000で×1.2, 1100で×1.4, 1200で×1.6, …+0.2/100G・上限なし)
+    // 2026-08-25 竹森氏指示で開始を900→1000に変更
+    var hamari = hitAt >= 1000 ? 1 + 0.2 * Math.floor((hitAt - 900) / 100) : 1;
+    // 1G連はスコア5倍(2026-08-25 竹森氏指示。連チャン梯子が5倍を超える深い連ではそちらを採用)
+    var mult = (is1G ? Math.max(baseMult, 5) : baseMult) * hamari;
+    setLastMult(mult); // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の5倍込み)を表示する
     spinCountRef.current = 0;
     setSpinCount(0);
     setHistory(function (prev) {
@@ -19233,6 +19487,7 @@ function GodAnotherGame(_ref41) {
   };
   var doSpin = function doSpin(pointerId) {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
+    // (オート回転は doSpinRef 経由でこの関数を叩く)
     // 連打ガード: pointerId単位のスロットルのみ。同じ指は20ms未満を無視(2026-08-25竹森氏指示で10→20ms。窓内回数上限は撤廃のまま)
     var now = performance.now();
     var pid = pointerId === undefined || pointerId === null ? 'm' : pointerId;
@@ -19326,6 +19581,25 @@ function GodAnotherGame(_ref41) {
     }
     doCrash(flag, false);
   };
+  doSpinRef.current = doSpin; // オート回転から最新のdoSpinを呼ぶための参照(再レンダー毎に更新)
+
+  // オート回転エンジン: 40ms間隔=1,500回転/分。ロック(演出)中はスキップし、解除されると自動で再開する
+  useEffect(function () {
+    autoRef.current = autoOn;
+  }, [autoOn]);
+  useEffect(function () {
+    if (phase !== 'playing') {
+      setAutoOn(false);
+      autoRef.current = false;
+      return;
+    }
+    var iv = setInterval(function () {
+      if (autoRef.current && !lockedRef.current && phaseRef.current === 'playing' && doSpinRef.current) doSpinRef.current('auto');
+    }, 40);
+    return function () {
+      return clearInterval(iv);
+    };
+  }, [phase]);
   var startGame = function startGame() {
     gaWarmup(); // 重量バッファ・IRの事前生成(既に開始済みなら何もしない)
     setPhase("playing");
@@ -19712,7 +19986,7 @@ function GodAnotherGame(_ref41) {
       lineHeight: 1.9,
       color: '#a89660'
     }
-  }, "\u753B\u9762\u30BF\u30C3\u30D7\u3067\u30EC\u30D0\u30FCON\uFF01", /*#__PURE__*/React.createElement("br", null), "GOD\u30FB\u51A5\u738B\u30FB\u7D2B7\u3092\u72D9\u3048\uFF01", /*#__PURE__*/React.createElement("br", null), "100\u56DE\u8EE2\u4EE5\u5185\u306E\u9023\u30C1\u30E3\u30F3\u3067\u500D\u7387\u30A2\u30C3\u30D7\uFF01", /*#__PURE__*/React.createElement("br", null), "900\u8D85\u306E\u5927\u30CF\u30DE\u30EA\u306F\u30CF\u30DE\u30EA\u30D7\u30EC\u30DF\u30A2\u3067\u500D\u7387\u30A2\u30C3\u30D7\uFF01", /*#__PURE__*/React.createElement("br", null), "\u6F14\u51FA\u306E\u9593\u306F\u6642\u9593\u304C\u6B62\u307E\u308A\u307E\u3059", /*#__PURE__*/React.createElement("br", null), "\u5236\u9650\u6642\u9593: 3\u5206"), /*#__PURE__*/React.createElement("button", {
+  }, "\u753B\u9762\u30BF\u30C3\u30D7\u3067\u30EC\u30D0\u30FCON\uFF01", /*#__PURE__*/React.createElement("br", null), "GOD\u30FB\u51A5\u738B\u30FB\u7D2B7\u3092\u72D9\u3048\uFF01", /*#__PURE__*/React.createElement("br", null), "100\u56DE\u8EE2\u4EE5\u5185\u306E\u9023\u30C1\u30E3\u30F3\u3067\u500D\u7387\u30A2\u30C3\u30D7\uFF01", /*#__PURE__*/React.createElement("br", null), "1000\u8D85\u306E\u5927\u30CF\u30DE\u30EA\u306F\u30CF\u30DE\u30EA\u30D7\u30EC\u30DF\u30A2\u3067\u500D\u7387\u30A2\u30C3\u30D7\uFF01", /*#__PURE__*/React.createElement("br", null), "\u6F14\u51FA\u306E\u9593\u306F\u6642\u9593\u304C\u6B62\u307E\u308A\u307E\u3059", /*#__PURE__*/React.createElement("br", null), "\u5236\u9650\u6642\u9593: 3\u5206"), /*#__PURE__*/React.createElement("button", {
     className: "btn bp",
     onClick: startGame,
     style: {
@@ -19735,7 +20009,31 @@ function GodAnotherGame(_ref41) {
     },
     onTouchMove: function onTouchMove(e) {/* React18はtouch系をpassive登録するためpreventDefaultは無効(警告が出るだけ)。スクロール抑止は touchAction:'none' が担当 */},
     onTouchStart: function onTouchStart(e) {}
-  }), /*#__PURE__*/React.createElement("div", {
+  }), phase === "playing" && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setAutoOn(function (v) {
+        return !v;
+      });
+    },
+    style: {
+      position: 'fixed',
+      right: 10,
+      bottom: 104,
+      zIndex: 42,
+      padding: '10px 13px',
+      borderRadius: 10,
+      fontFamily: "'Orbitron',sans-serif",
+      fontWeight: 900,
+      fontSize: 12,
+      letterSpacing: 1,
+      cursor: 'pointer',
+      background: autoOn ? 'linear-gradient(180deg,#e8c86a,#8a6a00)' : 'linear-gradient(180deg,#241c11,#15100a)',
+      color: autoOn ? '#1a1206' : '#d7b46a',
+      border: '1px solid rgba(201,168,76,0.6)',
+      boxShadow: autoOn ? '0 0 16px rgba(201,168,76,0.55)' : '0 2px 8px rgba(0,0,0,0.5)',
+      transition: 'all 0.2s'
+    }
+  }, "AUTO ", autoOn ? 'ON' : 'OFF'), /*#__PURE__*/React.createElement("div", {
     style: {
       background: '#08070a',
       borderBottom: '1px solid #2a2210',
@@ -19801,7 +20099,7 @@ function GodAnotherGame(_ref41) {
       fontSize: 42,
       lineHeight: 0.9
     }, gaMV(spinCount >= 500 ? GA_MC.red : spinCount >= 200 ? GA_MC.amber : GA_MC.gold))
-  }, spinCount), spinCount >= 900 && /*#__PURE__*/React.createElement("div", {
+  }, spinCount), spinCount >= 1000 && /*#__PURE__*/React.createElement("div", {
     className: "ga-mlbl",
     style: {
       fontSize: 8.5,
@@ -19810,7 +20108,7 @@ function GodAnotherGame(_ref41) {
       color: '#ff6b8a',
       textShadow: '0 0 6px rgba(255,60,110,0.7)'
     }
-  }, "\u30CF\u30DE\u30EA\u30D7\u30EC\u30DF\u30A2 \xD7", (1 + 0.2 * Math.floor((spinCount - 800) / 100)).toFixed(1))), /*#__PURE__*/React.createElement("div", {
+  }, "\u30CF\u30DE\u30EA\u30D7\u30EC\u30DF\u30A2 \xD7", (1 + 0.2 * Math.floor((spinCount - 900) / 100)).toFixed(1))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 11,
@@ -20623,22 +20921,22 @@ function GodAnotherGame(_ref41) {
 // ============================================================
 // BATTING HERO GAME (70 seconds timing batting game)
 // ============================================================
-function BattingGame(_ref42) {
+function BattingGame(_ref48) {
   var _gameRef$current, _gameRef$current2, _gameRef$current3;
-  var onScore = _ref42.onScore,
-    onClose = _ref42.onClose;
+  var onScore = _ref48.onScore,
+    onClose = _ref48.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var partsRef = useRef([]);
   var rafRef = useRef(null);
-  var _useState415 = useState("ready"),
-    _useState416 = _slicedToArray(_useState415, 2),
-    phase = _useState416[0],
-    setPhase = _useState416[1];
-  var _useState417 = useState(0),
+  var _useState417 = useState("ready"),
     _useState418 = _slicedToArray(_useState417, 2),
-    score = _useState418[0],
-    setScore = _useState418[1];
+    phase = _useState418[0],
+    setPhase = _useState418[1];
+  var _useState419 = useState(0),
+    _useState420 = _slicedToArray(_useState419, 2),
+    score = _useState420[0],
+    setScore = _useState420[1];
   // 予約スプライト: assets/games/bat-pitch-f1〜f3.webp(投手振りかぶり→リリース)+bat-swing-f1〜f4.webp(打者構え→スイング)+bat-stadium.webp(球場背景)
   // 画像未配置の間は*Loadedがfalseのまま→現行の手描きprimitive人形・背景にフォールバック
   var bImgRef = useRef({
@@ -21075,10 +21373,10 @@ function BattingGame(_ref42) {
         ctx.fillRect(0, 0, W, H);
 
         // Stadium lights
-        [[36, 26], [W - 36, 26]].forEach(function (_ref43) {
-          var _ref44 = _slicedToArray(_ref43, 2),
-            lx = _ref44[0],
-            ly = _ref44[1];
+        [[36, 26], [W - 36, 26]].forEach(function (_ref49) {
+          var _ref50 = _slicedToArray(_ref49, 2),
+            lx = _ref50[0],
+            ly = _ref50[1];
           var g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 80);
           g.addColorStop(0, 'rgba(255,240,180,0.22)');
           g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -21587,20 +21885,20 @@ function BattingGame(_ref42) {
 // ============================================================
 // COIN RUNNER GAME (90 seconds side-scrolling runner)
 // ============================================================
-function CoinRunnerGame(_ref45) {
-  var onScore = _ref45.onScore,
-    onClose = _ref45.onClose;
+function CoinRunnerGame(_ref51) {
+  var onScore = _ref51.onScore,
+    onClose = _ref51.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
-  var _useState419 = useState("ready"),
-    _useState420 = _slicedToArray(_useState419, 2),
-    phase = _useState420[0],
-    setPhase = _useState420[1];
-  var _useState421 = useState(0),
+  var _useState421 = useState("ready"),
     _useState422 = _slicedToArray(_useState421, 2),
-    score = _useState422[0],
-    setScore = _useState422[1];
+    phase = _useState422[0],
+    setPhase = _useState422[1];
+  var _useState423 = useState(0),
+    _useState424 = _slicedToArray(_useState423, 2),
+    score = _useState424[0],
+    setScore = _useState424[1];
   var heldRef = useRef(false);
   // 予約スプライト: assets/games/run-hero-f1〜f4.webp(走り4コマ) + run-hero-jump.webp(ジャンプ) + 3層パララックス背景
   // 画像未配置の間は imgRef.current.*Loaded が false のまま→現行primitive描画にフォールバック
@@ -21790,10 +22088,10 @@ function CoinRunnerGame(_ref45) {
       R.heroJumpLoaded = true;
     };
     jumpImg.src = 'assets/games/run-hero-jump.webp';
-    [['bgFar', 'run-bg-far.webp'], ['bgMid', 'run-bg-mid.webp'], ['bgNear', 'run-bg-near.webp']].forEach(function (_ref46) {
-      var _ref47 = _slicedToArray(_ref46, 2),
-        key = _ref47[0],
-        file = _ref47[1];
+    [['bgFar', 'run-bg-far.webp'], ['bgMid', 'run-bg-mid.webp'], ['bgNear', 'run-bg-near.webp']].forEach(function (_ref52) {
+      var _ref53 = _slicedToArray(_ref52, 2),
+        key = _ref53[0],
+        file = _ref53[1];
       var img = new Image();
       img.onerror = function () {};
       img.onload = function () {
@@ -22373,20 +22671,20 @@ function cbPreloadAssets() {
     } catch (e) {}
   });
 }
-function ChainBurstGame(_ref48) {
-  var onScore = _ref48.onScore,
-    onClose = _ref48.onClose;
+function ChainBurstGame(_ref54) {
+  var onScore = _ref54.onScore,
+    onClose = _ref54.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
-  var _useState423 = useState("ready"),
-    _useState424 = _slicedToArray(_useState423, 2),
-    phase = _useState424[0],
-    setPhase = _useState424[1];
-  var _useState425 = useState(0),
+  var _useState425 = useState("ready"),
     _useState426 = _slicedToArray(_useState425, 2),
-    score = _useState426[0],
-    setScore = _useState426[1];
+    phase = _useState426[0],
+    setPhase = _useState426[1];
+  var _useState427 = useState(0),
+    _useState428 = _slicedToArray(_useState427, 2),
+    score = _useState428[0],
+    setScore = _useState428[1];
   var partsRef = useRef([]);
   var W = 320,
     H = 420,
@@ -23016,20 +23314,20 @@ function pinPreloadAssets() {
     PIN_BOARD_IMG.img = img;
   } catch (e) {}
 }
-function PinballGame(_ref49) {
-  var onScore = _ref49.onScore,
-    onClose = _ref49.onClose;
+function PinballGame(_ref55) {
+  var onScore = _ref55.onScore,
+    onClose = _ref55.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
-  var _useState427 = useState("ready"),
-    _useState428 = _slicedToArray(_useState427, 2),
-    phase = _useState428[0],
-    setPhase = _useState428[1];
-  var _useState429 = useState(0),
+  var _useState429 = useState("ready"),
     _useState430 = _slicedToArray(_useState429, 2),
-    score = _useState430[0],
-    setScore = _useState430[1];
+    phase = _useState430[0],
+    setPhase = _useState430[1];
+  var _useState431 = useState(0),
+    _useState432 = _slicedToArray(_useState431, 2),
+    score = _useState432[0],
+    setScore = _useState432[1];
   var leftRef = useRef(false);
   var rightRef = useRef(false);
   var W = 300,
@@ -23787,41 +24085,41 @@ function gcPreloadAssets() {
     return loadOne(src, GC_ITEM_IMGS[i]);
   });
 }
-function GemCatchGame(_ref50) {
-  var onScore = _ref50.onScore,
-    onClose = _ref50.onClose;
-  var _useState431 = useState("ready"),
-    _useState432 = _slicedToArray(_useState431, 2),
-    phase = _useState432[0],
-    setPhase = _useState432[1];
-  var _useState433 = useState(0),
+function GemCatchGame(_ref56) {
+  var onScore = _ref56.onScore,
+    onClose = _ref56.onClose;
+  var _useState433 = useState("ready"),
     _useState434 = _slicedToArray(_useState433, 2),
-    earned = _useState434[0],
-    setEarned = _useState434[1];
-  var _useState435 = useState(20),
+    phase = _useState434[0],
+    setPhase = _useState434[1];
+  var _useState435 = useState(0),
     _useState436 = _slicedToArray(_useState435, 2),
-    timeLeft = _useState436[0],
-    setTimeLeft = _useState436[1];
-  var _useState437 = useState({
+    earned = _useState436[0],
+    setEarned = _useState436[1];
+  var _useState437 = useState(20),
+    _useState438 = _slicedToArray(_useState437, 2),
+    timeLeft = _useState438[0],
+    setTimeLeft = _useState438[1];
+  var _useState439 = useState({
       perfect: 0,
       good: 0,
       miss: 0
     }),
-    _useState438 = _slicedToArray(_useState437, 2),
-    stats = _useState438[0],
-    setStats = _useState438[1];
-  var _useState439 = useState(0),
     _useState440 = _slicedToArray(_useState439, 2),
-    combo = _useState440[0],
-    setCombo = _useState440[1];
+    stats = _useState440[0],
+    setStats = _useState440[1];
   var _useState441 = useState(0),
     _useState442 = _slicedToArray(_useState441, 2),
-    maxCombo = _useState442[0],
-    setMaxCombo = _useState442[1];
-  var _useState443 = useState([]),
+    combo = _useState442[0],
+    setCombo = _useState442[1];
+  var _useState443 = useState(0),
     _useState444 = _slicedToArray(_useState443, 2),
-    floats = _useState444[0],
-    setFloats = _useState444[1];
+    maxCombo = _useState444[0],
+    setMaxCombo = _useState444[1];
+  var _useState445 = useState([]),
+    _useState446 = _slicedToArray(_useState445, 2),
+    floats = _useState446[0],
+    setFloats = _useState446[1];
   var gemsRef = useRef([]);
   var earnedRef = useRef(0);
   var statsRef = useRef({
@@ -24311,14 +24609,14 @@ function GemCatchGame(_ref50) {
 // ============================================================
 // SPEND FORM
 // ============================================================
-function SpendForm(_ref51) {
-  var available = _ref51.available,
-    spending = _ref51.spending,
-    onSpend = _ref51.onSpend;
-  var _useState445 = useState(null),
-    _useState446 = _slicedToArray(_useState445, 2),
-    confirm = _useState446[0],
-    setConfirm = _useState446[1]; // null | {amount, label}
+function SpendForm(_ref57) {
+  var available = _ref57.available,
+    spending = _ref57.spending,
+    onSpend = _ref57.onSpend;
+  var _useState447 = useState(null),
+    _useState448 = _slicedToArray(_useState447, 2),
+    confirm = _useState448[0],
+    setConfirm = _useState448[1]; // null | {amount, label}
 
   var options = [{
     amount: 10000000000,
@@ -24479,24 +24777,25 @@ function SpendForm(_ref51) {
 // ============================================================
 // COLLECTION VIEW
 // ============================================================
-function CollectionView(_ref52) {
-  var collection = _ref52.collection,
-    onSelect = _ref52.onSelect,
-    requestMode = _ref52.requestMode,
-    onRequest = _ref52.onRequest,
-    onCancelRequest = _ref52.onCancelRequest,
-    uraUnlocked = _ref52.uraUnlocked,
-    uraObtained = _ref52.uraObtained,
-    showUraMuseum = _ref52.showUraMuseum,
-    setShowUraMuseum = _ref52.setShowUraMuseum;
-  var _useState447 = useState("all"),
-    _useState448 = _slicedToArray(_useState447, 2),
-    filter = _useState448[0],
-    setFilter = _useState448[1];
-  var _useState449 = useState(null),
+function CollectionView(_ref58) {
+  var collection = _ref58.collection,
+    onSelect = _ref58.onSelect,
+    requestMode = _ref58.requestMode,
+    onRequest = _ref58.onRequest,
+    onCancelRequest = _ref58.onCancelRequest,
+    uraUnlocked = _ref58.uraUnlocked,
+    uraObtained = _ref58.uraObtained,
+    showUraMuseum = _ref58.showUraMuseum,
+    setShowUraMuseum = _ref58.setShowUraMuseum,
+    setBonuses = _ref58.setBonuses;
+  var _useState449 = useState("all"),
     _useState450 = _slicedToArray(_useState449, 2),
-    uraDetail = _useState450[0],
-    setUraDetail = _useState450[1];
+    filter = _useState450[0],
+    setFilter = _useState450[1];
+  var _useState451 = useState(null),
+    _useState452 = _slicedToArray(_useState451, 2),
+    uraDetail = _useState452[0],
+    setUraDetail = _useState452[1];
   var ownedTiers = CONGRATS_TIERS.filter(function (t) {
     return !!collection[t.key];
   });
@@ -24509,6 +24808,8 @@ function CollectionView(_ref52) {
         var d = MONSTERS[type.id][r.rank - 1];
         if (!d) return;
         var ow = collection[key];
+        // ★MAXを煌(_11k)に進化させても「69種COLLECTED」の所持は落とさない
+        var pw = r.rank === 11 ? collection["".concat(type.id).concat(PRISM_SUFFIX)] : null;
         list.push(_objectSpread(_objectSpread({
           key: key,
           typeId: type.id,
@@ -24518,7 +24819,7 @@ function CollectionView(_ref52) {
           rank: r.rank,
           rarity: r
         }, d), {}, {
-          owned: !!ow,
+          owned: !!ow || !!pw,
           count: (ow === null || ow === void 0 ? void 0 : ow.count) || 0
         }));
       });
@@ -24531,8 +24832,11 @@ function CollectionView(_ref52) {
   var ownCount = all.filter(function (m) {
     return m.owned;
   }).length + ownedTiers.length;
-  var totalPwr = Object.values(collection).reduce(function (s, m) {
-    return s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+  var totalPwr = Object.entries(collection).reduce(function (s, _ref59) {
+    var _ref60 = _slicedToArray(_ref59, 2),
+      k = _ref60[0],
+      m = _ref60[1];
+    return s + entryPower(k, m.count || 0, m.rank);
   }, 0);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "scrh"
@@ -24648,6 +24952,63 @@ function CollectionView(_ref52) {
   }, Object.values(collection).reduce(function (s, m) {
     return s + m.count;
   }, 0)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14,
+      padding: '8px 10px 10px',
+      borderRadius: 6,
+      background: 'linear-gradient(180deg, rgba(28,21,12,0.75), rgba(13,10,7,0.85))',
+      border: '2px solid rgba(201,168,76,0.28)',
+      borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch',
+      borderWidth: 9,
+      borderStyle: 'solid'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      letterSpacing: 2,
+      color: 'rgba(232,213,163,0.55)',
+      fontWeight: 700,
+      textAlign: 'center',
+      marginBottom: 6
+    }
+  }, "SET BONUS \u2500 \u7A2E\u65CF\u30B3\u30F3\u30D7\u7279\u5178"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '4px 10px'
+    }
+  }, TYPES.map(function (t) {
+    var on = !!(setBonuses && setBonuses[t.id]);
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 9.5,
+        color: on ? '#f2e0aa' : 'rgba(255,255,255,0.32)',
+        fontWeight: on ? 800 : 500,
+        textShadow: on ? '0 0 6px rgba(201,168,76,0.4)' : 'none'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        filter: on ? 'none' : 'grayscale(1) opacity(0.5)'
+      }
+    }, t.emoji), /*#__PURE__*/React.createElement("span", {
+      style: {
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }
+    }, SET_BONUS_EFFECTS[t.id].label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 8,
+        letterSpacing: 1
+      }
+    }, on ? 'ON' : "\u26051-10"));
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 20
     }
@@ -24914,25 +25275,41 @@ function CollectionView(_ref52) {
       gap: 8
     }
   }, TYPES.map(function (type, i) {
+    var _collection2;
     var k = "".concat(type.id, "_11");
     var ow = collection[k];
-    var owned = !!ow;
+    // 煌(進化済み)は同じ★MAX枠のバッジで見せる(66種グリッドの分母は変えない)
+    var prismCount = ((_collection2 = collection["".concat(type.id).concat(PRISM_SUFFIX)]) === null || _collection2 === void 0 ? void 0 : _collection2.count) || 0;
+    var owned = !!ow || prismCount > 0;
     var monster = MONSTERS[type.id][10];
     var count = (ow === null || ow === void 0 ? void 0 : ow.count) || 0;
+    var sel = count > 0 ? _objectSpread(_objectSpread({
+      key: k
+    }, monster), {}, {
+      typeId: type.id,
+      typeName: type.name,
+      typeEmoji: type.emoji,
+      typeColor: type.color,
+      rank: 11,
+      rarity: RARITIES[10],
+      count: count
+    }) : _objectSpread(_objectSpread({
+      key: "".concat(type.id).concat(PRISM_SUFFIX)
+    }, monster), {}, {
+      name: monster.name + PRISM_NAME_SUFFIX,
+      typeId: type.id,
+      typeName: type.name,
+      typeEmoji: type.emoji,
+      typeColor: type.color,
+      rank: 11,
+      rarity: RARITIES[10],
+      prism: true,
+      count: prismCount
+    });
     return /*#__PURE__*/React.createElement("div", {
       key: type.id,
       onClick: function onClick() {
-        return owned && onSelect(_objectSpread(_objectSpread({
-          key: k
-        }, monster), {}, {
-          typeId: type.id,
-          typeName: type.name,
-          typeEmoji: type.emoji,
-          typeColor: type.color,
-          rank: 11,
-          rarity: RARITIES[10],
-          count: count
-        }));
+        return owned && onSelect(sel);
       },
       style: _objectSpread({
         borderRadius: 12,
@@ -24976,7 +25353,19 @@ function CollectionView(_ref52) {
         borderRadius: 6,
         padding: '0 4px'
       }
-    }, "\xD7", count), /*#__PURE__*/React.createElement("div", {
+    }, "\xD7", count), prismCount > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "rank-rainbow",
+      style: {
+        position: 'absolute',
+        top: 4,
+        left: 6,
+        fontSize: 8,
+        fontWeight: 900,
+        background: 'rgba(0,0,0,0.5)',
+        borderRadius: 6,
+        padding: '0 4px'
+      }
+    }, "\u714C", prismCount > 1 ? '×' + prismCount : ''), /*#__PURE__*/React.createElement("div", {
       className: owned ? 'rank-diamond' : '',
       style: {
         fontSize: 8,
@@ -25640,23 +26029,28 @@ function CollectionView(_ref52) {
 // ============================================================
 // SYNTHESIS VIEW
 // ============================================================
-function SynthView(_ref53) {
-  var collection = _ref53.collection,
-    synthResult = _ref53.synthResult,
-    onFindCandidates = _ref53.onFindCandidates,
-    onSynthSingle = _ref53.onSynthSingle,
-    onSynthAll = _ref53.onSynthAll;
-  var _useState451 = useState("all"),
-    _useState452 = _slicedToArray(_useState451, 2),
-    filter = _useState452[0],
-    setFilter = _useState452[1];
-  var _useState453 = useState(false),
+function SynthView(_ref61) {
+  var collection = _ref61.collection,
+    synthResult = _ref61.synthResult,
+    onFindCandidates = _ref61.onFindCandidates,
+    onFindPrism = _ref61.onFindPrism,
+    onSynthSingle = _ref61.onSynthSingle,
+    onSynthAll = _ref61.onSynthAll;
+  var _useState453 = useState("all"),
     _useState454 = _slicedToArray(_useState453, 2),
-    confirmAll = _useState454[0],
-    setConfirmAll = _useState454[1];
+    filter = _useState454[0],
+    setFilter = _useState454[1];
+  var _useState455 = useState(false),
+    _useState456 = _slicedToArray(_useState455, 2),
+    confirmAll = _useState456[0],
+    setConfirmAll = _useState456[1];
   var candidates = useMemo(function () {
     return onFindCandidates();
   }, [collection, onFindCandidates]);
+  // ★MAX進化(煌)。一撃合成の件数(totalSynthable / cascadeTotal)には意図的に含めない。
+  var prismCandidates = useMemo(function () {
+    return onFindPrism ? onFindPrism() : [];
+  }, [collection, onFindPrism]);
   var totalSynthable = candidates.reduce(function (sum, c) {
     return sum + c.synthCount;
   }, 0);
@@ -25668,10 +26062,10 @@ function SynthView(_ref53) {
 
   // All owned monsters sorted by type then rank
   var owned = useMemo(function () {
-    return Object.entries(collection).map(function (_ref54) {
-      var _ref55 = _slicedToArray(_ref54, 2),
-        k = _ref55[0],
-        v = _ref55[1];
+    return Object.entries(collection).map(function (_ref62) {
+      var _ref63 = _slicedToArray(_ref62, 2),
+        k = _ref63[0],
+        v = _ref63[1];
       return _objectSpread({
         key: k
       }, v);
@@ -25713,7 +26107,7 @@ function SynthView(_ref53) {
       marginTop: 8,
       letterSpacing: 0.3
     }
-  }, "\u540C\u7A2E\u65CF\u30FB\u540C\u30E9\u30F3\u30AF: \u26051-2=2\u4F53, \u26053-9=3\u4F53 \u2192 \u30E9\u30F3\u30AFUP", /*#__PURE__*/React.createElement("br", null), "\u260510\u30923\u4F53(\u7570\u7A2EOK) \u2192 \u2605MAX\u30E9\u30F3\u30C0\u30E0", /*#__PURE__*/React.createElement("br", null), "\u203B\u5404\u30A2\u30A4\u30C6\u30E01\u500B\u306F\u30B3\u30EC\u30AF\u30B7\u30E7\u30F3\u7528\u306B\u4FDD\u6301")), synthResult && (synthResult.rank >= 9 && !synthResult.batch ? /*#__PURE__*/React.createElement("div", {
+  }, "\u540C\u7A2E\u65CF\u30FB\u540C\u30E9\u30F3\u30AF: \u26051-2=2\u4F53, \u26053-9=3\u4F53 \u2192 \u30E9\u30F3\u30AFUP", /*#__PURE__*/React.createElement("br", null), "\u260510\u30923\u4F53(\u7570\u7A2EOK) \u2192 \u2605MAX\u30E9\u30F3\u30C0\u30E0", /*#__PURE__*/React.createElement("br", null), "\u540C\u3058\u2605MAX\u30923\u4F53 \u2192 \u300C\u30FB\u714C\u300D\u306B\u9032\u5316(\u8CC7\u7523\u4FA1\u5024\u305D\u306E\u307E\u307E)", /*#__PURE__*/React.createElement("br", null), "\u203B\u5404\u30A2\u30A4\u30C6\u30E01\u500B\u306F\u30B3\u30EC\u30AF\u30B7\u30E7\u30F3\u7528\u306B\u4FDD\u6301")), synthResult && (synthResult.rank >= 9 && !synthResult.batch ? /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
@@ -25766,7 +26160,7 @@ function SynthView(_ref53) {
       fontWeight: 700,
       opacity: 0.8
     }
-  }, synthResult.rarity.label, " \u7372\u5F97\uFF01")) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? synthResult.rareIndex >= 0 ? function () {
+  }, synthResult.prism ? '★MAX進化 完了！' : "".concat(synthResult.rarity.label, " \u7372\u5F97\uFF01"))) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? synthResult.rareIndex >= 0 ? function () {
     var item = synthResult.rareItems[synthResult.rareIndex];
     var isMax = item.rank >= 11;
     var isGod = item.rank === 10;
@@ -26194,7 +26588,96 @@ function SynthView(_ref53) {
     onClick: function onClick() {
       return setConfirmAll(false);
     }
-  }, "\u30AD\u30E3\u30F3\u30BB\u30EB")))), candidates.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u30AD\u30E3\u30F3\u30BB\u30EB")))), prismCandidates.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "\u2605MAX\u9032\u5316"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      opacity: 0.5,
+      marginBottom: 8
+    }
+  }, "\u540C\u3058\u2605MAX\u30923\u4F53 \u2192\u300C\u30FB\u714C\u300D1\u4F53\u306B\u9032\u5316\u3002\u8CC7\u7523\u4FA1\u5024\u306F3\u4F53\u5206\u306E\u307E\u307E\uFF0F\u4E00\u6483\u5408\u6210\u306E\u5BFE\u8C61\u5916"), prismCandidates.map(function (c) {
+    var monster = MONSTERS[c.typeId][10];
+    var tp = TYPES.find(function (t) {
+      return t.id === c.typeId;
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      key: 'prism_' + c.typeId,
+      style: {
+        background: 'linear-gradient(135deg, rgba(208,107,255,0.1), rgba(107,197,255,0.06))',
+        border: '1px solid rgba(208,107,255,0.25)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        minWidth: 56
+      }
+    }, /*#__PURE__*/React.createElement("div", null, renderItemIcon(_objectSpread(_objectSpread({}, monster), {}, {
+      rank: 11
+    }), 28)), /*#__PURE__*/React.createElement("div", {
+      className: "rank-diamond",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, monster.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 8,
+        color: tp.color
+      }
+    }, "\u2605MAX \xD7", c.count, "\uFF083\u4F53\u3067\u9032\u5316\uFF09")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        color: '#fbbf24'
+      }
+    }, "\u2192"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        minWidth: 56
+      }
+    }, /*#__PURE__*/React.createElement("div", null, renderItemIcon(_objectSpread(_objectSpread({}, monster), {}, {
+      rank: 11
+    }), 28)), /*#__PURE__*/React.createElement("div", {
+      className: "rank-rainbow",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, monster.name, PRISM_NAME_SUFFIX), /*#__PURE__*/React.createElement("div", {
+      className: "rank-rainbow",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, "\u714C")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginLeft: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn bp",
+      style: {
+        fontSize: 11,
+        padding: '6px 12px'
+      },
+      onClick: function onClick() {
+        return onSynthSingle('prism', c.typeId, 11, 11);
+      }
+    }, "\u9032\u5316", c.synthCount > 1 ? "(".concat(c.synthCount, "\u56DE\u53EF)") : '')));
+  })), candidates.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16
     }
@@ -26382,8 +26865,10 @@ function SynthView(_ref53) {
   }, shown.map(function (item) {
     var synthable = candidates.find(function (c) {
       return c.key === item.key;
+    }) || prismCandidates.find(function (c) {
+      return c.key === item.key;
     });
-    var rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
+    var rkCls = item.prism ? 'rank-rainbow' : item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
     return /*#__PURE__*/React.createElement("div", {
       key: item.key,
       className: "ci ".concat(item.rank >= 10 ? 'god' : ''),
@@ -26410,7 +26895,7 @@ function SynthView(_ref53) {
         fontSize: 6,
         color: rkCls ? undefined : item.rarity.color
       }
-    }, item.rank === 11 ? "MAX" : "★" + item.rank), synthable && /*#__PURE__*/React.createElement("div", {
+    }, item.prism ? "煌" : item.rank === 11 ? "MAX" : "★" + item.rank), synthable && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 6,
         color: '#fbbf24',
@@ -26432,18 +26917,18 @@ function SynthView(_ref53) {
 // GAME HISTORY SCREEN (Play counts from Firebase rankings)
 // ============================================================
 function GameHistoryScreen() {
-  var _useState455 = useState([]),
-    _useState456 = _slicedToArray(_useState455, 2),
-    rankings = _useState456[0],
-    setRankings = _useState456[1];
-  var _useState457 = useState(true),
+  var _useState457 = useState([]),
     _useState458 = _slicedToArray(_useState457, 2),
-    loading = _useState458[0],
-    setLoading = _useState458[1];
-  var _useState459 = useState("tap"),
+    rankings = _useState458[0],
+    setRankings = _useState458[1];
+  var _useState459 = useState(true),
     _useState460 = _slicedToArray(_useState459, 2),
-    gameTab = _useState460[0],
-    setGameTab = _useState460[1];
+    loading = _useState460[0],
+    setLoading = _useState460[1];
+  var _useState461 = useState("tap"),
+    _useState462 = _slicedToArray(_useState461, 2),
+    gameTab = _useState462[0],
+    setGameTab = _useState462[1];
   var HISTORY_GAMES = {
     tap: '👊 連打バトル',
     shooting: '🎯 シューティング',
@@ -26699,34 +27184,34 @@ function GameHistoryScreen() {
 // RANKING SCREEN
 // ============================================================
 function RankingScreen() {
-  var _useState461 = useState(0),
-    _useState462 = _slicedToArray(_useState461, 2),
-    tab = _useState462[0],
-    setTab = _useState462[1];
-  var _useState463 = useState([]),
+  var _useState463 = useState(0),
     _useState464 = _slicedToArray(_useState463, 2),
-    rankings = _useState464[0],
-    setRankings = _useState464[1];
-  var _useState465 = useState(true),
+    tab = _useState464[0],
+    setTab = _useState464[1];
+  var _useState465 = useState([]),
     _useState466 = _slicedToArray(_useState465, 2),
-    loading = _useState466[0],
-    setLoading = _useState466[1];
-  var _useState467 = useState([]),
+    rankings = _useState466[0],
+    setRankings = _useState466[1];
+  var _useState467 = useState(true),
     _useState468 = _slicedToArray(_useState467, 2),
-    weeklyData = _useState468[0],
-    setWeeklyData = _useState468[1];
+    loading = _useState468[0],
+    setLoading = _useState468[1];
   var _useState469 = useState([]),
     _useState470 = _slicedToArray(_useState469, 2),
-    dailyGameData = _useState470[0],
-    setDailyGameData = _useState470[1];
-  var _useState471 = useState('cumulative'),
+    weeklyData = _useState470[0],
+    setWeeklyData = _useState470[1];
+  var _useState471 = useState([]),
     _useState472 = _slicedToArray(_useState471, 2),
-    assetMode = _useState472[0],
-    setAssetMode = _useState472[1]; // 'daily' | 'weekly' | 'cumulative'
-  var _useState473 = useState([]),
+    dailyGameData = _useState472[0],
+    setDailyGameData = _useState472[1];
+  var _useState473 = useState('cumulative'),
     _useState474 = _slicedToArray(_useState473, 2),
-    assetGrowth = _useState474[0],
-    setAssetGrowth = _useState474[1]; // [{name, growth}]
+    assetMode = _useState474[0],
+    setAssetMode = _useState474[1]; // 'daily' | 'weekly' | 'cumulative'
+  var _useState475 = useState([]),
+    _useState476 = _slicedToArray(_useState475, 2),
+    assetGrowth = _useState476[0],
+    setAssetGrowth = _useState476[1]; // [{name, growth}]
 
   useEffect(function () {
     setLoading(true);
@@ -26812,10 +27297,10 @@ function RankingScreen() {
       }));
     });
   }, [tab, assetMode, rankings]);
-  var _useState475 = useState("tap"),
-    _useState476 = _slicedToArray(_useState475, 2),
-    gameTab = _useState476[0],
-    setGameTab = _useState476[1];
+  var _useState477 = useState("tap"),
+    _useState478 = _slicedToArray(_useState477, 2),
+    gameTab = _useState478[0],
+    setGameTab = _useState478[1];
   var tabs = [{
     icon: "💰",
     label: "総資産"
@@ -26909,16 +27394,17 @@ function RankingScreen() {
     name: "上級×÷"
   }];
   var sorted = useMemo(function () {
+    var gk = scoreKeyOf(gameTab); // スコアの世代キー(godAnother=第8次で世代交代済み)
     // Minigame tab: weekly uses weeklyRankings data
     if (tab === 4 && assetMode === 'weekly') {
       var _list2 = _toConsumableArray(weeklyData);
       _list2.sort(function (a, b) {
         var _b$bestScores2, _a$bestScores2;
-        return (((_b$bestScores2 = b.bestScores) === null || _b$bestScores2 === void 0 ? void 0 : _b$bestScores2[gameTab]) || 0) - (((_a$bestScores2 = a.bestScores) === null || _a$bestScores2 === void 0 ? void 0 : _a$bestScores2[gameTab]) || 0);
+        return (((_b$bestScores2 = b.bestScores) === null || _b$bestScores2 === void 0 ? void 0 : _b$bestScores2[gk]) || 0) - (((_a$bestScores2 = a.bestScores) === null || _a$bestScores2 === void 0 ? void 0 : _a$bestScores2[gk]) || 0);
       });
       return _list2.filter(function (r) {
         var _r$bestScores;
-        return (((_r$bestScores = r.bestScores) === null || _r$bestScores === void 0 ? void 0 : _r$bestScores[gameTab]) || 0) > 0;
+        return (((_r$bestScores = r.bestScores) === null || _r$bestScores === void 0 ? void 0 : _r$bestScores[gk]) || 0) > 0;
       });
     }
     // Minigame tab: daily uses dailyRankings data
@@ -26926,11 +27412,11 @@ function RankingScreen() {
       var _list3 = _toConsumableArray(dailyGameData);
       _list3.sort(function (a, b) {
         var _b$bestScores3, _a$bestScores3;
-        return (((_b$bestScores3 = b.bestScores) === null || _b$bestScores3 === void 0 ? void 0 : _b$bestScores3[gameTab]) || 0) - (((_a$bestScores3 = a.bestScores) === null || _a$bestScores3 === void 0 ? void 0 : _a$bestScores3[gameTab]) || 0);
+        return (((_b$bestScores3 = b.bestScores) === null || _b$bestScores3 === void 0 ? void 0 : _b$bestScores3[gk]) || 0) - (((_a$bestScores3 = a.bestScores) === null || _a$bestScores3 === void 0 ? void 0 : _a$bestScores3[gk]) || 0);
       });
       return _list3.filter(function (r) {
         var _r$bestScores2;
-        return (((_r$bestScores2 = r.bestScores) === null || _r$bestScores2 === void 0 ? void 0 : _r$bestScores2[gameTab]) || 0) > 0;
+        return (((_r$bestScores2 = r.bestScores) === null || _r$bestScores2 === void 0 ? void 0 : _r$bestScores2[gk]) || 0) > 0;
       });
     }
     // Daily/weekly growth for assets, pulls, gifts
@@ -26954,11 +27440,11 @@ function RankingScreen() {
     } else {
       list.sort(function (a, b) {
         var _b$bestScores4, _a$bestScores4;
-        return (((_b$bestScores4 = b.bestScores) === null || _b$bestScores4 === void 0 ? void 0 : _b$bestScores4[gameTab]) || 0) - (((_a$bestScores4 = a.bestScores) === null || _a$bestScores4 === void 0 ? void 0 : _a$bestScores4[gameTab]) || 0);
+        return (((_b$bestScores4 = b.bestScores) === null || _b$bestScores4 === void 0 ? void 0 : _b$bestScores4[gk]) || 0) - (((_a$bestScores4 = a.bestScores) === null || _a$bestScores4 === void 0 ? void 0 : _a$bestScores4[gk]) || 0);
       });
       return list.filter(function (r) {
         var _r$bestScores3;
-        return (((_r$bestScores3 = r.bestScores) === null || _r$bestScores3 === void 0 ? void 0 : _r$bestScores3[gameTab]) || 0) > 0;
+        return (((_r$bestScores3 = r.bestScores) === null || _r$bestScores3 === void 0 ? void 0 : _r$bestScores3[gk]) || 0) > 0;
       });
     }
     return list;
@@ -27275,7 +27761,7 @@ function RankingScreen() {
         fontWeight: 900,
         color: '#fbbf24'
       }
-    }, "\uD83E\uDE99", ((_r$bestScores4 = r.bestScores) === null || _r$bestScores4 === void 0 ? void 0 : _r$bestScores4[gameTab]) || 0), tab === 5 && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83E\uDE99", ((_r$bestScores4 = r.bestScores) === null || _r$bestScores4 === void 0 ? void 0 : _r$bestScores4[scoreKeyOf(gameTab)]) || 0), tab === 5 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Orbitron',sans-serif",
         fontSize: 13,

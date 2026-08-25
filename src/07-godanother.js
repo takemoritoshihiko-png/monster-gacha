@@ -661,7 +661,8 @@ function GodAnotherGame({ onScore, onClose }) {
     ['y7', 64],          // 中段黄7 64/65536 = 1/1024(2026-08-25 竹森氏指示: 1/1024・配点1800に変更)
     // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
-  const BASE = { sin: 20000, amazing: 31108, hades: 20000, violet: 14000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1800 };
+  // 2026-08-25 竹森氏指示: 全配点を約60%に減額(GODは7続きの遊び心を残して4777。AG=GOD×4、クラッシュGOD=GOD×2の関係は維持)
+  const BASE = { sin: 12000, amazing: 19108, hades: 12000, violet: 8400, cgod: 9554, cmeio: 6000, cpurple: 4200, god: 4777, meio: 3000, purple: 2100, y7: 1080 };
 
   const SYMS = {
     y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
@@ -1284,13 +1285,15 @@ function GodAnotherGame({ onScore, onClose }) {
     const hitAt = spinCountRef.current;
     const newJugRen = hitAt <= 100 ? jugRenRef.current + 1 : 1;
     jugRenRef.current = newJugRen; setJugRen(newJugRen);
-    const baseMult = 1 + (newJugRen - 1) * 0.1;
+    // 2026-08-25 竹森氏指示: 連チャン倍率を0.5刻みに(連チャン=1.5倍、以後+0.5ずつ。非連チャンの初当りは1倍)
+    const baseMult = 1 + (newJugRen - 1) * 0.5;
     const is1G = hitAt === 1;
     // ハマリプレミア: 1000以上ハマりからの当たりは倍率アップ(1000で×1.2, 1100で×1.4, 1200で×1.6, …+0.2/100G・上限なし)
     // 2026-08-25 竹森氏指示で開始を900→1000に変更
     const hamari = hitAt >= 1000 ? 1 + 0.2 * Math.floor((hitAt - 900) / 100) : 1;
-    const mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
-    setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
+    // 1G連はスコア5倍(2026-08-25 竹森氏指示。連チャン梯子が5倍を超える深い連ではそちらを採用)
+    const mult = (is1G ? Math.max(baseMult, 5) : baseMult) * hamari;
+    setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の5倍込み)を表示する
     spinCountRef.current = 0; setSpinCount(0);
     setHistory(prev => [{ type, at: hitAt, jugRen: newJugRen, is1G }].concat(prev).slice(0, 30));
     if (is1G) {

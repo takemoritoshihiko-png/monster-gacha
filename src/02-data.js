@@ -154,6 +154,16 @@ function computeSetBonuses(coll) {
   return s;
 }
 
+// ============================================================
+// スコアキーの世代交代(ランキングリセットの仕組み)
+// 配点スケールを大きく変えたゲームは、スコアの記録・表示キーを新世代に切り替える。
+// 旧スコアは旧キーに残置(自動バックアップ)され、端末に残る旧自己ベストの同期でも
+// 新ランキングが汚染されない。playCounts・ミッションは元のgameIdのまま。
+// 2026-08-25: godAnother 第8次(配点60%化)で godAnother2 に世代交代=ランキング一斉リセット。
+// ============================================================
+const SCORE_KEY_MAP = { godAnother: 'godAnother2' };
+const scoreKeyOf = (gid) => SCORE_KEY_MAP[gid] || gid;
+
 // ガチャ費用の唯一の算出口。ボタン表示・コイン不足判定・pull()の支払いは必ずこれを通す
 // (表示と実支払いのズレを構造的に作らないため)。
 function gachaCostFor(n, setBonuses) {
@@ -171,6 +181,52 @@ function getChestType(rank) {
 
 // 合成: 必要数(★1-2=2体, ★3-9=3体)。コレクション用に各1個は残す
 const getSynthReq = (rank) => rank <= 2 ? 2 : 3;
+
+// ============================================================
+// ★MAX進化 = プリズム(煌)
+// 同種の★MAX(<typeId>_11)×3 → 「<★MAX名>・煌」1個(コレクションキー <typeId>_11k)
+// 資産価値は★MAX3個分を保つ(進化で総資産が減らない)。Tier判定も実効数(_11 + 3×_11k)で数える。
+// ============================================================
+const PRISM_SUFFIX = '_11k';
+const PRISM_MERGE = 3;               // ★MAX3個 → 煌1個
+const PRISM_NAME_SUFFIX = '・煌';
+const isPrismKey = (k) => typeof k === 'string' && k.slice(-4) === PRISM_SUFFIX;
+
+// count値の取り出し(圧縮形 {key:count} / 展開形 {key:{count}} の両方に対応)
+const countOf = (v) => (typeof v === 'number' ? v : (v && v.count) || 0);
+
+// コレクション1エントリ(key,count)の資産価値。煌は★MAX3個分として数える。
+function entryPower(key, count, rank) {
+  const r = typeof rank === 'number' ? rank : parseInt(String(key).split('_')[1]);
+  const base = POWER_VALUES[r - 1] || 0;
+  return base * (count || 0) * (isPrismKey(key) ? PRISM_MERGE : 1);
+}
+
+// アイテムオブジェクト1個あたりの資産価値(モーダル等の単価表示用)。
+function itemUnitPower(item) {
+  if (!item) return 0;
+  return (POWER_VALUES[item.rank - 1] || 0) * (item.prism ? PRISM_MERGE : 1);
+}
+
+// 種族ごとの★MAX実効所持数 = _11.count + 3 × _11k.count。
+// Tier判定(congratsTier)・★MAXリロール適格判定・展示の所持判定の正本。
+function maxEffCount(coll, typeId) {
+  if (!coll) return 0;
+  return countOf(coll[typeId + '_11']) + countOf(coll[typeId + PRISM_SUFFIX]) * PRISM_MERGE;
+}
+
+// ★MAX×3 → 煌 の合成候補。意思を持ってやる特別操作のため一撃合成(runSynthCascade)には含めない。
+function computePrismCandidates(coll) {
+  const out = [];
+  TYPES.forEach(type => {
+    const c = countOf((coll || {})[type.id + '_11']);
+    if (c >= PRISM_MERGE) {
+      out.push({ special: 'prism', key: type.id + '_11', typeId: type.id, rank: 11, targetRank: 11,
+        req: PRISM_MERGE, count: c, synthCount: Math.floor(c / PRISM_MERGE) });
+    }
+  });
+  return out;
+}
 
 // 任意のコレクション状態から合成候補を列挙する純関数(一撃合成の連鎖計算にも使う)
 function computeSynthCandidates(coll) {

@@ -122,12 +122,15 @@ function MonsterGacha() {
         continue;
       }
       const [typeId, rankStr] = k.split('_');
-      const rank = parseInt(rankStr);
+      // ★MAX進化(煌): キーは <typeId>_11k。rank自体は11のまま・名前に「・煌」・prismフラグを付ける
+      const prism = rankStr === '11k';
+      const rank = prism ? 11 : parseInt(rankStr);
       const type = TYPES.find(t => t.id === typeId);
       if (!type || !MONSTERS[typeId] || !MONSTERS[typeId][rank-1]) continue;
       const m = MONSTERS[typeId][rank - 1];
       const rarity = RARITIES[rank - 1];
       col[k] = { ...m, typeId, typeName: type.name, typeEmoji: type.emoji, typeColor: type.color, rank, rarity, count };
+      if (prism) { col[k].name = m.name + PRISM_NAME_SUFFIX; col[k].prism = true; }
     }
     return col;
   };
@@ -307,14 +310,15 @@ function MonsterGacha() {
     if (s.nickname) {
       try {
         const bs = s.bestScores || {};
-        const bestMiniGame = Object.entries(bs).reduce((best, [k, v]) => (v > (best.score || 0)) ? { id: k, score: v } : best, { id: '', score: 0 });
+        // 旧世代キー(SCORE_KEY_MAPの左辺=godAnother旧配点)はベスト集計から除外する
+        const bestMiniGame = Object.entries(bs).filter(([k]) => !(k in SCORE_KEY_MAP)).reduce((best, [k, v]) => (v > (best.score || 0)) ? { id: k, score: v } : best, { id: '', score: 0 });
         const colCount = Object.keys(compressed).length;
         const colPower = Object.entries(compressed).reduce((sum, [k, cnt]) => {
-          const rank = parseInt(k.split('_')[1]) || 0;
-          return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
+          // 煌(_11k)は★MAX3個分として数える(進化でランキング資産が減らない)
+          return sum + entryPower(k, typeof cnt === 'number' ? cnt : 0);
         }, 0) + URA_ITEMS.filter(u => (s.uraObtained || []).includes(u.id)).reduce((sum, u) => sum + u.value, 0);
         const cTier = (() => {
-          const mc = TYPES.map(t => { const c = compressed[`${t.id}_11`]; return typeof c === 'number' ? c : 0; });
+          const mc = TYPES.map(t => maxEffCount(compressed, t.id));
           const mn = Math.min(...mc);
           const uraComplete = (s.uraObtained || []).length >= URA_ITEMS.length;
           return uraComplete ? 3 : mn >= 3 ? 2 : mn >= 1 ? 1 : 0;
@@ -430,6 +434,17 @@ function MonsterGacha() {
     receivingRef.current = false;
   }, [pendingGifts, nickname]);
 
+  // 種族セット効果(コレクションボーナス): ★1〜★10の10種を揃えた種族の効果が常時発動する。
+  // contributeMission/pull/回復タイマーより前に宣言する(依存配列は即時評価されるためTDZ回避)。
+  const setBonuses = useMemo(() => computeSetBonuses(collection), [collection]);
+  // コールバック・タイマーからはref経由で読む(既存の依存配列を一切変えないため。
+  // 描画のたびに最新値へ更新されるので、クリック時・タイマー発火時は常に現在値)
+  const setBonusesRef = useRef(setBonuses);
+  setBonusesRef.current = setBonuses;
+  // ガチャ費用: 表示・コイン不足判定・支払いが必ず同じ値を見るよう1箇所に集約
+  const gachaCost10 = gachaCostFor(10, setBonuses);
+  const gachaCost40 = gachaCostFor(40, setBonuses);
+
   // デイリーミッションへの加算。呼び出し側(sendGift/pull/doSynthSingle/handleMiniGameScore)より
   // 先に宣言する必要がある(依存配列は即時評価されるためTDZ回避)
   const contributeMission = useCallback((missionType, amount) => {
@@ -439,8 +454,11 @@ function MonsterGacha() {
     const mission = missions.find(m => m.type === missionType);
     if (!mission) return;
     const ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
+    // 王国セット効果: 貢献量+10%(共有DBに入る唯一のセット効果。+10%は許容済み)
+    const contributed = setBonusesRef.current.kingdom
+      ? Math.round(amount * (1 + SET_BONUS_EFFECTS.kingdom.rate)) : amount;
     // 1人あたりの上限は撤廃(加算はtransactionでサーバ側集計のまま)
-    ref.transaction(current => (current || 0) + amount).catch(() => {});
+    ref.transaction(current => (current || 0) + contributed).catch(() => {});
   }, [nickname, missionDate]);
 
   const sendGift = useCallback((itemKey, recipientName) => {
@@ -501,7 +519,10 @@ function MonsterGacha() {
 
       const yesterday = getLocalDate(new Date(Date.now() - 86400000));
       const newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
-      const bonusCoins = Math.min(newStreak, 10) * 400;
+      const baseBonus = Math.min(newStreak, 10) * 400;
+      // 古代秘宝セット効果: ログインボーナス+20%
+      const bonusCoins = setBonusesRef.current.relic
+        ? Math.round(baseBonus * (1 + SET_BONUS_EFFECTS.relic.rate)) : baseBonus;
 
       setLoginStreak(newStreak);
       setLastLoginDate(today);
@@ -514,10 +535,17 @@ function MonsterGacha() {
   }, [loaded, slotId, lastLoginDate, loginStreak, missionDate]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
+  // 黄金遺産セット効果: 回復量+25%。1tickの回復量が小さい整数なので端数は確率で+1し、
+  // 期待値をちょうど+25%に合わせる(base=1なら25%の確率で+1)。
   const loginStreakRef = useRef(0);
   loginStreakRef.current = loginStreak;
   useEffect(() => {
-    const t = setInterval(() => setCoins(c => c + 1 + Math.floor(loginStreakRef.current * 0.01)), 2000);
+    const t = setInterval(() => setCoins(c => {
+      const base = 1 + Math.floor(loginStreakRef.current * 0.01);
+      if (!setBonusesRef.current.gold) return c + base;
+      const extra = base * SET_BONUS_EFFECTS.gold.rate;
+      return c + base + Math.floor(extra) + (Math.random() < (extra % 1) ? 1 : 0);
+    }), 2000);
     return () => clearInterval(t);
   }, []);
 
@@ -533,7 +561,8 @@ function MonsterGacha() {
 
   // ★MAX ownership tracking - 3 tiers
   // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
-  const maxCounts = useMemo(() => TYPES.map(t => (collection[`${t.id}_11`]?.count) || 0), [collection]);
+  // 実効数 = _11.count + 3 × _11k.count(煌に進化してもTier判定・展示の所持が落ちない)
+  const maxCounts = useMemo(() => TYPES.map(t => maxEffCount(collection, t.id)), [collection]);
   const hasAnyMax = maxCounts.some(c => c > 0);
   const maxTypesOwned = maxCounts.filter(c => c > 0).length;
   const minMaxCount = Math.min(...maxCounts);
@@ -579,7 +608,7 @@ function MonsterGacha() {
   const totalSpent = useMemo(() => spending.reduce((s, e) => s + e.amount, 0), [spending]);
 
   const totalPower = useMemo(() => {
-    const colAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0);
+    const colAssets = Object.entries(collection).reduce((sum, [k, m]) => sum + entryPower(k, m.count || 0, m.rank), 0);
     const uraAssets = URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((sum, u) => sum + u.value, 0);
     return colAssets + uraAssets;
   }, [collection, uraObtained]);
@@ -673,7 +702,8 @@ function MonsterGacha() {
       const uraWins = [];   // 複数当選を全て演出する(従来は最後の1個しか演出されず無言付与だった)
       for (let ui = 0; ui < res.length; ui++) {
         if (localPool.length === 0) break;
-        const uraResult = rollUraItem(localPool);
+        // 宇宙の秘宝セット効果: 裏アイテム抽選確率+10%
+        const uraResult = rollUraItem(localPool, setBonusesRef.current.space ? 1 + SET_BONUS_EFFECTS.space.rate : 1);
         if (uraResult) {
           uraWins.push(uraResult);
           const idx2 = localPool.findIndex(u => u.id === uraResult.id);
@@ -870,7 +900,8 @@ function MonsterGacha() {
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
 
   const pull = useCallback((n) => {
-    const cost = n === 10 ? GACHA_COST_10 : GACHA_COST_40;
+    // 表示・disabled判定と同じ算出口を通す(setBonusesRefは描画のたびに更新済み=クリック時点の現在値)
+    const cost = gachaCostFor(n, setBonusesRef.current);
     if (coins < cost) return;
     if (window.__gPullBusy) return;   // 多重実行ガード(連打による二重課金+開封タイマー消失の防止)
     window.__gPullBusy = true;
@@ -965,6 +996,8 @@ function MonsterGacha() {
   const getReq = getSynthReq;
 
   const findSynthCandidates = useCallback(() => computeSynthCandidates(collection), [collection]);
+  // ★MAX進化(煌)の候補。一撃合成には混ぜないため findSynthCandidates とは別経路で渡す。
+  const findPrismCandidates = useCallback(() => computePrismCandidates(collection), [collection]);
 
   const playSynthSound = (targetRank) => {
     if (targetRank >= 11) {
@@ -1039,7 +1072,7 @@ function MonsterGacha() {
   // 次の★MAXをダイアログに出す。適格(★MAXを4種類以上所持)でない分はダイアログを出さず通知だけ送る。
   const advanceSynthRetry = useCallback(() => {
     const cur = collectionRef.current || {};
-    const eligible = TYPES.filter(t => cur[`${t.id}_11`] && cur[`${t.id}_11`].count > 0).length >= 4;
+    const eligible = TYPES.filter(t => maxEffCount(cur, t.id) > 0).length >= 4;
     while (synthRetryQueueRef.current.length > 0) {
       const next = synthRetryQueueRef.current.shift();
       if (eligible && next.resultTypeId) { setSynthRetry(next); return; }
@@ -1062,13 +1095,30 @@ function MonsterGacha() {
   }, [sendMaxNotif]);
 
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
+    // ★MAX進化(煌): 消費元が足りない時は演出も鳴らさず何もしない(先に弾く)
+    if (keyOrSpecial === 'prism' && ((collection[`${typeId}_11`]?.count) || 0) < PRISM_MERGE) return;
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     flushSynthRetryQueue();
     bgm.stop(); stopMainBgm();
     setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
-    if (rank === 10 && targetRank === 11) {
+    if (keyOrSpecial === 'prism') {
+      // ★MAX×3 → 「・煌」1個。リロール対象外(意思を持ってやる特別な操作)・通知も送らない。
+      setCollection(prev => {
+        const n = { ...prev };
+        const bk = `${typeId}_11`;
+        const left = ((n[bk]?.count) || 0) - PRISM_MERGE;
+        if (left > 0) n[bk] = { ...n[bk], count: left }; else delete n[bk];
+        const tp = TYPES.find(t => t.id === typeId);
+        const nm = MONSTERS[typeId][10]; const nr = RARITIES[10];
+        const pk = typeId + PRISM_SUFFIX;
+        if (n[pk]) n[pk] = { ...n[pk], count: n[pk].count + 1 };
+        else n[pk] = { ...nm, name: nm.name + PRISM_NAME_SUFFIX, typeId, typeName: tp.name, typeEmoji: tp.emoji, typeColor: tp.color, rank: 11, rarity: nr, prism: true, count: 1 };
+        setSynthResult({ icon: nm.icon, name: nm.name + PRISM_NAME_SUFFIX, rank: 11, rarity: nr, img: nm.img, prism: true });
+        return n;
+      });
+    } else if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(prev => {
         const n = { ...prev };
@@ -1089,7 +1139,7 @@ function MonsterGacha() {
         else n[nk] = { ...nm, typeId: rt.id, typeName: rt.name, typeEmoji: rt.emoji, typeColor: rt.color, rank: 11, rarity: nr, count: 1 };
         setSynthResult({ icon: nm.icon, name: nm.name, rank: 11, rarity: nr, img: nm.img });
         // Check if player owns 4+ unique ★MAX types → offer retry
-        const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
+        const maxPatternsOwned = TYPES.filter(t => maxEffCount(n, t.id) > 0).length;
         if (maxPatternsOwned >= 4) {
           // Don't send notification yet - wait for retry decision
           setSynthRetry({ resultTypeId: rt.id, resultName: nm.name, resultIcon: nm.icon, pendingNotif: true });
@@ -1262,7 +1312,7 @@ function MonsterGacha() {
   const countCrowns = (entries, nick, includeGift) => {
     let gold = 0, silver = 0, bronze = 0, goldGames = [], silverGames = [], bronzeGames = [];
     GAME_IDS.forEach(gid => {
-      const scores = entries.filter(e => (e.bestScores?.[gid] || 0) > 0).sort((a, b) => (b.bestScores?.[gid] || 0) - (a.bestScores?.[gid] || 0));
+      const scores = entries.filter(e => (e.bestScores?.[scoreKeyOf(gid)] || 0) > 0).sort((a, b) => (b.bestScores?.[scoreKeyOf(gid)] || 0) - (a.bestScores?.[scoreKeyOf(gid)] || 0));
       if (scores.length > 0 && scores[0].name === nick) { gold++; goldGames.push(GAME_NAMES[gid]); }
       else if (scores.length > 1 && scores[1].name === nick) { silver++; silverGames.push(GAME_NAMES[gid]); }
       else if (scores.length > 2 && scores[2].name === nick) { bronze++; bronzeGames.push(GAME_NAMES[gid]); }
@@ -1416,20 +1466,25 @@ function MonsterGacha() {
   // Phase 1: Called immediately when game ends - coins + scores recorded instantly
   const handleMiniGameScore = useCallback((gameId, earned) => {
     const boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
-    setCoins(p => p + boosted);
+    // 芸術品セット効果: 獲得コイン+5%(コインのみ。スコア・ランキング・ミッションはboostedのまま)
+    const gained = setBonusesRef.current.art
+      ? Math.round(boosted * (1 + SET_BONUS_EFFECTS.art.rate)) : boosted;
+    setCoins(p => p + gained);
     if (!nickname) {   // 無言欠落の可視化: 記録されないことをその場で知らせる(2026-08-24 RCA)
       setSaveMsg('⚠️ ニックネーム未設定のため、スコア・プレイ回数・デイリーミッションは記録されません');
       setTimeout(() => setSaveMsg(''), 5000);
     }
+    // スコアは世代キー(scoreKeyOf)で記録する(godAnother=第8次で世代交代済み)
+    const sk = scoreKeyOf(gameId);
     setBestScores(prev => {
-      const isNewBest = boosted > (prev[gameId] || 0);
+      const isNewBest = boosted > (prev[sk] || 0);
       if (isNewBest) {
-        setNewRecord({ gameId, score: boosted, prev: prev[gameId] || 0 });
+        setNewRecord({ gameId, score: boosted, prev: prev[sk] || 0 });
         setTimeout(() => setNewRecord(null), 3000);
       }
-      const updated = isNewBest ? { ...prev, [gameId]: boosted } : prev;
+      const updated = isNewBest ? { ...prev, [sk]: boosted } : prev;
       if (isNewBest && nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted).catch(() => {});
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + sk).set(boosted).catch(() => {});
       }
       return updated;
     });
@@ -1444,14 +1499,14 @@ function MonsterGacha() {
     setWeeklyScores(prev => {
       const weekId = getWeekId();
       const weekData = prev._weekId === weekId ? prev : { _weekId: weekId };
-      const isNewWeekBest = boosted > (weekData[gameId] || 0);
-      const updated = isNewWeekBest ? { ...weekData, [gameId]: boosted } : weekData;
+      const isNewWeekBest = boosted > (weekData[sk] || 0);
+      const updated = isNewWeekBest ? { ...weekData, [sk]: boosted } : weekData;
       if (isNewWeekBest && nickname && window.fbDb) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted).catch(() => {});
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + sk).set(boosted).catch(() => {});
       }
       const today = getLocalDate();
       if (nickname && window.fbDb) {
-        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(current => Math.max(current || 0, boosted)).catch(() => {});
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + sk).transaction(current => Math.max(current || 0, boosted)).catch(() => {});
       }
       return updated;
     });
@@ -1481,8 +1536,7 @@ function MonsterGacha() {
     if (!col) return 0;
     return Object.entries(col).reduce((s, [k, v]) => {
       const count = typeof v === 'number' ? v : v?.count || 0;
-      const rank = parseInt(k.split('_')[1]) || 0;
-      return s + (POWER_VALUES[rank - 1] || 0) * count;
+      return s + entryPower(k, count);
     }, 0);
   };
 
@@ -1583,7 +1637,7 @@ function MonsterGacha() {
               const data = slotPreviews[id - 1];
               const pwr = data ? calcPower(data.collection) + URA_ITEMS.filter(u => (data.uraObtained || []).includes(u.id)).reduce((s, u) => s + u.value, 0) : 0;
               const colCnt = data ? Object.keys(data.collection || {}).length : 0;
-              const slotCleared = data ? TYPES.every(t => data.collection[`${t.id}_11`]) : false;
+              const slotCleared = data ? TYPES.every(t => maxEffCount(data.collection || {}, t.id) > 0) : false;
               return (
                 <div key={id} style={{
                   background: slotCleared ? 'linear-gradient(180deg, rgba(46,36,18,0.75), rgba(20,15,9,0.85))'
@@ -2471,23 +2525,23 @@ function MonsterGacha() {
 
                 {/* Pull buttons */}
                 <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '16px auto', padding: '0 8px' }}>
-                  <button className="btn gpb gpb10 gpb-lg" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
+                  <button className="btn gpb gpb10 gpb-lg" disabled={coins < gachaCost10} onClick={() => pull(10)}
                     style={{ flex: 1 }}>
                     <span className="gpb-bg" />
                     <img src="assets/ui/btn-p10.webp" alt="" className="gpb-img"
                       onError={e => { e.currentTarget.style.display = 'none'; }} />
                     <span className="gpb-shine" />
                     <span className="gpb-label">10連</span>
-                    <span className="gpb-cost">🪙 {GACHA_COST_10}</span>
+                    <span className="gpb-cost">🪙 {gachaCost10}</span>
                   </button>
-                  <button className="btn gpb gpb40 gpb-lg" disabled={coins < GACHA_COST_40} onClick={() => pull(40)}
+                  <button className="btn gpb gpb40 gpb-lg" disabled={coins < gachaCost40} onClick={() => pull(40)}
                     style={{ flex: 1 }}>
                     <span className="gpb-bg" />
                     <img src="assets/ui/btn-p40.webp" alt="" className="gpb-img"
                       onError={e => { e.currentTarget.style.display = 'none'; }} />
                     <span className="gpb-shine" />
                     <span className="gpb-label">40連</span>
-                    <span className="gpb-cost">🪙 {GACHA_COST_40}</span>
+                    <span className="gpb-cost">🪙 {gachaCost40}</span>
                   </button>
                 </div>
 
@@ -2524,21 +2578,21 @@ function MonsterGacha() {
               <div className="gs">
                 {/* Pull buttons pinned ABOVE the chests/results so their screen position never shifts between consecutive pulls */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <button className="btn gpb gpb10 gpb-sm" disabled={!allOpened || coins < GACHA_COST_10} onClick={() => pull(10)}>
+                  <button className="btn gpb gpb10 gpb-sm" disabled={!allOpened || coins < gachaCost10} onClick={() => pull(10)}>
                     <span className="gpb-bg" />
                     <img src="assets/ui/btn-p10.webp" alt="" className="gpb-img"
                       onError={e => { e.currentTarget.style.display = 'none'; }} />
                     <span className="gpb-shine" />
                     <span className="gpb-label">10連</span>
-                    <span className="gpb-cost">🪙{GACHA_COST_10}</span>
+                    <span className="gpb-cost">🪙{gachaCost10}</span>
                   </button>
-                  <button className="btn gpb gpb40 gpb-sm" disabled={!allOpened || coins < GACHA_COST_40} onClick={() => pull(40)}>
+                  <button className="btn gpb gpb40 gpb-sm" disabled={!allOpened || coins < gachaCost40} onClick={() => pull(40)}>
                     <span className="gpb-bg" />
                     <img src="assets/ui/btn-p40.webp" alt="" className="gpb-img"
                       onError={e => { e.currentTarget.style.display = 'none'; }} />
                     <span className="gpb-shine" />
                     <span className="gpb-label">40連</span>
-                    <span className="gpb-cost">🪙{GACHA_COST_40}</span>
+                    <span className="gpb-cost">🪙{gachaCost40}</span>
                   </button>
                 </div>
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
@@ -2736,7 +2790,7 @@ function MonsterGacha() {
         {screen === "minigame" && miniGame === "mathHardMult" && <MathHardMultGame onScore={(c) => handleMiniGameScore('mathHardMult', c)} onClose={handleMiniGameClose} />}
 
         {/* COLLECTION */}
-        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal}
+        {screen === "collection" && <CollectionView collection={collection} onSelect={setModal} setBonuses={setBonuses}
           uraUnlocked={uraUnlocked} uraObtained={uraObtained} showUraMuseum={showUraMuseum} setShowUraMuseum={setShowUraMuseum}
           requestMode={requestMode} onRequest={(item) => {
             const trimName = (nickname || '').trim();
@@ -2771,13 +2825,13 @@ function MonsterGacha() {
         {/* SYNTH */}
         {screen === "synth" && (
           <SynthView collection={collection} synthResult={synthResult}
-            onFindCandidates={findSynthCandidates}
+            onFindCandidates={findSynthCandidates} onFindPrism={findPrismCandidates}
             onSynthSingle={doSynthSingle} onSynthAll={doSynthAll} />
         )}
 
         {/* SPEND */}
         {screen === "spend" && (() => {
-          const grossAssets = Object.values(collection).reduce((sum, m) => sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0), 0)
+          const grossAssets = Object.entries(collection).reduce((sum, [k, m]) => sum + entryPower(k, m.count || 0, m.rank), 0)
             + URA_ITEMS.filter(u => uraObtained.includes(u.id)).reduce((s, u) => s + u.value, 0);
           const available = grossAssets - totalSpent;
           return (
@@ -2885,7 +2939,7 @@ function MonsterGacha() {
 
       {/* MODAL */}
       {modal && (() => {
-        const rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
+        const rkCls = modal.prism ? 'rank-rainbow' : modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
         const cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : modal.rank === 7 ? 'rank7-card' : modal.rank === 6 ? 'rank6-card' : '';
         return (
         <div className="mo" onClick={() => setModal(null)}>
@@ -2904,11 +2958,11 @@ function MonsterGacha() {
             <div style={{ margin: '10px 0', padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ fontSize: 10, opacity: 0.4, marginBottom: 3 }}>資産価値</div>
               <span style={{ fontFamily: "'Noto Sans JP',sans-serif", fontSize: 14, fontWeight: 900, color: '#c084fc' }}>
-                {formatYen(POWER_VALUES[modal.rank - 1])}
+                {formatYen(itemUnitPower(modal))}
               </span>
               {modal.count > 1 && (
                 <span style={{ fontSize: 11, opacity: 0.4, marginLeft: 8 }}>
-                  (合計: {formatYen(POWER_VALUES[modal.rank - 1] * modal.count)})
+                  (合計: {formatYen(itemUnitPower(modal) * modal.count)})
                 </span>
               )}
             </div>
