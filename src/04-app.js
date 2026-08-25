@@ -633,6 +633,12 @@ function MonsterGacha() {
       prevGrantedTier.current = grantedTier;
       return;
     }
+    // ★MAXリロールの確定待ちの間はTier付与・演出を遅延する(2026-08-26 竹森氏指摘:
+    // 引き直せる★MAXは「このままでOK」を選ぶ(または引き直しが確定する)までTier達成が確定しない)。
+    // 確定するとsynthRetryが変化してこのeffectが再評価され、その時点で発火する。
+    // ※synthRetryQueueRefの宣言はこの行より後だが、effect実行はrender完了後なので参照可(現ビルドのES5変換前提)
+    // 合成の披露アニメ(synthResult)中も遅延=引き直し後の再抽選披露にCONGRATULATIONSが被らない
+    if (synthRetry || synthResult || synthRetryQueueRef.current.length > 0) return;
     // Only fire when congratsTier exceeds what has ALREADY been granted in collection
     if (congratsTier > grantedTier && !congratsShownRef.current) {
       congratsShownRef.current = true;
@@ -669,7 +675,7 @@ function MonsterGacha() {
       }
     }
     prevGrantedTier.current = grantedTier;
-  }, [congratsTier, grantedTier]);
+  }, [congratsTier, grantedTier, synthRetry, synthResult]);
 
   // Gacha
   const autoOpenRef = useRef([]);
