@@ -654,7 +654,7 @@ function GodAnotherGame({ onScore, onClose }) {
     ['god', 8],          // GOD揃い 1/8192
     ['meio', 6],         // 冥王揃い 1/10922.7
     ['purple', 10],      // 紫7揃い 1/6553.6
-    ['y7', 140],         // 中段黄7 1/468.1
+    ['y7', 93],          // 中段黄7 93/65536 = 1/704.7(2026-08-25 竹森氏指示: 確率を1.5倍悪化。140→93=悪化率1.505)
     // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
   const BASE = { sin: 20000, amazing: 31108, hades: 20000, violet: 14000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
@@ -1282,8 +1282,9 @@ function GodAnotherGame({ onScore, onClose }) {
     jugRenRef.current = newJugRen; setJugRen(newJugRen);
     const baseMult = 1 + (newJugRen - 1) * 0.1;
     const is1G = hitAt === 1;
-    // ハマリプレミア: 900以上ハマりからの当たりは倍率アップ(900で×1.2, 1000で×1.4, 1100で×1.6, …+0.2/100G・上限なし)
-    const hamari = hitAt >= 900 ? 1 + 0.2 * Math.floor((hitAt - 800) / 100) : 1;
+    // ハマリプレミア: 1000以上ハマりからの当たりは倍率アップ(1000で×1.2, 1100で×1.4, 1200で×1.6, …+0.2/100G・上限なし)
+    // 2026-08-25 竹森氏指示で開始を900→1000に変更
+    const hamari = hitAt >= 1000 ? 1 + 0.2 * Math.floor((hitAt - 900) / 100) : 1;
     const mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
     setLastMult(mult);   // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
     spinCountRef.current = 0; setSpinCount(0);
@@ -1781,7 +1782,7 @@ function GodAnotherGame({ onScore, onClose }) {
             <div style={{ fontSize: 28, fontWeight: 900, color: '#ffd24a', fontFamily: "'Courier New',monospace", marginBottom: 12, letterSpacing: 2, textShadow: '0 0 14px rgba(255,210,74,0.6)' }}>⚡ ゴッドアナザー</div>
           )}
           <p style={{ fontSize: 11, opacity: 0.6, margin: '12px 0', lineHeight: 1.9, color: '#a89660' }}>
-            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>900超の大ハマリはハマリプレミアで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
+            画面タップでレバーON！<br/>GOD・冥王・紫7を狙え！<br/>100回転以内の連チャンで倍率アップ！<br/>1000超の大ハマリはハマリプレミアで倍率アップ！<br/>演出の間は時間が止まります<br/>制限時間: 3分
           </p>
           <button className="btn bp" onClick={startGame} style={{ background: 'linear-gradient(135deg, #8a6a00, #d4a017)' }}>START</button>
         </div>
@@ -1810,9 +1811,9 @@ function GodAnotherGame({ onScore, onClose }) {
                 <div style={{ textAlign: 'left' }}>
                   <div className="ga-mlbl" style={{ fontSize: 8, marginBottom: 3, lineHeight: 1 }}>当たり間</div>
                   <div className="ga-mnum" style={{ fontSize: 42, lineHeight: 0.9, ...gaMV(spinCount >= 500 ? GA_MC.red : spinCount >= 200 ? GA_MC.amber : GA_MC.gold) }}>{spinCount}</div>
-                  {spinCount >= 900 && (
+                  {spinCount >= 1000 && (
                     <div className="ga-mlbl" style={{ fontSize: 8.5, marginTop: 3, lineHeight: 1, color: '#ff6b8a', textShadow: '0 0 6px rgba(255,60,110,0.7)' }}>
-                      ハマリプレミア ×{(1 + 0.2 * Math.floor((spinCount - 800) / 100)).toFixed(1)}
+                      ハマリプレミア ×{(1 + 0.2 * Math.floor((spinCount - 900) / 100)).toFixed(1)}
                     </div>
                   )}
                 </div>

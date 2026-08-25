@@ -182,6 +182,47 @@ const CSS = `
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 .bp:hover { box-shadow: 0 6px 30px rgba(245,158,11,0.4), 0 0 60px rgba(236,72,153,0.2); }
+/* ガチャ「引く」ボタン(金彫金+宝石面): 10連=サファイア/40連=ルビー。メイン(大=.gpb-lg)/連続(小=.gpb-sm)共通。
+   予約アセット(assets/ui/btn-p10.webp・btn-p40.webp)が404の場合はJSX側onErrorでimgを消し、この.gpb-bg以下の金彫金CSSがそのまま床になる */
+.gpb {
+  position: relative; overflow: hidden; border: none; border-radius: 12px; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: linear-gradient(180deg, #241c11 0%, #15100a 55%, #1e170d 100%);
+  box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 12px rgba(0,0,0,0.55);
+}
+.gpb::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;
+  border: 2px solid rgba(201,168,76,0.55);
+}
+.gpb10 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(37,99,235,0.32); }
+.gpb10::before { border-color: rgba(96,165,250,0.6); }
+.gpb40 { box-shadow: inset 0 1px 0 rgba(240,214,145,0.16), inset 0 -3px 8px rgba(0,0,0,0.7), 0 3px 14px rgba(220,38,38,0.32); }
+.gpb40::before { border-color: rgba(248,113,113,0.6); }
+.gpb:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.gpb:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(240,214,145,0.1), inset 0 -1px 4px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4); }
+.gpb-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.gpb10 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(96,165,250,0.35), transparent 60%), linear-gradient(180deg, #1c2a44 0%, #101a2c 60%, #182338 100%); }
+.gpb40 .gpb-bg { background: radial-gradient(120% 160% at 50% -20%, rgba(248,113,113,0.32), transparent 60%), linear-gradient(180deg, #3a1414 0%, #200b0b 60%, #2c0f0f 100%); }
+.gpb-img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+.gpb-shine {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+  background-size: 200% 100%; animation: gradShift 3s ease infinite;
+}
+.gpb-label {
+  position: relative; z-index: 4; font-family: 'Orbitron', 'Noto Sans JP', sans-serif; font-weight: 900;
+  color: #f8ecc4; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.5);
+}
+.gpb-cost {
+  position: relative; z-index: 4; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  color: rgba(248,230,190,0.78); text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.gpb-lg { min-height: 66px; padding: 0 10px; }
+.gpb-lg .gpb-label { font-size: 18px; }
+.gpb-lg .gpb-cost { font-size: 11px; }
+.gpb-sm { min-height: 42px; padding: 0 14px; }
+.gpb-sm .gpb-label { font-size: 13px; }
+.gpb-sm .gpb-cost { font-size: 9px; }
 .bs {
   background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.2); color: #ccc;
   backdrop-filter: blur(4px);

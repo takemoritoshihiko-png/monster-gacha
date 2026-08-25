@@ -15,7 +15,7 @@ function MonsterGacha() {
   const [opened, setOpened] = useState(new Set());
   const [miniGame, setMiniGame] = useState(null);
   const [synthResult, setSynthResult] = useState(null);
-  const [synthRetry, setSynthRetry] = useState(null); // {oldTypeId, oldName, oldIcon} for ★MAX retry
+  const [synthRetry, setSynthRetry] = useState(null); // 表示中の★MAXリロール確認 {resultTypeId, resultName, resultIcon, pendingNotif}。待機列は synthRetryQueueRef
   const [loginDay, setLoginDay] = useState(1);
   const [spending, setSpending] = useState([]); // [{amount, memo, date}]
   const [loaded, setLoaded] = useState(false);
@@ -1023,9 +1023,48 @@ function MonsterGacha() {
   };
 
   const synthQueueRef = useRef(null);
+
+  // ★MAXリロールの直列化(2026-08-25 修正): 一撃合成で★MAXが複数生まれた時、最後の1個にしか
+  // ダイアログが出ていなかった。表示中の1個は synthRetry、待機列は synthRetryQueueRef で持つ。
+  const synthRetryQueueRef = useRef([]);
+  const collectionRef = useRef(collection);
+  collectionRef.current = collection;
+
+  const sendMaxNotif = useCallback((name, icon) => {
+    if (nickname && window.fbDb) {
+      window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: name, icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
+    }
+  }, [nickname]);
+
+  // 次の★MAXをダイアログに出す。適格(★MAXを4種類以上所持)でない分はダイアログを出さず通知だけ送る。
+  const advanceSynthRetry = useCallback(() => {
+    const cur = collectionRef.current || {};
+    const eligible = TYPES.filter(t => cur[`${t.id}_11`] && cur[`${t.id}_11`].count > 0).length >= 4;
+    while (synthRetryQueueRef.current.length > 0) {
+      const next = synthRetryQueueRef.current.shift();
+      if (eligible && next.resultTypeId) { setSynthRetry(next); return; }
+      if (next.pendingNotif) sendMaxNotif(next.resultName, next.resultIcon);
+    }
+    setSynthRetry(null);
+  }, [sendMaxNotif]);
+
+  // 「このままでOK」/ 背景タップ = 確定 → 通知を送り、次の★MAXへ進む
+  const acceptSynthRetry = useCallback(() => {
+    if (synthRetry && synthRetry.pendingNotif) sendMaxNotif(synthRetry.resultName, synthRetry.resultIcon);
+    advanceSynthRetry();
+  }, [synthRetry, sendMaxNotif, advanceSynthRetry]);
+
+  // 未処理のキューを捨てる時は、確定済みアイテムの通知だけ送っておく(通知の無言欠落防止)
+  const flushSynthRetryQueue = useCallback(() => {
+    const rest = synthRetryQueueRef.current;
+    synthRetryQueueRef.current = [];
+    rest.forEach(it => { if (it.pendingNotif) sendMaxNotif(it.resultName, it.resultIcon); });
+  }, [sendMaxNotif]);
+
   const doSynthSingle = useCallback((keyOrSpecial, typeId, rank, targetRank) => {
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
+    flushSynthRetryQueue();
     bgm.stop(); stopMainBgm();
     setTimeout(() => playSynthSound(targetRank), 200);
     contributeMission('synth', 1);
@@ -1087,7 +1126,7 @@ function MonsterGacha() {
     }
     const synthDuration = targetRank >= 11 ? 4100 : targetRank === 10 ? 3100 : targetRank === 9 ? 2600 : targetRank === 8 ? 2100 : 1600;
     synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, synthDuration)];
-  }, [collection, contributeMission]);
+  }, [collection, contributeMission, flushSynthRetryQueue]);
 
   const doSynthMaxRetry = useCallback(() => {
     if (!synthRetry) return;
@@ -1108,24 +1147,23 @@ function MonsterGacha() {
         window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
       }
       playSynthSound(11);
-      synthQueueRef.current = [setTimeout(() => setSynthResult(null), 3600)];
+      // 再抽選の演出が終わってから次の★MAXのダイアログへ進む(直列化)
+      synthQueueRef.current = [setTimeout(() => { setSynthResult(null); advanceSynthRetry(); }, 3600)];
       return n;
     });
     setSynthRetry(null);
-  }, [synthRetry]);
+  }, [synthRetry, advanceSynthRetry]);
 
   const doSynthAll = useCallback(() => {
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) { synthQueueRef.current.forEach(t => clearTimeout(t)); synthQueueRef.current = null; }
     if (computeSynthCandidates(collection).length === 0) return;
+    flushSynthRetryQueue();
     bgm.stop(); stopMainBgm();
 
     // 一撃合成: 合成で生まれたアイテムも連鎖して合成し尽くす(2026-08-25 竹森氏指示)
-    const { coll: n, rareItems, totalSynths } = runSynthCascade(collection, (nm) => {
-      if (nickname && window.fbDb) {
-        window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: nm.name, icon: nm.icon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
-      }
-    });
+    // 通知(notifications)は生成時ではなく、リロール確定後の最終アイテムに対して送る(2026-08-25 修正)
+    const { coll: n, rareItems, totalSynths } = runSynthCascade(collection);
     setCollection(n);
     // 一撃合成(連鎖)分もデイリーミッションに加算(2026-08-25: 単発合成しか加算されていなかった取りこぼしを修正)
     contributeMission('synth', totalSynths);
@@ -1157,15 +1195,12 @@ function MonsterGacha() {
       timers.push(setTimeout(() => {
         setSynthResult(null);
         resumeMainBgm();
-        // Check ★MAX retry for last ★11 item from batch
-        const lastMax = rareItems.filter(r => r.rank === 11).pop();
-        if (lastMax) {
-          const maxPatternsOwned = TYPES.filter(t => n[`${t.id}_11`] && n[`${t.id}_11`].count > 0).length;
-          if (maxPatternsOwned >= 4) {
-            const rt = TYPES.find(t => MONSTERS[t.id][10].name === lastMax.name);
-            if (rt) setSynthRetry({ resultTypeId: rt.id, resultName: lastMax.name, resultIcon: lastMax.icon });
-          }
-        }
+        // ★MAXが複数生まれた時は1個ずつ直列に確認する(2026-08-25 修正: 最後の1個にしか出ていなかった)
+        synthRetryQueueRef.current = rareItems.filter(r => r.rank === 11).map(it => {
+          const rt = TYPES.find(t => MONSTERS[t.id][10].name === it.name);
+          return { resultTypeId: rt ? rt.id : null, resultName: it.name, resultIcon: it.icon, pendingNotif: true };
+        });
+        advanceSynthRetry();
       }, elapsed + 1300));
       synthQueueRef.current = timers;
     } else {
@@ -1173,7 +1208,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths });
       synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, 2100)];
     }
-  }, [collection, findSynthCandidates, contributeMission]);
+  }, [collection, findSynthCandidates, contributeMission, advanceSynthRetry, flushSynthRetryQueue]);
 
   const nav = (s) => { sfx('click'); setScreen(s); setMiniGame(null); setGachaPhase("idle"); if (s !== 'collection') setRequestMode(false); setShowUraMuseum(false); };
 
@@ -2436,26 +2471,23 @@ function MonsterGacha() {
 
                 {/* Pull buttons */}
                 <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '16px auto', padding: '0 8px' }}>
-                  <button className="btn bp" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 8px',
-                      background: 'linear-gradient(180deg, rgba(100,60,160,0.7), rgba(60,35,100,0.85), rgba(100,60,160,0.7))',
-                      border: '2px solid rgba(167,139,250,0.4)',
-                      borderImage: 'url(assets/god-another/panel.webp) 60 fill / 8px stretch', borderWidth: 8, borderStyle: 'solid',
-                      boxShadow: '0 4px 20px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
-                      position: 'relative', overflow: 'hidden' }}>
-                    <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
-                      backgroundSize: '200% 100%', animation: 'gradShift 3s ease infinite', pointerEvents: 'none' }} />
-                    <span style={{ fontSize: 18, fontWeight: 900, position: 'relative' }}>💎 10連</span>
-                    <span style={{ fontSize: 11, opacity: 0.6, position: 'relative' }}>🪙 {GACHA_COST_10}</span>
+                  <button className="btn gpb gpb10 gpb-lg" disabled={coins < GACHA_COST_10} onClick={() => pull(10)}
+                    style={{ flex: 1 }}>
+                    <span className="gpb-bg" />
+                    <img src="assets/ui/btn-p10.webp" alt="" className="gpb-img"
+                      onError={e => { e.currentTarget.style.display = 'none'; }} />
+                    <span className="gpb-shine" />
+                    <span className="gpb-label">10連</span>
+                    <span className="gpb-cost">🪙 {GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" disabled={coins < GACHA_COST_40} onClick={() => pull(40)}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 8px',
-                      background: 'linear-gradient(180deg, rgba(80,48,130,0.65), rgba(50,28,85,0.8), rgba(80,48,130,0.65))',
-                      border: '1px solid rgba(139,92,246,0.25)',
-                      borderImage: 'url(assets/god-another/panel.webp) 60 fill / 8px stretch', borderWidth: 8, borderStyle: 'solid',
-                      boxShadow: '0 4px 16px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: 18, fontWeight: 900 }}>🔥 40連</span>
-                    <span style={{ fontSize: 11, opacity: 0.6 }}>🪙 {GACHA_COST_40}</span>
+                  <button className="btn gpb gpb40 gpb-lg" disabled={coins < GACHA_COST_40} onClick={() => pull(40)}
+                    style={{ flex: 1 }}>
+                    <span className="gpb-bg" />
+                    <img src="assets/ui/btn-p40.webp" alt="" className="gpb-img"
+                      onError={e => { e.currentTarget.style.display = 'none'; }} />
+                    <span className="gpb-shine" />
+                    <span className="gpb-label">40連</span>
+                    <span className="gpb-cost">🪙 {GACHA_COST_40}</span>
                   </button>
                 </div>
 
@@ -2492,13 +2524,21 @@ function MonsterGacha() {
               <div className="gs">
                 {/* Pull buttons pinned ABOVE the chests/results so their screen position never shifts between consecutive pulls */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }} disabled={!allOpened || coins < GACHA_COST_10} onClick={() => pull(10)}>
-                    <span style={{ fontWeight: 900 }}>💎 10連</span>
-                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_10}</span>
+                  <button className="btn gpb gpb10 gpb-sm" disabled={!allOpened || coins < GACHA_COST_10} onClick={() => pull(10)}>
+                    <span className="gpb-bg" />
+                    <img src="assets/ui/btn-p10.webp" alt="" className="gpb-img"
+                      onError={e => { e.currentTarget.style.display = 'none'; }} />
+                    <span className="gpb-shine" />
+                    <span className="gpb-label">10連</span>
+                    <span className="gpb-cost">🪙{GACHA_COST_10}</span>
                   </button>
-                  <button className="btn bp" style={{ fontSize: 13, padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, background: 'linear-gradient(135deg, #a78bfa, #6366f1)' }} disabled={!allOpened || coins < GACHA_COST_40} onClick={() => pull(40)}>
-                    <span style={{ fontWeight: 900 }}>🔥 40連</span>
-                    <span style={{ fontSize: 9, opacity: 0.6 }}>🪙{GACHA_COST_40}</span>
+                  <button className="btn gpb gpb40 gpb-sm" disabled={!allOpened || coins < GACHA_COST_40} onClick={() => pull(40)}>
+                    <span className="gpb-bg" />
+                    <img src="assets/ui/btn-p40.webp" alt="" className="gpb-img"
+                      onError={e => { e.currentTarget.style.display = 'none'; }} />
+                    <span className="gpb-shine" />
+                    <span className="gpb-label">40連</span>
+                    <span className="gpb-cost">🪙{GACHA_COST_40}</span>
                   </button>
                 </div>
                 {!allOpened && <p style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>開封中...</p>}
@@ -3050,7 +3090,7 @@ function MonsterGacha() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             background: 'radial-gradient(circle, rgba(80,40,0,0.9), rgba(0,0,0,0.95))', pointerEvents: 'auto' }}>
             <div className="rare-rainbow" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 70, marginBottom: 16, animation: 'synthMaxIcon 1s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1s infinite',
+              <div style={{ fontSize: 70, lineHeight: 0, marginBottom: 16, animation: 'synthMaxIcon 1s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1s infinite',
                 filter: 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))' }}>
                 {renderItemIcon(rareEffect.uraItem, 70, { filter: 'none' })}
               </div>
@@ -3085,7 +3125,7 @@ function MonsterGacha() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             background: 'radial-gradient(circle, rgba(80,40,0,0.9), rgba(0,0,0,0.95))', pointerEvents: 'none' }}>
             <div className="rare-rainbow" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 60, marginBottom: 16, animation: 'heroIconFloat 1.5s ease-in-out infinite',
+              <div style={{ fontSize: 60, lineHeight: 0, marginBottom: 16, animation: 'heroIconFloat 1.5s ease-in-out infinite',
                 filter: 'drop-shadow(0 0 20px rgba(255,107,129,0.8)) drop-shadow(0 0 40px rgba(255,215,0,0.5))' }}>
                 {rareEffect.item ? renderItemIcon(rareEffect.item, 60, { filter: 'none' }) : '💎'}
               </div>
@@ -3170,7 +3210,7 @@ function MonsterGacha() {
 
       {/* ★MAX Retry Dialog */}
       {synthRetry && !rareEffect && (
-        <div className="mo" onClick={() => setSynthRetry(null)}>
+        <div className="mo" onClick={acceptSynthRetry}>
           <div className="mc" style={{ borderColor: 'rgba(255,215,0,0.4)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 48, marginBottom: 8 }}>{synthRetry.resultIcon}</div>
             <div style={{ fontSize: 16, fontWeight: 900, color: '#fbbf24', marginBottom: 4 }}>
@@ -3186,13 +3226,7 @@ function MonsterGacha() {
                 🔄 やり直す
               </button>
               <button className="btn bs" style={{ fontSize: 13, padding: '10px 20px' }}
-                onClick={() => {
-                  // Send the pending notification for the accepted item
-                  if (synthRetry && synthRetry.pendingNotif && nickname && window.fbDb) {
-                    window.fbDb.ref('notifications').push({ name: nickname, rank: 11, item: synthRetry.resultName, icon: synthRetry.resultIcon, rarity: '★MAX', timestamp: Date.now(), isSynth: true }).catch(() => {});
-                  }
-                  setSynthRetry(null);
-                }}>
+                onClick={acceptSynthRetry}>
                 このままでOK
               </button>
             </div>

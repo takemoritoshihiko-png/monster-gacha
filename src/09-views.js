@@ -707,7 +707,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onSynthSingle, o
                   </div>
                   {/* Icon */}
                   <div className={isMax ? '' : isGod ? 'rare-rainbow' : ''} style={{
-                    fontSize: isMax ? 100 : isGod ? 80 : 80, marginBottom: isMax ? 16 : 12,
+                    fontSize: isMax ? 100 : isGod ? 80 : 80, lineHeight: 0, marginBottom: isMax ? 16 : 12,
                     animation: isMax ? 'synthMaxIcon 1s cubic-bezier(0.34,1.56,0.64,1) forwards, heroIconFloat 2s ease-in-out 1s infinite' : 'synthGodIcon 0.6s ease-out forwards, heroIconFloat 2s ease-in-out 0.6s infinite',
                     filter: isMax
                       ? 'drop-shadow(0 0 30px rgba(255,215,0,0.9)) drop-shadow(0 0 60px rgba(255,107,255,0.5)) drop-shadow(0 0 90px rgba(255,255,255,0.3))'
