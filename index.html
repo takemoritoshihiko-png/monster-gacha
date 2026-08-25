@@ -900,7 +900,7 @@ const CSS = `
   letter-spacing: 2.5px; white-space: nowrap;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));
 }
-.hdr-logo { height: 22px; width: auto; display: block; mix-blend-mode: screen;
+.hdr-logo { height: 22px; width: auto; display: block;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
 .hdr-slot {
   font-family: 'Rajdhani', 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
@@ -1617,7 +1617,7 @@ const DAILY_MISSION_POOL = [
   { type: 'tap', text: '連打で全員合計{n}コイン稼ごう', targets: [5000, 10000, 20000], unit: 'コイン' },
   { type: 'timing', text: 'ルパンタイマーで全員合計{n}コイン', targets: [3000, 6000, 10000], unit: 'コイン' },
   { type: 'shooting', text: 'シューティングで全員合計{n}コイン', targets: [4000, 8000, 15000], unit: 'コイン' },
-  { type: 'gift', text: 'ギフトを全員で{n}円分送ろう', targets: [500000000, 1000000000, 2000000000], unit: '円' },
+  { type: 'gift', text: 'ギフトを全員で{n}円分送ろう', targets: [100000000, 300000000, 600000000], unit: '円' },   // 2026-08-25竹森氏裁定: 旧5億/10億/20億は通常到達不能のため1億/3億/6億に引き下げ
   { type: 'quickdraw', text: '早撃ちガンマンで全員合計{n}コイン', targets: [3000, 6000, 12000], unit: 'コイン' },
   { type: 'memory', text: '神経衰弱で全員合計{n}コイン', targets: [2000, 4000, 8000], unit: 'コイン' },
   { type: 'godAnother', text: 'ゴッドアナザーで全員合計{n}コイン', targets: [30000, 60000, 120000], unit: 'コイン' },
@@ -1632,12 +1632,13 @@ function generateDailyMissions(dateStr) {
   // typeの全文字ハッシュ(先頭1文字だけだとgacha/gift/godAnotherが衝突して偏る)
   // 2026-08-24以前は旧ロジック維持(導入当日のミッション日中差替え=進捗リセットを防止)
   const legacy = dateStr <= '2026-08-24';
+  const additive = dateStr <= '2026-08-25';   // 8/25の抽選結果を凍結(当日の日中差し替え=進捗孤児化を防止)
   const mix = (t) => { let h = 0; for (let j = 0; j < t.length; j++) h = (h * 31 + t.charCodeAt(j)) % 100003; return h; };
-  const shuffled = [...DAILY_MISSION_POOL].sort((a, b) => {
-    const ha = (seed * 31 + (legacy ? a.type.charCodeAt(0) : mix(a.type))) % 100;
-    const hb = (seed * 31 + (legacy ? b.type.charCodeAt(0) : mix(b.type))) % 100;
-    return ha - hb;
-  });
+  // 2026-08-26以降は積型ハッシュ: 加算型は「mix値の円環を回転させるだけ」で組合せが9通りに固定される欠陥があった(2026-08-25裁定で根治)
+  const keyOf = (t) => legacy ? (seed * 31 + t.charCodeAt(0)) % 100
+    : additive ? (seed * 31 + mix(t)) % 100
+    : ((seed + 1) * (mix(t) + 7)) % 100003;
+  const shuffled = [...DAILY_MISSION_POOL].sort((a, b) => keyOf(a.type) - keyOf(b.type));
   // 毎日1枠は「全員の普段のプレイで必ず進む」汎用ミッションを確保する。
   // (2026-08-25事故: 抽選がsynth/shooting/giftに偏り、1日中ガチャ・ミニゲームを遊んでも3本とも0のままだった)
   const picked = shuffled.slice(0, 3);
@@ -3126,10 +3127,14 @@ function MonsterGacha() {
           background: 'url(bg.jpg) center top / cover no-repeat' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 30%, rgba(0,0,0,0) 20%, rgba(6,6,15,0.7) 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900,
-              background: 'linear-gradient(180deg, #e0d0ff, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            {/* 金彫金ワードマーク(404時は金グラデ文字にフォールバック) */}
+            <img src="assets/ui/hd-logo.webp" alt="TREASURE GACHA"
+              style={{ height: 34, display: 'block', margin: '0 auto 8px', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.6))' }}
+              onError={e => { e.currentTarget.style.display = 'none'; const n = e.currentTarget.nextSibling; if (n) n.style.display = 'block'; }} />
+            <div style={{ display: 'none', fontFamily: "'Orbitron',sans-serif", fontSize: 22, fontWeight: 900,
+              background: 'linear-gradient(180deg, #f5e3b0, #c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               letterSpacing: 4, marginBottom: 8, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}>TREASURE GACHA</div>
-            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, fontWeight: 700, color: 'rgba(167,139,250,0.6)', letterSpacing: 3 }}>LOADING...</div>
+            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 13, fontWeight: 700, color: 'rgba(201,168,76,0.65)', letterSpacing: 3 }}>LOADING...</div>
           </div>
         </div>
       </div>
@@ -3146,12 +3151,16 @@ function MonsterGacha() {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 30%, rgba(6,6,15,0.85) 55%, rgba(6,6,15,0.95) 100%)', pointerEvents: 'none' }} />
           <div style={{ height: 160 }} />
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%' }}>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 24, fontWeight: 900,
-            background: 'linear-gradient(180deg, #e0d0ff, #a78bfa, #e0d0ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          {/* 金彫金ワードマーク(404時は金グラデ文字にフォールバック) */}
+          <img src="assets/ui/hd-logo.webp" alt="TREASURE GACHA"
+            style={{ height: 40, display: 'block', margin: '0 auto 6px', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.6))' }}
+            onError={e => { e.currentTarget.style.display = 'none'; const n = e.currentTarget.nextSibling; if (n) n.style.display = 'block'; }} />
+          <div style={{ display: 'none', fontFamily: "'Orbitron',sans-serif", fontSize: 24, fontWeight: 900,
+            background: 'linear-gradient(180deg, #f5e3b0, #c9a84c, #f5e3b0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             letterSpacing: 4, marginBottom: 4, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}>
             TREASURE GACHA
           </div>
-          <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 12, color: 'rgba(167,139,250,0.5)', letterSpacing: 4, marginBottom: 28 }}>
+          <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 12, color: 'rgba(201,168,76,0.6)', letterSpacing: 4, marginBottom: 28 }}>
             SELECT SAVE SLOT
           </div>
 
@@ -12983,7 +12992,7 @@ function GameHistoryScreen() {
           <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
             style={{ padding: '4px 8px', fontSize: 10 }}
             onClick={() => setGameTab(g.id)}>
-            {g.icon}{g.name}
+            <span className="tfe">{g.icon}</span>{g.name}
           </button>
         ))}
       </div>
@@ -13214,7 +13223,7 @@ function RankingScreen() {
             <button key={g.id} className={`tfb ${gameTab === g.id ? 'act' : ''}`}
               style={{ padding: '4px 8px', fontSize: 10 }}
               onClick={() => setGameTab(g.id)}>
-              {g.icon}{g.name}
+              <span className="tfe">{g.icon}</span>{g.name}
             </button>
           ))}
         </div>
