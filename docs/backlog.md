@@ -53,3 +53,39 @@
 32. **一撃合成**: 「一斉合成」を連鎖合成に変更。合成で生まれたトレジャーがさらに合成可能なら自動で連鎖して合成し尽くす(runSynthCascade純関数・上限30パス)。ボタン表記「⚡一撃合成(N件)」=連鎖込み件数、見出しに「(連鎖で+X件)」表示。ローカル実測: 石ころ9→アメジスト→翡翠→サファイアまで自動連鎖(7件)を確認
 33. **40連ガチャの1画面収まり**: 結果グリッドを40個時のみ8列×5行のコンパクト表示に(宝箱34px・アイコン+★のみ・名前はタップで詳細モーダル)。10連は従来の5列+名前付きのまま。`.cr-40`クラスで小画面の`.chest`64px指定より優先
 34. **レインボー宝箱の開封間隔**: 金銀の開封タイミング(木銀250ms/金700ms一括)の1.5倍=1050ms間隔で1個ずつ開封に変更(旧: 1個目950ms+★8=1560/★9=2160/★10=3000ms間隔)。★10×10連の強制発生(乱数スタブ・ローカル)で順次開封を実測確認
+
+## 2026-08-25 生成AI画質向上バッチ(20案実行)
+
+### 実装済み(コミットログ・実ファイルで確認済み)
+35. 重量アセットのwebp化(btn-gacha 6.5MB→18KB等・perf: 78d675b)
+36. GACHAロゴの矩形ゴースト除去(近黒クランプ版に差し替え・screen合成対応・b2fa4f3)
+37. 宝物60種タイル画像(`assets/items/it-<種族>-<01-10>.webp` gem/gold/art/space/kingdom/relic×10種=60枚・実ファイル確認済み)+`renderItemIcon`によるonErrorフォールバック配管で全画面に反映(b88438e/c9c5ada/b4f7141)
+38. 宝箱開封4コマ(木/銀/金/虹の4種×f1〜f4=16枚・`assets/gacha/chest-<種>-f1..f4.webp`・741514c/8a105c0)
+39. カットイン cut-r8/r9/r10(`assets/gacha/cut-r8.webp`ほか・a383d86)
+40. ジャグラー外装+GOGOランプ(`assets/games/jug-lamp-off.webp`/`jug-lamp-on.webp`・813ac62)
+41. 計算5種のpanel枠(`assets/god-another/panel.webp`の既存アセット流用・新規生成なし・813ac62)
+42. 連打岩3段階(`assets/games/tap-rock1〜3.webp`)・神経衰弱裏面(`assets/games/mem-back.webp`)・日時計(`assets/games/timer-dial.webp`)(da76e35)
+43. CONGRATS動画テーブル配線(`CONGRATS_MOVIE`定数・tier1のみ`congrats-tier1.mp4`実在、tier2/3は404→onErrorで現行カード演出に自動フォールバック)
+44. 順位メダル・景品カードの画像差し込み口(`assets/ui/medal-<1-3>.webp`・景品img)をonErrorフォールバック付きで配線(画像は未生成・現行表示が床)
+45. ピンボール盤面(`PIN_BOARD_SRC = assets/games/pin-board.webp`)配線のみ(画像は未生成)
+46. コインランナー・バッティングのスプライト差し込みコード(プリロード+onerror握りつぶしでフォールバック継続)を実装(ab7b0b6)。画像は未生成
+
+### 訂正(当初報告との差分)
+- 「早撃ちシーン3枚」は**未実装**: QuickDrawGameは`assets/games/qd-scene1〜3.webp`を参照するコード配線(da76e35)はあるが、当該画像ファイルは`assets/games/`に実在しない(ls実測・404フォールバックで現行表示のまま)。実装済みリストからは除外し、下記の保留リストに追加。
+- CONGRATS動画の保留は「tier3のみ」ではなく**tier2・tier3の両方**(`*.mp4`実ファイル確認: `congrats-tier1.mp4`/`congrats-tier1-s.mp4`のみ存在、tier2/tier3は無し)。
+
+### 保留リスト(竹森氏の時短指示により生成を省略・画像を予約パスに置くだけで反映される設計)
+- コインランナー主人公スプライト`run-hero-f1〜f4.webp`+ジャンプ`run-hero-jump.webp`+パララックス背景3層
+- バッティング投手コマ`bat-pitch-f1〜f3.webp`+打者コマ`bat-swing-f1〜f4.webp`+球場背景`bat-stadium.webp`
+- コインタワー金塊タイル3種`tower-block1〜3.webp`
+- ジュエルキャッチのレーン背景`gem-lane.webp`+判定帯`gem-line.webp`
+- チェインバースト宝石球6種`cb-gem1〜6.webp`
+- 早撃ちガンマンのシーン3枚`qd-scene1〜3.webp`(当初「実装済み」と誤報告・実際は未生成)
+- CONGRATSアニメーション`congrats-tier2.mp4`・`congrats-tier3.mp4`(当初tier3のみと報告・実際はtier2も未生成)
+- 順位メダル`medal-1〜3.webp`・景品カード画像(一部)・ピンボール盤面`pin-board.webp`
+
+### アセット規約の記録
+- `assets/items/it-<種族>-<01-10>.webp`(60枚・種族=gem/gold/art/space/kingdom/relic)
+- `assets/gacha/chest-<種>-f1..f4.webp`(種=wood/silver/gold/rainbow)+`cut-r8/9/10.webp`
+- `assets/games/`(各ミニゲームのスプライト・背景。ファイル名は各ゲーム冒頭のコード内コメントに予約済み)
+- 生成チャット: 竹森氏Gemini「宝石アイコン3x3グリッド生成プロンプト」
