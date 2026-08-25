@@ -4009,30 +4009,30 @@ function MonsterGacha() {
             {[
               { label: '⚡ アクション', color: 'rgba(139,92,246,0.2)', bg: 'linear-gradient(180deg, rgba(75,70,90,0.85), rgba(45,40,58,0.95))', border: 'rgba(139,92,246,0.2)',
                 games: [
-                  { id: "tap", icon: "👊", name: "連打バトル" },
-                  { id: "shooting", icon: "🎯", name: "シューティング" },
-                  { id: "gem", icon: "💎", name: "ジュエルキャッチ" },
-                  { id: "timing", icon: "⏱️", name: "ルパンタイマー" },
-                  { id: "tower", icon: "🪙", name: "コインタワー" },
-                  { id: "memory", icon: "🃏", name: "神経衰弱" },
-                  { id: "quickdraw", icon: "🔫", name: "早撃ちガンマン" },
+                  { id: "tap", icon: "👊", img: "assets/ui/gi-tap.webp", name: "連打バトル" },
+                  { id: "shooting", icon: "🎯", img: "assets/ui/gi-shooting.webp", name: "シューティング" },
+                  { id: "gem", icon: "💎", img: "assets/ui/gi-gem.webp", name: "ジュエルキャッチ" },
+                  { id: "timing", icon: "⏱️", img: "assets/ui/gi-timing.webp", name: "ルパンタイマー" },
+                  { id: "tower", icon: "🪙", img: "assets/ui/gi-tower.webp", name: "コインタワー" },
+                  { id: "memory", icon: "🃏", img: "assets/ui/gi-memory.webp", name: "神経衰弱" },
+                  { id: "quickdraw", icon: "🔫", img: "assets/ui/gi-quickdraw.webp", name: "早撃ちガンマン" },
                 ]},
               { label: '🏃 アドベンチャー', color: 'rgba(74,222,128,0.2)', bg: 'linear-gradient(180deg, rgba(40,70,50,0.85), rgba(25,45,32,0.95))', border: 'rgba(74,222,128,0.2)',
                 games: [
-                  { id: "coinRunner", icon: "🏃", name: "コインランナー" },
-                  { id: "juggler", icon: "🎰", name: "ジャグラー" },
-                  { id: "batting", icon: "⚾", name: "バッティングヒーロー" },
-                  { id: "godAnother", icon: "⚡", name: "ゴッドアナザー" },
-                  { id: "pinball", icon: "🎱", name: "ピンボール" },
-                  { id: "chainBurst", icon: "💥", name: "チェインバースト" },
+                  { id: "coinRunner", icon: "🏃", img: "assets/ui/gi-coinRunner.webp", name: "コインランナー" },
+                  { id: "juggler", icon: "🎰", img: "assets/ui/gi-juggler.webp", name: "ジャグラー" },
+                  { id: "batting", icon: "⚾", img: "assets/ui/gi-batting.webp", name: "バッティングヒーロー" },
+                  { id: "godAnother", icon: "⚡", img: "assets/ui/gi-godAnother.webp", name: "ゴッドアナザー" },
+                  { id: "pinball", icon: "🎱", img: "assets/ui/gi-pinball.webp", name: "ピンボール" },
+                  { id: "chainBurst", icon: "💥", img: "assets/ui/gi-chainBurst.webp", name: "チェインバースト" },
                 ]},
               { label: '📐 計算', color: 'rgba(251,191,36,0.2)', bg: 'linear-gradient(180deg, rgba(65,60,55,0.85), rgba(38,35,32,0.95))', border: 'rgba(160,140,100,0.2)',
                 games: [
-                  { id: "mathEasy", icon: "➕", name: "初級 足し引き" },
-                  { id: "kuku", icon: "🔢", name: "初級 九九" },
-                  { id: "mathMid", icon: "📐", name: "中級 足し引き" },
-                  { id: "mathHardAdd", icon: "🧮", name: "上級 足し引き" },
-                  { id: "mathHardMult", icon: "✖️", name: "上級 掛け割り" },
+                  { id: "mathEasy", icon: "➕", img: "assets/ui/gi-mathEasy.webp", name: "初級 足し引き" },
+                  { id: "kuku", icon: "🔢", img: "assets/ui/gi-kuku.webp", name: "初級 九九" },
+                  { id: "mathMid", icon: "📐", img: "assets/ui/gi-mathMid.webp", name: "中級 足し引き" },
+                  { id: "mathHardAdd", icon: "🧮", img: "assets/ui/gi-mathHardAdd.webp", name: "上級 足し引き" },
+                  { id: "mathHardMult", icon: "✖️", img: "assets/ui/gi-mathHardMult.webp", name: "上級 掛け割り" },
                 ]},
             ].map(cat => (
               <div key={cat.label} style={{ marginBottom: 12 }}>
@@ -4050,10 +4050,14 @@ function MonsterGacha() {
                 {/* Icon box */}
                 <div style={{ width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: 'linear-gradient(135deg, rgba(60,55,80,0.9), rgba(45,40,60,0.95))',
-                  borderRadius: 10, flexShrink: 0,
+                  borderRadius: 10, flexShrink: 0, overflow: 'hidden',
                   border: '1px solid rgba(255,255,255,0.08)',
                   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: 22, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}>{g.icon}</span>
+                  {g.img ? (
+                    <img src={g.img} alt="" style={{ width: 42, height: 42, borderRadius: 10, objectFit: 'cover', display: 'block' }}
+                      onError={e => { e.currentTarget.style.display='none'; const f=e.currentTarget.nextSibling; if(f) f.style.display='block'; }} />
+                  ) : null}
+                  <span style={{ display: g.img ? 'none' : 'block', fontSize: 22, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}>{g.icon}</span>
                 </div>
                 {/* Name */}
                 <span style={{ fontSize: 13, fontWeight: 700,
