@@ -89,3 +89,10 @@
 - `assets/gacha/chest-<種>-f1..f4.webp`(種=wood/silver/gold/rainbow)+`cut-r8/9/10.webp`
 - `assets/games/`(各ミニゲームのスプライト・背景。ファイル名は各ゲーム冒頭のコード内コメントに予約済み)
 - 生成チャット: 竹森氏Gemini「宝石アイコン3x3グリッド生成プロンプト」
+
+### 続報(同日14:48ごろ・生成が作業中も進行しており上記45/46/保留リストの一部が前進)
+47. 早撃ちガンマンのシーン3枚`assets/games/qd-scene1〜3.webp`が生成完了(14:48時点で実ファイル確認)。上記「訂正」の未実装記載は解消・保留リストから除外可
+48. 順位メダル`assets/ui/medal-1〜3.webp`が生成完了(実ファイル確認)。項目44の「画像は未生成」は解消
+49. 景品カード画像4種`assets/ui/spend-gift.webp`/`spend-meal.webp`/`spend-furniture.webp`/`spend-travel.webp`が生成完了(実ファイル確認・使用箇所index.html:11576-11579)。項目44の景品カード分も解消
+50. 上記time-of-check後(14:49時点で再確認・変化なし)も**依然未生成**: コインランナー`run-hero-*.webp`、バッティング`bat-*.webp`、コインタワー`tower-block*.webp`、ジュエルキャッチ`gem-lane.webp`/`gem-line.webp`、チェインバースト`cb-gem*.webp`、CONGRATS`congrats-tier2.mp4`/`tier3.mp4`、ピンボール`pin-board.webp`
+51. **要注意(裁定不要・事実確認のみ)**: `assets/games/`配下と`assets/ui/medal-*.webp`・`spend-*.webp`は`git status`で**untracked(未git add)**。`assets/items`(60)/`assets/gacha`(19)/`assets/ui`の既存分/`assets/god-another`(20)はgit管理下だが、上記は生成AIが直接ローカルに書き出したのみでコミット未実施。本番がgit push連動の場合、これらの画像はcommitしない限り本番に反映されない(見え方の裁定・commit実行は本タスクのスコープ外=docs/backlog.mdのみのため未実施)
