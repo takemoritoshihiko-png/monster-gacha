@@ -1,0 +1,10 @@
+{
+  "name": "monster-gacha-build",
+  "private": true,
+  "description": "src/*.js を連結→JSX事前コンパイル→bundle.<hash>.js を生成し index.html の参照を更新する",
+  "dependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-react": "^7.29.7"
+  }
+}
