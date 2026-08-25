@@ -7996,6 +7996,8 @@ const GA_ASSETS = {
   panel: { file: 'panel.webp' },       // 計器盤の装飾背景(青銅+金メアンダー帯)
   // 動画(preload="none"。初回GOD揃い後に load()、アメイジングGOD時のみ再生)
   movie: { file: 'god-movie.mp4' },
+  movieHades: { file: 'hades-movie.mp4' },     // 冥王プレミア降臨ムービー(未配置なら眠る)
+  movieViolet: { file: 'violet-movie.mp4' },   // 紫7プレミア降臨ムービー(未配置なら眠る)
 };
 const GA_ASSET_IMGS = ['bg', 'logo', 'cutinGod', 'cutinMeio', 'cutinPurple', 'cutinSin',
   'symY7', 'symP7', 'symR7', 'symGod', 'symMeio', 'symBar', 'symBell', 'symCherry', 'symReplay',
@@ -8361,7 +8363,8 @@ function GodAnotherGame({ onScore, onClose }) {
   const [, setAssetTick] = useState(0);   // アセットが1つロードされた時だけ再レンダーする
   const cutinRef = useRef(null);
   const vidRef = useRef(null);
-  const vidStRef = useRef({ armed: false, ready: false, failed: false });
+  const vidStRef = useRef({});          // 動画キー('movie'/'movieHades'/'movieViolet') -> { armed, ready, failed }
+  const vidKeyRef = useRef('movie');    // video要素に現在セットされているソースのキー
   // ref コールバックは identity を固定(再レンダーごとの detach/attach を避ける)
   const cbRef = useRef(null);
   if (!cbRef.current) {
@@ -8605,14 +8608,27 @@ function GodAnotherGame({ onScore, onClose }) {
     v.style.display = 'none';
     try { v.pause(); } catch (e) {}
   };
-  const armMovie = () => {
-    const st = vidStRef.current, v = vidRef.current;
-    if (st.armed || st.failed || !v) return;
+  const vidSt = (k) => vidStRef.current[k] || (vidStRef.current[k] = { armed: false, ready: false, failed: false });
+  const mvReady = (k) => { const st = vidStRef.current[k || 'movie']; return !!(st && st.ready && !st.failed); };
+  const armMovie = (key) => {
+    const k = key || 'movie';
+    const st = vidSt(k), v = vidRef.current;
+    if (st.failed || !v) return;
+    if (vidKeyRef.current !== k) {
+      // ソース切替: 切替先のready状態はロードし直すまで無効(バッファはvideo要素1本を使い回すため)
+      vidKeyRef.current = k; st.ready = false; st.armed = true;
+      try { v.src = gaAssetSrc(k); } catch (e) {}
+      try { v.load(); } catch (e) {}
+      return;
+    }
+    if (st.armed) return;
     st.armed = true;
     try { v.load(); } catch (e) {}
   };
-  const playMovie = () => {
-    const st = vidStRef.current, v = vidRef.current;
+  const playMovie = (key) => {
+    const k = key || 'movie';
+    if (vidKeyRef.current !== k) return;   // 別ソースがセット中なら再生しない(取り違え防止)
+    const st = vidSt(k), v = vidRef.current;
     if (!v || !st.ready || st.failed) return;
     try {
       v.style.display = 'block';
@@ -8770,9 +8786,23 @@ function GodAnotherGame({ onScore, onClose }) {
     } catch (e) { sprRef.current = null; }
     return sprRef.current;
   };
+  // 残留掃除: refの生死に関わらずDOM上のパーティクルcanvasを全て消して隠す(2026-08-25残留バグの根治側)
+  const pSweep = () => {
+    try {
+      document.querySelectorAll('canvas.gaPcv').forEach(c => {
+        try { c.getContext('2d').clearRect(0, 0, c.width, c.height); } catch (e) {}
+        c.style.display = 'none';
+      });
+    } catch (e) {}
+  };
   const pTick = () => {
-    const cv = cvRef.current, ps = psRef.current;
-    if (!cv || !aliveRef.current) { pRafRef.current = null; psRef.current = []; return; }
+    const cv = cvRef.current || document.querySelector('canvas.gaPcv'), ps = psRef.current;
+    if (!cv || !aliveRef.current) {
+      // 死亡時も塗り残しを消してから止める(描画済みフレームが画面に残留した実バグの防御・2026-08-25)
+      pRafRef.current = null; psRef.current = [];
+      pSweep();
+      return;
+    }
     const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
     for (let i = ps.length - 1; i >= 0; i--) {
@@ -8790,7 +8820,7 @@ function GodAnotherGame({ onScore, onClose }) {
     else { pRafRef.current = null; cv.style.display = 'none'; }
   };
   const pBurst = (type) => {
-    const cv = cvRef.current; if (!cv) return;
+    const cv = cvRef.current || document.querySelector('canvas.gaPcv'); if (!cv) return;
     const sp = ensureSprites(); if (!sp) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.max(1, Math.round((cv.clientWidth || 360) * dpr)), h = Math.max(1, Math.round((cv.clientHeight || 480) * dpr));
@@ -9034,6 +9064,10 @@ function GodAnotherGame({ onScore, onClose }) {
     reelSpinRef.current = 0; reelSlowRef.current = false; reelPoolRef.current = SPINPOOL;
     reelReset(); rayOn(false);
     hideCutin(); hideMovie();   // アセット: 演出終了時の保険(未使用なら何も変わらない)
+    // パーティクル残留の防止: 演出終了時に無条件で掃除(全演出でパーティクルは解除の1秒以上前に消滅済み=実測)。
+    // バックグラウンドやオクルージョンでRAFがスロットリングされ凍結フレームが残るケースの根治(2026-08-25)
+    if (pRafRef.current) { cancelAnimationFrame(pRafRef.current); pRafRef.current = null; }
+    psRef.current = []; pSweep();
     setReels(rnd3());
   }, ms);
 
@@ -9131,6 +9165,7 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => {
       lampTypeRef.current = 'meio'; lampStartRef.current = null; setLampSubText('...');
       setDim(0.28); spinReels(SPINPOOL); sndMeioRumble(); shakeFor(1500);
+      armMovie('movieHades');   // 降臨ムービーのプリロード開始(未配置なら黙って眠る)
     }, F);
     T(() => { lockStage(1); setDim(0.44); }, F + 500);
     T(() => { lockStage(2); setDim(0.58); shakeFor(300); }, F + 1100);
@@ -9154,12 +9189,15 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => {
       setLampMainText('冥王'); setLampMainSize('min(26vw,104px)');
       sndHadesToll(); vib([30, 40, 80]); flash(0.75, 170, '#cfeaff'); shakeFor(1100); pBurst('spark');
+      playMovie('movieHades');   // ムービーがreadyなら全画面再生(なければ現行演出のみ)
     }, F + 7000);
     T(() => flash(0.5, 110, '#9fdcff'), F + 7600);
     T(() => { sndMeioBell(); flash(0.55, 120, '#cfeaff'); pBurst('spark'); }, F + 8200);
     T(() => { setBigMsgColor('#9fdcff'); setBigMsg('HADES REQUIEM'); flash(0.5, 110, '#fff'); }, F + 8600);
-    T(() => award('hades', '☠ 冥王プレミア', '#8fd8ff', () => setMeioC(v => v + 1)), F + 9200);
-    unlockAt(F + 10800);   // 鐘の残響(F+8200から2.5秒)まで含めて覆う
+    T(() => {
+      award('hades', '☠ 冥王プレミア', '#8fd8ff', () => setMeioC(v => v + 1));
+      unlockAt(1600 + (mvReady('movieHades') ? 7000 : 0));   // 鐘の残響まで+ムービー再生中(8秒級)はその終端まで覆う
+    }, F + 9200);
   };
 
   // 紫7プレミア「VIOLET TEMPEST」: 紫電の嵐・雷(紫×金)
@@ -9171,6 +9209,7 @@ function GodAnotherGame({ onScore, onClose }) {
       lampTypeRef.current = 'purple'; lampStartRef.current = null; setLampSubText('...');
       setDim(0.34); spinReels(SPINPOOL); sndVioletStorm(); shakeFor(1300);
       setTint('radial-gradient(circle at 50% 45%, rgba(140,50,230,0.28) 0%, rgba(30,0,70,0.55) 72%)');
+      armMovie('movieViolet');   // 降臨ムービーのプリロード開始(未配置なら黙って眠る)
     }, F);
     T(() => { boltFlash(); flash(0.5, 90, '#c07bff'); sndThunder(0.7); }, F + 300);
     T(() => { setDim(0.5); boltFlash(); flash(0.55, 90, '#e0a0ff'); sndThunder(0.85); }, F + 900);
@@ -9193,12 +9232,15 @@ function GodAnotherGame({ onScore, onClose }) {
     T(() => {
       setLampMainText('紫7'); setLampMainSize('min(26vw,104px)');
       sndVioletArp(); pBurst('spark'); vib([30, 40, 80]); flash(0.72, 160, '#e8c8ff'); shakeFor(1000);
+      playMovie('movieViolet');   // ムービーがreadyなら全画面再生(なければ現行演出のみ)
     }, F + 6300);
     T(() => { boltFlash(); flash(0.5, 100, '#ffd76a'); }, F + 6900);
     T(() => { pBurst('spark'); flash(0.55, 110, '#c07bff'); sndThunder(0.9); }, F + 7400);
     T(() => { setBigMsgColor('#d9a6ff'); setBigMsg('VIOLET TEMPEST'); }, F + 7800);
-    T(() => award('violet', '⚡ 紫7プレミア', '#c48bff', () => setPurpleC(v => v + 1)), F + 8400);
-    unlockAt(F + 9400);
+    T(() => {
+      award('violet', '⚡ 紫7プレミア', '#c48bff', () => setPurpleC(v => v + 1));
+      unlockAt(1000 + (mvReady('movieViolet') ? 7000 : 0));   // ムービー再生中(8秒級)はその終端まで覆う
+    }, F + 8400);
   };
 
   const doGase = () => {
@@ -9420,7 +9462,7 @@ function GodAnotherGame({ onScore, onClose }) {
           backgroundImage: 'url("' + gaAssetSrc('bg') + '")', backgroundSize: 'cover', backgroundPosition: 'center',
           opacity: GA_ASSETS.bg.opacity }} />
       )}
-      <div ref={sgRef} style={{ position: 'absolute', inset: 0, background: ls.sg || 'none', pointerEvents: 'none', zIndex: 0 }} />
+      <div key="gaSg" ref={sgRef} style={{ position: 'absolute', inset: 0, background: ls.sg || 'none', pointerEvents: 'none', zIndex: 0 }} />
       {/* 火の粉(常設・transform/opacityのみ) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
         {[[8, 10, 5, 0], [26, 6, 4, 1.8], [63, 9, 4, 3.4], [81, 13, 6, 5.2], [45, 4, 3, 7]].map((p, i) => (
@@ -9430,12 +9472,12 @@ function GodAnotherGame({ onScore, onClose }) {
       {/* 常設ビネット(静的radial 1枚) */}
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 82% 64% at 50% 44%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.5) 100%)', pointerEvents: 'none', zIndex: 43 }} />
       {/* 稲妻SVG(紫7・1G連。opacityのみアニメ) */}
-      <svg ref={boltRef} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', zIndex: 46, transition: 'opacity 0.08s linear' }}>
+      <svg key="gaBolt" ref={boltRef} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', zIndex: 46, transition: 'opacity 0.08s linear' }}>
         <polyline points="18,0 31,26 21,31 37,58 27,63 45,100" fill="none" stroke="#efe0ff" strokeWidth="2.4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         <polyline points="83,0 70,23 80,29 63,55 73,60 56,100" fill="none" stroke="#d3a8ff" strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
-      {/* P7: パーティクルcanvas 1枚(非演出時は display:none + RAF停止) */}
-      <canvas ref={cvRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 47, display: 'none' }} />
+      {/* P7: パーティクルcanvas 1枚(非演出時は display:none + RAF停止)。refが外れても掃除できるようclassNameで特定可能にする(2026-08-25残留バグ対策) */}
+      <canvas key="gaPcv" className="gaPcv" ref={cvRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 47, display: 'none' }} />
       {tint !== 'none' && <div style={{ position: 'absolute', inset: 0, background: tint, pointerEvents: 'none', zIndex: 2 }} />}
       {dim > 0 && <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: dim, pointerEvents: 'none', zIndex: 45, transition: 'opacity 0.25s linear' }} />}
       {flashAlpha > 0 && <div style={{ position: 'absolute', inset: 0, background: flashColor, opacity: flashAlpha, pointerEvents: 'none', zIndex: 50 }} />}
@@ -9500,9 +9542,9 @@ function GodAnotherGame({ onScore, onClose }) {
                 <div style={{ textAlign: 'left' }}>
                   <div className="ga-mlbl" style={{ fontSize: 8, marginBottom: 3, lineHeight: 1 }}>当たり間</div>
                   <div className="ga-mnum" style={{ fontSize: 42, lineHeight: 0.9, ...gaMV(spinCount >= 500 ? GA_MC.red : spinCount >= 200 ? GA_MC.amber : GA_MC.gold) }}>{spinCount}</div>
-                  {spinCount >= 1100 && (
+                  {spinCount >= 900 && (
                     <div className="ga-mlbl" style={{ fontSize: 8.5, marginTop: 3, lineHeight: 1, color: '#ff6b8a', textShadow: '0 0 6px rgba(255,60,110,0.7)' }}>
-                      ハマリプレミア ×{(1 + 0.2 * Math.floor((spinCount - 1000) / 100)).toFixed(1)}
+                      ハマリプレミア ×{(1 + 0.2 * Math.floor((spinCount - 800) / 100)).toFixed(1)}
                     </div>
                   )}
                 </div>
@@ -9725,8 +9767,8 @@ function GodAnotherGame({ onScore, onClose }) {
 
       {/* アセット: GOD降臨ムービー。preload="none" のまま眠り、初回GOD揃いで load()・アメイジングGOD時のみ全画面再生 */}
       <video key="gaMovie" ref={vidRef} src={gaAssetSrc('movie')} muted playsInline preload="none"
-        onCanPlayThrough={() => { vidStRef.current.ready = true; }}
-        onError={() => { vidStRef.current.failed = true; hideMovie(); }}
+        onCanPlayThrough={() => { vidSt(vidKeyRef.current).ready = true; }}
+        onError={() => { vidSt(vidKeyRef.current).failed = true; hideMovie(); }}
         onEnded={hideMovie}
         style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'contain',
           background: '#000', zIndex: 9998, display: 'none', pointerEvents: 'none' }} />
