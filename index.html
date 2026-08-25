@@ -3594,7 +3594,7 @@ function MonsterGacha() {
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5), 0 0 30px rgba(200,180,140,0.2)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.5), 0 0 20px rgba(200,180,140,0.1)'; }}
             >
-              <img src="btn-gacha.png" alt="ガチャを引く" style={{ width: '100%', display: 'block', filter: 'brightness(1.05)' }} />
+              <img src="btn-gacha.webp" alt="ガチャを引く" style={{ width: '100%', display: 'block', filter: 'brightness(1.05)' }} />
               {/* Shimmer overlay */}
               <div style={{ position: 'absolute', inset: 0,
                 background: 'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.12) 45%, rgba(255,215,0,0.08) 50%, rgba(255,255,255,0.12) 55%, transparent 70%)',
@@ -3790,10 +3790,10 @@ function MonsterGacha() {
                   {/* 4 chest showcase - image based */}
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16, position: 'relative', zIndex: 1 }}>
                     {[
-                      { img: 'chest-wood.png', label: '★1-2', border: '#C4A54D', labelColor: 'rgba(255,255,255,0.4)' },
-                      { img: 'chest-silver.png', label: '★3-4', border: '#E8EDF3', labelColor: '#c8d6e5', glow: '0 0 8px rgba(200,214,229,0.3)' },
-                      { img: 'chest-gold.png', label: '★5-7', border: '#FFE44D', labelColor: '#ffd700', glow: '0 0 12px rgba(255,215,0,0.4)', shimmer: true },
-                      { img: 'chest-rainbow.png', label: '★8+', border: 'rgba(255,255,255,0.6)', labelColor: '#ff6b81', glow: '0 0 15px rgba(200,100,255,0.4), 0 0 30px rgba(100,200,255,0.2)', rainbow: true },
+                      { img: 'chest-wood.webp', label: '★1-2', border: '#C4A54D', labelColor: 'rgba(255,255,255,0.4)' },
+                      { img: 'chest-silver.webp', label: '★3-4', border: '#E8EDF3', labelColor: '#c8d6e5', glow: '0 0 8px rgba(200,214,229,0.3)' },
+                      { img: 'chest-gold.webp', label: '★5-7', border: '#FFE44D', labelColor: '#ffd700', glow: '0 0 12px rgba(255,215,0,0.4)', shimmer: true },
+                      { img: 'chest-rainbow.webp', label: '★8+', border: 'rgba(255,255,255,0.6)', labelColor: '#ff6b81', glow: '0 0 15px rgba(200,100,255,0.4), 0 0 30px rgba(100,200,255,0.2)', rainbow: true },
                     ].map((c, i) => (
                       <div key={i} style={{ textAlign: 'center' }}>
                         <div style={{ width: 62, height: 62, borderRadius: 14, position: 'relative', overflow: 'hidden',
@@ -4250,11 +4250,11 @@ function MonsterGacha() {
       {/* NAV */}
       <div className="nav">
         {[
-          { id: "home", img: "nav-home.png" },
-          { id: "gacha", img: "nav-gacha.png" },
-          { id: "minigame", img: "nav-game.png" },
-          { id: "collection", img: "nav-collection.png" },
-          { id: "synth", img: "nav-synth.png" },
+          { id: "home", img: "nav-home.webp" },
+          { id: "gacha", img: "nav-gacha.webp" },
+          { id: "minigame", img: "nav-game.webp" },
+          { id: "collection", img: "nav-collection.webp" },
+          { id: "synth", img: "nav-synth.webp" },
         ].map(n => (
           <button key={n.id} className={`nb ${screen === n.id ? 'act' : ''}`} onClick={() => nav(n.id)}
             style={{ padding: '2px 4px' }}>
