@@ -126,6 +126,42 @@ const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
 const GACHA_COST_40 = 800;
 
+// ============================================================
+// 種族セット効果(コレクションボーナス)
+// 1種族の★1〜★10(10種)を全て所持すると、その種族の効果が常時発動する(countは1でよい/★MAX不要)。
+// 効果値を変えるときはここだけを直す(表示ラベルと実装が同じ定数を見るのでズレが起きない)。
+// ============================================================
+const SET_BONUS_EFFECTS = {
+  gem:     { label: 'ガチャコイン 5%引き',      discount: 0.05 },
+  gold:    { label: 'コイン自動回復 +25%',      rate: 0.25 },
+  relic:   { label: 'ログインボーナス +20%',    rate: 0.20 },
+  art:     { label: 'ミニゲーム獲得コイン +5%', rate: 0.05 },
+  space:   { label: '裏アイテム 出現率 +10%',   rate: 0.10 },
+  kingdom: { label: 'ミッション貢献 +10%',      rate: 0.10 },
+};
+
+// コレクションから種族ごとの発動状態を求める純関数。{ gem:true, gold:false, ... }
+function computeSetBonuses(coll) {
+  const s = {};
+  TYPES.forEach(t => {
+    let complete = true;
+    for (let r = 1; r <= 10; r++) {
+      const it = coll && coll[`${t.id}_${r}`];
+      if (!it || !(it.count > 0)) { complete = false; break; }
+    }
+    s[t.id] = complete;
+  });
+  return s;
+}
+
+// ガチャ費用の唯一の算出口。ボタン表示・コイン不足判定・pull()の支払いは必ずこれを通す
+// (表示と実支払いのズレを構造的に作らないため)。
+function gachaCostFor(n, setBonuses) {
+  const base = n === 40 ? GACHA_COST_40 : n === 10 ? GACHA_COST_10 : GACHA_COST_1;
+  const off = (setBonuses && setBonuses.gem) ? SET_BONUS_EFFECTS.gem.discount : 0;
+  return Math.round(base * (1 - off));
+}
+
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
   if (rank >= 5) return "gold";
@@ -358,10 +394,13 @@ const URA_PROBABILITY = 16384; // 1/16384 per item in pool
 // 20-63 obtained (pool 46-3): 1/16384 per item
 // 64-65 obtained (pool 2-1): 1/8192 per item
 // Expected total: ~71,800 pulls to complete all 66
-function rollUraItem(uraPool) {
+// probMult: 当選確率の倍率(未指定/1=従来どおり。spaceのセット効果で1.1)。
+// 当選確率は uraPool.length / prob なので、確率をx倍するには分母をxで割る。
+function rollUraItem(uraPool, probMult) {
   if (!uraPool || uraPool.length === 0) return null;
   const obtained = URA_ITEMS.length - uraPool.length;
-  const prob = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  const base = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  const prob = Math.max(1, Math.round(base / (probMult > 0 ? probMult : 1)));
   const roll = Math.floor(Math.random() * prob);
   if (roll >= uraPool.length) return null;
   return uraPool[roll];
