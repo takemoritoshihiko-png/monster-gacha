@@ -497,6 +497,10 @@ function GaCorners({ size = 12, inset = 2, color = '#c9a227', op = 0.72 }) {
 
 function GodAnotherGame({ onScore, onClose }) {
   const [phase, setPhase] = useState("ready");
+  // オート回転(2026-08-25 竹森氏指示): 1分間に1,500回転=40ms間隔。演出ロック中は自動スキップ→解除後そのまま継続
+  const [autoOn, setAutoOn] = useState(false);
+  const autoRef = useRef(false);
+  const doSpinRef = useRef(null);
   const [gameN, setGameN] = useState(0);
   const [timeLeft, setTimeLeft] = useState(180);
   const [coins, setCoins] = useState(0);
@@ -654,10 +658,10 @@ function GodAnotherGame({ onScore, onClose }) {
     ['god', 8],          // GOD揃い 1/8192
     ['meio', 6],         // 冥王揃い 1/10922.7
     ['purple', 10],      // 紫7揃い 1/6553.6
-    ['y7', 93],          // 中段黄7 93/65536 = 1/704.7(2026-08-25 竹森氏指示: 確率を1.5倍悪化。140→93=悪化率1.505)
+    ['y7', 64],          // 中段黄7 64/65536 = 1/1024(2026-08-25 竹森氏指示: 1/1024・配点1800に変更)
     // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
-  const BASE = { sin: 20000, amazing: 31108, hades: 20000, violet: 14000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1200 };
+  const BASE = { sin: 20000, amazing: 31108, hades: 20000, violet: 14000, cgod: 15554, cmeio: 10000, cpurple: 7000, god: 7777, meio: 5000, purple: 3500, y7: 1800 };
 
   const SYMS = {
     y7: { t: '7', c: '#ffd24a', g: 'rgba(255,210,74,0.55)' },
@@ -1620,6 +1624,7 @@ function GodAnotherGame({ onScore, onClose }) {
 
   const doSpin = (pointerId) => {
     if (lockedRef.current || phaseRef.current !== 'playing') return;
+    // (オート回転は doSpinRef 経由でこの関数を叩く)
     // 連打ガード: pointerId単位のスロットルのみ。同じ指は20ms未満を無視(2026-08-25竹森氏指示で10→20ms。窓内回数上限は撤廃のまま)
     const now = performance.now();
     const pid = (pointerId === undefined || pointerId === null) ? 'm' : pointerId;
@@ -1653,6 +1658,17 @@ function GodAnotherGame({ onScore, onClose }) {
     if (flag === 'purple') { startEffect(); spinReels(SPINPOOL); seqPurple(0, 'purple', null); unlockAt(2500); return; }
     doCrash(flag, false);
   };
+  doSpinRef.current = doSpin;   // オート回転から最新のdoSpinを呼ぶための参照(再レンダー毎に更新)
+
+  // オート回転エンジン: 40ms間隔=1,500回転/分。ロック(演出)中はスキップし、解除されると自動で再開する
+  useEffect(() => { autoRef.current = autoOn; }, [autoOn]);
+  useEffect(() => {
+    if (phase !== 'playing') { setAutoOn(false); autoRef.current = false; return; }
+    const iv = setInterval(() => {
+      if (autoRef.current && !lockedRef.current && phaseRef.current === 'playing' && doSpinRef.current) doSpinRef.current('auto');
+    }, 40);
+    return () => clearInterval(iv);
+  }, [phase]);
 
   const startGame = () => {
     gaWarmup(); // 重量バッファ・IRの事前生成(既に開始済みなら何もしない)
@@ -1794,6 +1810,18 @@ function GodAnotherGame({ onScore, onClose }) {
             onPointerDown={e => { e.preventDefault(); doSpin(e.pointerId); }}
             onTouchMove={e => { /* React18はtouch系をpassive登録するためpreventDefaultは無効(警告が出るだけ)。スクロール抑止は touchAction:'none' が担当 */ }}
             onTouchStart={e => { }} />}
+
+          {/* オート回転トグル(タップ層より上・押してもレバーは動かない) */}
+          {phase === "playing" && (
+            <button onClick={() => setAutoOn(v => !v)}
+              style={{ position: 'fixed', right: 10, bottom: 104, zIndex: 42, padding: '10px 13px', borderRadius: 10,
+                fontFamily: "'Orbitron',sans-serif", fontWeight: 900, fontSize: 12, letterSpacing: 1, cursor: 'pointer',
+                background: autoOn ? 'linear-gradient(180deg,#e8c86a,#8a6a00)' : 'linear-gradient(180deg,#241c11,#15100a)',
+                color: autoOn ? '#1a1206' : '#d7b46a', border: '1px solid rgba(201,168,76,0.6)',
+                boxShadow: autoOn ? '0 0 16px rgba(201,168,76,0.55)' : '0 2px 8px rgba(0,0,0,0.5)', transition: 'all 0.2s' }}>
+              AUTO {autoOn ? 'ON' : 'OFF'}
+            </button>
+          )}
 
           <div style={{ background: '#08070a', borderBottom: '1px solid #2a2210', padding: '4px 8px 5px', position: 'relative', zIndex: 41, pointerEvents: 'none' }}>
             {/* P10: 上部ランプ帯(プリブラーgradient・opacity切替のみ) */}

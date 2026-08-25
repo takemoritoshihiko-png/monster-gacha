@@ -217,12 +217,12 @@ const CSS = `
   position: relative; z-index: 4; font-family: 'Rajdhani', sans-serif; font-weight: 700;
   color: rgba(248,230,190,0.78); text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
-.gpb-lg { min-height: 66px; padding: 0 10px; }
-.gpb-lg .gpb-label { font-size: 18px; }
-.gpb-lg .gpb-cost { font-size: 11px; }
-.gpb-sm { min-height: 42px; padding: 0 14px; }
-.gpb-sm .gpb-label { font-size: 13px; }
-.gpb-sm .gpb-cost { font-size: 9px; }
+.gpb-lg { min-height: 86px; padding: 0 12px; }
+.gpb-lg .gpb-label { font-size: 25px; letter-spacing: 2px; text-shadow: 0 2px 3px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.6); }
+.gpb-lg .gpb-cost { font-size: 12px; }
+.gpb-sm { min-height: 64px; padding: 0 22px; }
+.gpb-sm .gpb-label { font-size: 19px; letter-spacing: 1.5px; }
+.gpb-sm .gpb-cost { font-size: 10px; }
 .bs {
   background: rgba(50,45,65,0.6); border: 1px solid rgba(139,92,246,0.2); color: #ccc;
   backdrop-filter: blur(4px);
@@ -360,9 +360,10 @@ const CSS = `
 .gs { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .cr { display: grid; gap: 6px; width: 100%; max-width: 440px; }
 .chest {
-  width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;
+  width: 78px; height: 78px; display: flex; align-items: center; justify-content: center;
   font-size: 50px; animation: cb 1.5s ease-in-out infinite; transition: transform 0.2s;
 }
+.chest-img { width: 76px; height: 76px; }
 @keyframes cb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 .chest.rbw { animation: cb 1.5s ease-in-out infinite, rbs 2s linear infinite; }
 .chest.silver-chest { animation: cb 1.5s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(200,214,229,0.5)); }
@@ -410,8 +411,8 @@ const CSS = `
 }
 /* 40連: 8列×5行のコンパクト表示で1画面に収める(小画面の .chest 64px 指定より優先) */
 .cr.cr-40 { gap: 4px !important; }
-.cr-40 .chest { width: 34px !important; height: 34px !important; }
-.cr-40 .chest img { width: 32px !important; height: 32px !important; border-radius: 7px !important; }
+.cr-40 .chest { width: 40px !important; height: 40px !important; }
+.cr-40 .chest img { width: 38px !important; height: 38px !important; border-radius: 7px !important; }
 .cr-40 .rc { padding: 3px 2px !important; border-width: 1px !important; border-radius: 7px !important; width: 100%; }
 @keyframes ri { 0%{transform:scale(0) rotateY(180deg);opacity:0} 100%{transform:scale(1) rotateY(0);opacity:1} }
 /* 宝箱開封4コマ(A7 2026-08-25): 120ms×4で切り替わり、以降opacity:0のまま残る(pointer-events:noneなので操作に無影響) */
@@ -652,7 +653,8 @@ body { overscroll-behavior: none; }
   .cg { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)) !important; }
   .sgl { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important; }
   .cr { gap: 8px !important; }
-  .chest { width: 64px !important; height: 64px !important; font-size: 40px !important; }
+  .chest { width: 70px !important; height: 70px !important; font-size: 44px !important; }
+  .chest-img { width: 68px !important; height: 68px !important; }
   .tap { width: 150px !important; height: 150px !important; font-size: 48px !important; }
   .md { font-size: 28px !important; }
   .mi { font-size: 20px !important; width: 160px !important; }

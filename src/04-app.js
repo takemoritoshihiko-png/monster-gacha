@@ -2547,9 +2547,9 @@ function MonsterGacha() {
                   {gachaChests.map((ct, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {!opened.has(i) ? (
-                        <div className="chest" style={{ width: 56, height: 56, margin: '0 auto', position: 'relative' }}>
+                        <div className="chest" style={{ margin: '0 auto', position: 'relative' }}>
                           <img src={ct === 'rainbow' ? 'chest-rainbow.png' : ct === 'gold' ? 'chest-gold.png' : ct === 'silver' ? 'chest-silver.png' : 'chest-wood.png'}
-                            alt="chest" style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover',
+                            alt="chest" className="chest-img" style={{ borderRadius: 10, objectFit: 'cover',
                               filter: ct === 'rainbow'
                                 ? 'drop-shadow(0 0 8px rgba(200,100,255,0.6)) drop-shadow(0 0 16px rgba(100,200,255,0.4)) brightness(1.15)'
                                 : ct === 'gold'
