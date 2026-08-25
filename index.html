@@ -3799,7 +3799,7 @@ function MonsterGacha() {
                     ))}
                   </div>
 
-                  <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ position: 'relative', zIndex: 1, mixBlendMode: 'screen' }}>
                     <img src="assets/ui/gacha-logo.webp" alt="GACHA"
                       style={{ maxWidth: 'min(76%, 300px)', display: 'block', margin: '0 auto', filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))' }}
                       onError={e => { e.currentTarget.style.display = 'none'; const f = e.currentTarget.nextSibling; if (f) f.style.display = 'block'; }} />
