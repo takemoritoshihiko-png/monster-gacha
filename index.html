@@ -4849,15 +4849,20 @@ function TapGame({ onScore, onClose }) {
               width: 200, height: 200, margin: '0 auto', borderRadius: '50%',
               background: 'radial-gradient(circle at 40% 35%, #8B7355, #5C4033, #3B2A1A)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 72, position: 'relative',
+              fontSize: 72, position: 'relative', overflow: 'hidden',
               boxShadow: '0 8px 30px rgba(0,0,0,0.5), inset 0 -4px 10px rgba(0,0,0,0.3), inset 0 4px 8px rgba(255,255,255,0.05)',
               animation: 'rareShake 0.15s ease-out',
             }}>
-              {/* Gem veins on rock */}
-              <div style={{ position: 'absolute', width: 12, height: 12, background: 'rgba(139,92,246,0.4)', borderRadius: '50%', top: '25%', left: '30%', filter: 'blur(2px)' }} />
-              <div style={{ position: 'absolute', width: 8, height: 8, background: 'rgba(251,191,36,0.4)', borderRadius: '50%', top: '60%', right: '25%', filter: 'blur(2px)' }} />
-              <div style={{ position: 'absolute', width: 10, height: 10, background: 'rgba(96,165,250,0.3)', borderRadius: '50%', bottom: '30%', left: '25%', filter: 'blur(2px)' }} />
-              ⛏️
+              {/* Rock texture by damage stage (progressive enhancement: hidden until asset exists) */}
+              <img key={`rock-img-${taps >= 60 ? 3 : taps >= 25 ? 2 : 1}`}
+                src={`assets/games/tap-rock${taps >= 60 ? 3 : taps >= 25 ? 2 : 1}.webp`} alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                onError={e => { e.currentTarget.style.display = 'none'; }} />
+              {/* Gem veins on rock (kept above the rock texture image) */}
+              <div style={{ position: 'absolute', width: 12, height: 12, background: 'rgba(139,92,246,0.4)', borderRadius: '50%', top: '25%', left: '30%', filter: 'blur(2px)', zIndex: 1 }} />
+              <div style={{ position: 'absolute', width: 8, height: 8, background: 'rgba(251,191,36,0.4)', borderRadius: '50%', top: '60%', right: '25%', filter: 'blur(2px)', zIndex: 1 }} />
+              <div style={{ position: 'absolute', width: 10, height: 10, background: 'rgba(96,165,250,0.3)', borderRadius: '50%', bottom: '30%', left: '25%', filter: 'blur(2px)', zIndex: 1 }} />
+              <span style={{ position: 'relative', zIndex: 2 }}>⛏️</span>
             </div>
             {/* Extended tap zone (invisible) */}
             <div style={{ position: 'absolute', inset: -20, zIndex: 2 }} />
@@ -6530,7 +6535,7 @@ function MemoryGame({ onScore, onClose }) {
             {cards.map((card, i) => (
               <div key={i} onClick={() => handleCardTap(i)} className={card.state === 'revealed' ? 'card-flip' : card.state === 'matched' ? 'card-match' : ''}
                 style={{
-                  width: 80, height: 90, borderRadius: 12,
+                  width: 80, height: 90, borderRadius: 12, position: 'relative', overflow: 'hidden',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: card.state === 'hidden' ? 'pointer' : 'default',
                   transition: 'all 0.2s',
@@ -6550,7 +6555,11 @@ function MemoryGame({ onScore, onClose }) {
                     opacity: 0.5,
                   }),
                 }}>
-                {card.state === 'hidden' ? '❓' : card.icon}
+                {card.state === 'hidden' && (
+                  <img src="assets/games/mem-back.webp" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                    onError={e => { e.currentTarget.style.display = 'none'; }} />
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{card.state === 'hidden' ? '❓' : card.icon}</span>
               </div>
             ))}
           </div>
@@ -6764,6 +6773,9 @@ function QuickDrawGame({ onScore, onClose }) {
   const [drawTime, setDrawTime] = useState(null);
   const [waitText, setWaitText] = useState('');
   const [lastResult, setLastResult] = useState(null);
+  // Full-scene image per phase (progressive enhancement). Loads only when the asset actually exists;
+  // until then this stays false and the existing emoji rendering is unaffected.
+  const [sceneLoaded, setSceneLoaded] = useState({ 1: false, 2: false, 3: false });
 
   const lastTapRef = useRef(0);
   const startRef = useRef(null);
@@ -6940,24 +6952,37 @@ function QuickDrawGame({ onScore, onClose }) {
             <div className="sb">🎯 {round + 1}/{TOTAL_ROUNDS}</div>
             <div className="sb">🪙 {currentTotal}</div>
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, position: 'relative', zIndex: 0, width: '100%' }}>
+            {/* Full-scene art per phase, laid behind the emoji/text (404 -> stays hidden, emoji unaffected) */}
+            {phase === "waiting" && (
+              <img src="assets/games/qd-scene1.webp" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1, display: sceneLoaded[1] ? 'block' : 'none' }}
+                onLoad={() => setSceneLoaded(p => ({ ...p, 1: true }))} onError={() => setSceneLoaded(p => ({ ...p, 1: false }))} />
+            )}
+            {phase === "draw" && (
+              <img src="assets/games/qd-scene2.webp" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1, display: sceneLoaded[2] ? 'block' : 'none' }}
+                onLoad={() => setSceneLoaded(p => ({ ...p, 2: true }))} onError={() => setSceneLoaded(p => ({ ...p, 2: false }))} />
+            )}
+            {phase === "result" && (
+              <img src="assets/games/qd-scene3.webp" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1, display: sceneLoaded[3] ? 'block' : 'none' }}
+                onLoad={() => setSceneLoaded(p => ({ ...p, 3: true }))} onError={() => setSceneLoaded(p => ({ ...p, 3: false }))} />
+            )}
             {phase === "waiting" && (
               <>
-                <div style={{ fontSize: 60 }}>🧍</div>
+                {!sceneLoaded[1] && <div style={{ fontSize: 60 }}>🧍</div>}
                 <div style={{ fontSize: 14, opacity: 0.5 }}>{waitText}</div>
                 <div style={{ fontSize: 11, opacity: 0.3 }}>⚡ 振り返ったら撃て！</div>
               </>
             )}
             {phase === "draw" && (
               <div className="draw-flash" style={{ padding: 20, borderRadius: 16 }}>
-                <div style={{ fontSize: 70 }}>🤠🔫</div>
+                {!sceneLoaded[2] && <div style={{ fontSize: 70 }}>🤠🔫</div>}
                 <div className="draw-text" style={{ fontSize: 28, fontWeight: 900, color: '#ef4444',
                   textShadow: '0 0 16px rgba(239,68,68,0.6)' }}>💥 DRAW!!</div>
               </div>
             )}
             {phase === "result" && lastResult && (
               <>
-                <div style={{ fontSize: 50 }}>{lastResult.type === 'hit' ? '😵' : lastResult.type === 'timeout' ? '🤠😤' : '🧍❌'}</div>
+                {!sceneLoaded[3] && <div style={{ fontSize: 50 }}>{lastResult.type === 'hit' ? '😵' : lastResult.type === 'timeout' ? '🤠😤' : '🧍❌'}</div>}
                 <div style={{ fontSize: 18, fontWeight: 900, color: lastResult.color }}>{lastResult.label}</div>
                 <div style={{ fontSize: 14, color: '#fbbf24' }}>+🪙{lastResult.coins}</div>
               </>
