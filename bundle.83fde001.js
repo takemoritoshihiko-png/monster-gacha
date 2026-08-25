@@ -887,7 +887,8 @@ function sfx(name) {
 
 // ---- src/02-data.js ----
 // ============================================================
-// DATA: 5 Types × 11 Ranks (★1-10 + ★MAX) = 55 Monsters
+// DATA: 7 Types × 11 Ranks (★1-10 + ★MAX)。うち第7種族「神域」はTier2解放限定
+// (従来6種=BASE_TYPESが★12判定/裏66種/展示69種の分母。神域はそこに算入しない)
 // ============================================================
 var TYPES = [{
   id: "gem",
@@ -919,7 +920,38 @@ var TYPES = [{
   name: "王国",
   emoji: "🏰",
   color: "#8b5cf6"
+},
+// 第7種族「神域」: cg2_12(Tier2)所持セーブでのみ抽選・展示に登場する。判定は shrineOn()/typesFor()。
+{
+  id: "shrine",
+  name: "神域",
+  emoji: "⛩️",
+  color: "#2dd4bf"
 }];
+
+// ============================================================
+// 神域(shrine)解放ゲート ─ 「変えてよい所」と「絶対に変えない所」の唯一の分岐点
+// ・BASE_TYPES(従来6種) = ★12 Congratulations判定 / 裏アイテム66種 / 展示室69種 の分母。永久に不変。
+// ・shrineOn(coll)      = cg2_12(Tier2「永劫の至宝・虹」)を持つセーブだけ true。
+//   collは展開形{key:{count}}でも圧縮形{key:count}でも判定できる(どちらもtruthy)。
+// ・typesFor(coll)      = そのセーブで登場してよい種族。抽選・展示のTYPES反復はこちらを使う。
+// ============================================================
+var SHRINE_ID = 'shrine';
+var SHRINE_UNLOCK_KEY = 'cg2_12';
+var BASE_TYPES = TYPES.filter(function (t) {
+  return t.id !== SHRINE_ID;
+});
+var shrineOn = function shrineOn(coll) {
+  return !!(coll && coll[SHRINE_UNLOCK_KEY]);
+};
+var typesFor = function typesFor(coll) {
+  return shrineOn(coll) ? TYPES : BASE_TYPES;
+};
+// ★10×3 → ★MAX のランダム種族抽選。神域は解放セーブでのみ母集団に混ざる。
+var rollMaxType = function rollMaxType(coll) {
+  var p = typesFor(coll);
+  return p[Math.floor(Math.random() * p.length)];
+};
 
 // ★6-10=元の1/2, ★5=3%, ★4=8%, 残り87.12%を★1-3に配分
 var RARITIES = [{
@@ -1264,6 +1296,62 @@ var MONSTERS = {
     desc: "全並行宇宙を開く究極の鍵",
     img: "max-space.webp"
   }],
+  shrine: [{
+    name: "お守り",
+    icon: "🧿",
+    desc: "神社で買った小さなお守り",
+    img: "assets/items/it-shrine-01.webp"
+  }, {
+    name: "願いの絵馬",
+    icon: "🪧",
+    desc: "願い事を書いた木の板",
+    img: "assets/items/it-shrine-02.webp"
+  }, {
+    name: "御神酒の盃",
+    icon: "🍶",
+    desc: "神前に供えられた朱塗りの盃",
+    img: "assets/items/it-shrine-03.webp"
+  }, {
+    name: "狛犬の像",
+    icon: "🗿",
+    desc: "参道を守る一対の石像",
+    img: "assets/items/it-shrine-04.webp"
+  }, {
+    name: "神楽鈴",
+    icon: "🔔",
+    desc: "巫女の舞に鳴る神聖な鈴",
+    img: "assets/items/it-shrine-05.webp"
+  }, {
+    name: "千年杉の御神木",
+    icon: "🌲",
+    desc: "しめ縄を巻いた聖なる大樹",
+    img: "assets/items/it-shrine-06.webp"
+  }, {
+    name: "八咫鏡の写し",
+    icon: "🪞",
+    desc: "真実を映すと伝わる神鏡",
+    img: "assets/items/it-shrine-07.webp"
+  }, {
+    name: "龍神の逆鱗",
+    icon: "🐉",
+    desc: "触れれば神罰が下る一枚の鱗",
+    img: "assets/items/it-shrine-08.webp"
+  }, {
+    name: "天岩戸の欠片",
+    icon: "⛰️",
+    desc: "神話の岩戸から光が漏れる一片",
+    img: "assets/items/it-shrine-09.webp"
+  }, {
+    name: "高天原の神璽",
+    icon: "🌟",
+    desc: "神々の国の証たる黄金の勾玉",
+    img: "assets/items/it-shrine-10.webp"
+  }, {
+    name: "天地開闢の御柱",
+    icon: "⛩️",
+    desc: "神々が最初に立てた光の柱",
+    img: "max-shrine.webp"
+  }],
   kingdom: [{
     name: "村の地図",
     icon: "🗺️",
@@ -1359,6 +1447,81 @@ function formatYen(n) {
 var GACHA_COST_1 = 20;
 var GACHA_COST_10 = 200;
 var GACHA_COST_40 = 800;
+
+// ============================================================
+// 種族セット効果(コレクションボーナス)
+// 1種族の★1〜★10(10種)を全て所持すると、その種族の効果が常時発動する(countは1でよい/★MAX不要)。
+// 効果値を変えるときはここだけを直す(表示ラベルと実装が同じ定数を見るのでズレが起きない)。
+// ============================================================
+var SET_BONUS_EFFECTS = {
+  gem: {
+    label: 'ガチャコイン 5%引き',
+    discount: 0.05
+  },
+  gold: {
+    label: 'コイン自動回復 +25%',
+    rate: 0.25
+  },
+  relic: {
+    label: 'ログインボーナス +20%',
+    rate: 0.20
+  },
+  art: {
+    label: 'ミニゲーム獲得コイン +5%',
+    rate: 0.05
+  },
+  space: {
+    label: '裏アイテム 出現率 +10%',
+    rate: 0.10
+  },
+  kingdom: {
+    label: 'ミッション貢献 +10%',
+    rate: 0.10
+  },
+  shrine: {
+    label: 'ガチャコイン さらに5%引き',
+    discount: 0.05
+  }
+};
+
+// コレクションから種族ごとの発動状態を求める純関数。{ gem:true, gold:false, ... }
+function computeSetBonuses(coll) {
+  var s = {};
+  TYPES.forEach(function (t) {
+    var complete = true;
+    for (var r = 1; r <= 10; r++) {
+      var it = coll && coll["".concat(t.id, "_").concat(r)];
+      if (!it || !(it.count > 0)) {
+        complete = false;
+        break;
+      }
+    }
+    s[t.id] = complete;
+  });
+  return s;
+}
+
+// ============================================================
+// スコアキーの世代交代(ランキングリセットの仕組み)
+// 配点スケールを大きく変えたゲームは、スコアの記録・表示キーを新世代に切り替える。
+// 旧スコアは旧キーに残置(自動バックアップ)され、端末に残る旧自己ベストの同期でも
+// 新ランキングが汚染されない。playCounts・ミッションは元のgameIdのまま。
+// 2026-08-25: godAnother 第8次(配点60%化)で godAnother2 に世代交代=ランキング一斉リセット。
+// ============================================================
+var SCORE_KEY_MAP = {
+  godAnother: 'godAnother2'
+};
+var scoreKeyOf = function scoreKeyOf(gid) {
+  return SCORE_KEY_MAP[gid] || gid;
+};
+
+// ガチャ費用の唯一の算出口。ボタン表示・コイン不足判定・pull()の支払いは必ずこれを通す
+// (表示と実支払いのズレを構造的に作らないため)。
+function gachaCostFor(n, setBonuses) {
+  var base = n === 40 ? GACHA_COST_40 : n === 10 ? GACHA_COST_10 : GACHA_COST_1;
+  var off = (setBonuses && setBonuses.gem ? SET_BONUS_EFFECTS.gem.discount : 0) + (setBonuses && setBonuses.shrine ? SET_BONUS_EFFECTS.shrine.discount : 0);
+  return Math.round(base * (1 - off));
+}
 function getChestType(rank) {
   if (rank >= 8) return "rainbow";
   if (rank >= 5) return "gold";
@@ -1370,6 +1533,64 @@ function getChestType(rank) {
 var getSynthReq = function getSynthReq(rank) {
   return rank <= 2 ? 2 : 3;
 };
+
+// ============================================================
+// ★MAX進化 = プリズム(煌)
+// 同種の★MAX(<typeId>_11)×3 → 「<★MAX名>・煌」1個(コレクションキー <typeId>_11k)
+// 資産価値は★MAX3個分を保つ(進化で総資産が減らない)。Tier判定も実効数(_11 + 3×_11k)で数える。
+// ============================================================
+var PRISM_SUFFIX = '_11k';
+var PRISM_MERGE = 3; // ★MAX3個 → 煌1個
+var PRISM_NAME_SUFFIX = '・煌';
+var isPrismKey = function isPrismKey(k) {
+  return typeof k === 'string' && k.slice(-4) === PRISM_SUFFIX;
+};
+
+// count値の取り出し(圧縮形 {key:count} / 展開形 {key:{count}} の両方に対応)
+var countOf = function countOf(v) {
+  return typeof v === 'number' ? v : v && v.count || 0;
+};
+
+// コレクション1エントリ(key,count)の資産価値。煌は★MAX3個分として数える。
+function entryPower(key, count, rank) {
+  var r = typeof rank === 'number' ? rank : parseInt(String(key).split('_')[1]);
+  var base = POWER_VALUES[r - 1] || 0;
+  return base * (count || 0) * (isPrismKey(key) ? PRISM_MERGE : 1);
+}
+
+// アイテムオブジェクト1個あたりの資産価値(モーダル等の単価表示用)。
+function itemUnitPower(item) {
+  if (!item) return 0;
+  return (POWER_VALUES[item.rank - 1] || 0) * (item.prism ? PRISM_MERGE : 1);
+}
+
+// 種族ごとの★MAX実効所持数 = _11.count + 3 × _11k.count。
+// Tier判定(congratsTier)・★MAXリロール適格判定・展示の所持判定の正本。
+function maxEffCount(coll, typeId) {
+  if (!coll) return 0;
+  return countOf(coll[typeId + '_11']) + countOf(coll[typeId + PRISM_SUFFIX]) * PRISM_MERGE;
+}
+
+// ★MAX×3 → 煌 の合成候補。意思を持ってやる特別操作のため一撃合成(runSynthCascade)には含めない。
+function computePrismCandidates(coll) {
+  var out = [];
+  TYPES.forEach(function (type) {
+    var c = countOf((coll || {})[type.id + '_11']);
+    if (c >= PRISM_MERGE) {
+      out.push({
+        special: 'prism',
+        key: type.id + '_11',
+        typeId: type.id,
+        rank: 11,
+        targetRank: 11,
+        req: PRISM_MERGE,
+        count: c,
+        synthCount: Math.floor(c / PRISM_MERGE)
+      });
+    }
+  });
+  return out;
+}
 
 // 任意のコレクション状態から合成候補を列挙する純関数(一撃合成の連鎖計算にも使う)
 function computeSynthCandidates(coll) {
@@ -1455,7 +1676,7 @@ function runSynthCascade(startColl, onMaxCreated) {
           _iterator.f();
         }
         for (var i = 0; i < c.synthCount; i++) {
-          var rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+          var rt = rollMaxType(n); // 神域は解放セーブでのみ★MAX抽選に混ざる
           var nm = MONSTERS[rt.id][10];
           var nr = RARITIES[10];
           var nk = "".concat(rt.id, "_11");
@@ -1779,6 +2000,7 @@ function getCrownLevel(bonus) {
 var URA_ITEMS = function () {
   var items = [];
   TYPES.forEach(function (type) {
+    if (type.id === SHRINE_ID) return; // 裏アイテムは従来6種66件で固定(神域は裏に含めない)
     for (var rank = 1; rank <= 11; rank++) {
       var m = MONSTERS[type.id][rank - 1];
       if (!m) continue;
@@ -1805,17 +2027,23 @@ var URA_PROBABILITY = 16384; // 1/16384 per item in pool
 // 20-63 obtained (pool 46-3): 1/16384 per item
 // 64-65 obtained (pool 2-1): 1/8192 per item
 // Expected total: ~71,800 pulls to complete all 66
-function rollUraItem(uraPool) {
+// probMult: 当選確率の倍率(未指定/1=従来どおり。spaceのセット効果で1.1)。
+// 当選確率は uraPool.length / prob なので、確率をx倍するには分母をxで割る。
+function rollUraItem(uraPool, probMult) {
   if (!uraPool || uraPool.length === 0) return null;
   var obtained = URA_ITEMS.length - uraPool.length;
-  var prob = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  var base = obtained < 20 ? 32768 : uraPool.length <= 2 ? 8192 : 16384;
+  var prob = Math.max(1, Math.round(base / (probMult > 0 ? probMult : 1)));
   var roll = Math.floor(Math.random() * prob);
   if (roll >= uraPool.length) return null;
   return uraPool[roll];
 }
-function rollMonster(crownBonus) {
+
+// coll未指定(=undefined)なら従来6種のみ。呼び出し側が解放セーブのcollectionを渡した時だけ神域が混ざる。
+function rollMonster(crownBonus, coll) {
   var rank = rollRarity(crownBonus);
-  var type = TYPES[Math.floor(Math.random() * TYPES.length)];
+  var pool = typesFor(coll);
+  var type = pool[Math.floor(Math.random() * pool.length)];
   var m = MONSTERS[type.id][rank - 1];
   return _objectSpread(_objectSpread({}, m), {}, {
     typeId: type.id,
@@ -2344,7 +2572,9 @@ function MonsterGacha() {
           _k$split2 = _slicedToArray(_k$split, 2),
           typeId = _k$split2[0],
           rankStr = _k$split2[1];
-        var rank = parseInt(rankStr);
+        // ★MAX進化(煌): キーは <typeId>_11k。rank自体は11のまま・名前に「・煌」・prismフラグを付ける
+        var prism = rankStr === '11k';
+        var rank = prism ? 11 : parseInt(rankStr);
         var type = TYPES.find(function (t) {
           return t.id === typeId;
         });
@@ -2360,6 +2590,10 @@ function MonsterGacha() {
           rarity: rarity,
           count: count
         });
+        if (prism) {
+          col[k].name = m.name + PRISM_NAME_SUFFIX;
+          col[k].prism = true;
+        }
       },
       _ret;
     for (var k in c) {
@@ -2769,11 +3003,15 @@ function MonsterGacha() {
             // Write ranking data on save
             if (s.nickname) {
               try {
-                bs = s.bestScores || {};
-                bestMiniGame = Object.entries(bs).reduce(function (best, _ref9) {
-                  var _ref0 = _slicedToArray(_ref9, 2),
-                    k = _ref0[0],
-                    v = _ref0[1];
+                bs = s.bestScores || {}; // 旧世代キー(SCORE_KEY_MAPの左辺=godAnother旧配点)はベスト集計から除外する
+                bestMiniGame = Object.entries(bs).filter(function (_ref9) {
+                  var _ref0 = _slicedToArray(_ref9, 1),
+                    k = _ref0[0];
+                  return !(k in SCORE_KEY_MAP);
+                }).reduce(function (best, _ref1) {
+                  var _ref10 = _slicedToArray(_ref1, 2),
+                    k = _ref10[0],
+                    v = _ref10[1];
                   return v > (best.score || 0) ? {
                     id: k,
                     score: v
@@ -2783,22 +3021,21 @@ function MonsterGacha() {
                   score: 0
                 });
                 _colCount = Object.keys(compressed).length;
-                colPower = Object.entries(compressed).reduce(function (sum, _ref1) {
-                  var _ref10 = _slicedToArray(_ref1, 2),
-                    k = _ref10[0],
-                    cnt = _ref10[1];
-                  var rank = parseInt(k.split('_')[1]) || 0;
-                  return sum + (POWER_VALUES[rank - 1] || 0) * (typeof cnt === 'number' ? cnt : 0);
+                colPower = Object.entries(compressed).reduce(function (sum, _ref11) {
+                  var _ref12 = _slicedToArray(_ref11, 2),
+                    k = _ref12[0],
+                    cnt = _ref12[1];
+                  // 煌(_11k)は★MAX3個分として数える(進化でランキング資産が減らない)
+                  return sum + entryPower(k, typeof cnt === 'number' ? cnt : 0);
                 }, 0) + URA_ITEMS.filter(function (u) {
                   return (s.uraObtained || []).includes(u.id);
                 }).reduce(function (sum, u) {
                   return sum + u.value;
                 }, 0);
                 cTier = function () {
-                  var mc = TYPES.map(function (t) {
-                    var c = compressed["".concat(t.id, "_11")];
-                    return typeof c === 'number' ? c : 0;
-                  });
+                  var mc = BASE_TYPES.map(function (t) {
+                    return maxEffCount(compressed, t.id);
+                  }); // Tier判定は従来6種のみ(minMaxCountと同一規則)
                   var mn = Math.min.apply(Math, _toConsumableArray(mc));
                   var uraComplete = (s.uraObtained || []).length >= URA_ITEMS.length;
                   return uraComplete ? 3 : mn >= 3 ? 2 : mn >= 1 ? 1 : 0;
@@ -2825,10 +3062,10 @@ function MonsterGacha() {
                     }
                     window.fbDb.ref('rankings/' + s.nickname).update(rankBase).catch(function () {});
                     if (Object.keys(bs).length > 0) {
-                      Object.entries(bs).forEach(function (_ref11) {
-                        var _ref12 = _slicedToArray(_ref11, 2),
-                          gid = _ref12[0],
-                          score = _ref12[1];
+                      Object.entries(bs).forEach(function (_ref13) {
+                        var _ref14 = _slicedToArray(_ref13, 2),
+                          gid = _ref14[0],
+                          score = _ref14[1];
                         window.fbDb.ref('rankings/' + s.nickname + '/bestScores/' + gid).transaction(function (current) {
                           return Math.max(current || 0, score);
                         }).catch(function () {});
@@ -2836,10 +3073,10 @@ function MonsterGacha() {
                     }
                     if (s.playCounts && Object.keys(s.playCounts).length > 0) {
                       // bestScoresと同様にMath.maxのtransactionで保護(絶対値updateはFirebase側の大きい値を潰す)
-                      Object.entries(s.playCounts).forEach(function (_ref13) {
-                        var _ref14 = _slicedToArray(_ref13, 2),
-                          gid = _ref14[0],
-                          c = _ref14[1];
+                      Object.entries(s.playCounts).forEach(function (_ref15) {
+                        var _ref16 = _slicedToArray(_ref15, 2),
+                          gid = _ref16[0],
+                          c = _ref16[1];
                         window.fbDb.ref('rankings/' + s.nickname + '/playCounts/' + gid).transaction(function (cur) {
                           return Math.max(cur || 0, c);
                         }).catch(function () {});
@@ -2975,6 +3212,19 @@ function MonsterGacha() {
     receivingRef.current = false;
   }, [pendingGifts, nickname]);
 
+  // 種族セット効果(コレクションボーナス): ★1〜★10の10種を揃えた種族の効果が常時発動する。
+  // contributeMission/pull/回復タイマーより前に宣言する(依存配列は即時評価されるためTDZ回避)。
+  var setBonuses = useMemo(function () {
+    return computeSetBonuses(collection);
+  }, [collection]);
+  // コールバック・タイマーからはref経由で読む(既存の依存配列を一切変えないため。
+  // 描画のたびに最新値へ更新されるので、クリック時・タイマー発火時は常に現在値)
+  var setBonusesRef = useRef(setBonuses);
+  setBonusesRef.current = setBonuses;
+  // ガチャ費用: 表示・コイン不足判定・支払いが必ず同じ値を見るよう1箇所に集約
+  var gachaCost10 = gachaCostFor(10, setBonuses);
+  var gachaCost40 = gachaCostFor(40, setBonuses);
+
   // デイリーミッションへの加算。呼び出し側(sendGift/pull/doSynthSingle/handleMiniGameScore)より
   // 先に宣言する必要がある(依存配列は即時評価されるためTDZ回避)
   var contributeMission = useCallback(function (missionType, amount) {
@@ -2986,9 +3236,11 @@ function MonsterGacha() {
     });
     if (!mission) return;
     var ref = window.fbDb.ref('dailyMissions/' + today + '/' + mission.id + '/contributions/' + nickname);
+    // 王国セット効果: 貢献量+10%(共有DBに入る唯一のセット効果。+10%は許容済み)
+    var contributed = setBonusesRef.current.kingdom ? Math.round(amount * (1 + SET_BONUS_EFFECTS.kingdom.rate)) : amount;
     // 1人あたりの上限は撤廃(加算はtransactionでサーバ側集計のまま)
     ref.transaction(function (current) {
-      return (current || 0) + amount;
+      return (current || 0) + contributed;
     }).catch(function () {});
   }, [nickname, missionDate]);
   var sendGift = useCallback(function (itemKey, recipientName) {
@@ -3078,7 +3330,9 @@ function MonsterGacha() {
       if (lastLoginDate === today) return;
       var yesterday = getLocalDate(new Date(Date.now() - 86400000));
       var newStreak = lastLoginDate === yesterday ? loginStreak + 1 : 1;
-      var bonusCoins = Math.min(newStreak, 10) * 400;
+      var baseBonus = Math.min(newStreak, 10) * 400;
+      // 古代秘宝セット効果: ログインボーナス+20%
+      var bonusCoins = setBonusesRef.current.relic ? Math.round(baseBonus * (1 + SET_BONUS_EFFECTS.relic.rate)) : baseBonus;
       setLoginStreak(newStreak);
       setLastLoginDate(today);
       setCoins(function (c) {
@@ -3099,12 +3353,17 @@ function MonsterGacha() {
   }, [loaded, slotId, lastLoginDate, loginStreak, missionDate]);
 
   // Auto coin recovery: +1 every 2s (+1% per login streak day)
+  // 黄金遺産セット効果: 回復量+25%。1tickの回復量が小さい整数なので端数は確率で+1し、
+  // 期待値をちょうど+25%に合わせる(base=1なら25%の確率で+1)。
   var loginStreakRef = useRef(0);
   loginStreakRef.current = loginStreak;
   useEffect(function () {
     var t = setInterval(function () {
       return setCoins(function (c) {
-        return c + 1 + Math.floor(loginStreakRef.current * 0.01);
+        var base = 1 + Math.floor(loginStreakRef.current * 0.01);
+        if (!setBonusesRef.current.gold) return c + base;
+        var extra = base * SET_BONUS_EFFECTS.gold.rate;
+        return c + base + Math.floor(extra) + (Math.random() < extra % 1 ? 1 : 0);
       });
     }, 2000);
     return function () {
@@ -3126,10 +3385,11 @@ function MonsterGacha() {
 
   // ★MAX ownership tracking - 3 tiers
   // Tier1: ★11全6種×1, Tier2: ★11全6種×2, Tier3: 裏アイテム全66種コンプリート
+  // 実効数 = _11.count + 3 × _11k.count(煌に進化してもTier判定・展示の所持が落ちない)
+  // 表示用(ホームのMAX TREASURE列など)。★12 Tier判定には使わない(下のminMaxCountはBASE_TYPES固定)
   var maxCounts = useMemo(function () {
-    return TYPES.map(function (t) {
-      var _collection;
-      return ((_collection = collection["".concat(t.id, "_11")]) === null || _collection === void 0 ? void 0 : _collection.count) || 0;
+    return typesFor(collection).map(function (t) {
+      return maxEffCount(collection, t.id);
     });
   }, [collection]);
   var hasAnyMax = maxCounts.some(function (c) {
@@ -3138,7 +3398,10 @@ function MonsterGacha() {
   var maxTypesOwned = maxCounts.filter(function (c) {
     return c > 0;
   }).length;
-  var minMaxCount = Math.min.apply(Math, _toConsumableArray(maxCounts));
+  // ★12 Congratulations の Tier判定は従来6種のみで行う(神域を算入しない=既存プレイヤーのTierが落ちない)
+  var minMaxCount = Math.min.apply(Math, _toConsumableArray(BASE_TYPES.map(function (t) {
+    return maxEffCount(collection, t.id);
+  })));
   var uraComplete = uraObtained.length >= URA_ITEMS.length;
   var congratsTier = uraComplete ? 3 : minMaxCount >= 3 ? 2 : minMaxCount >= 1 ? 1 : 0;
   var isComplete = congratsTier >= 1;
@@ -3199,8 +3462,11 @@ function MonsterGacha() {
     }, 0);
   }, [spending]);
   var totalPower = useMemo(function () {
-    var colAssets = Object.values(collection).reduce(function (sum, m) {
-      return sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+    var colAssets = Object.entries(collection).reduce(function (sum, _ref17) {
+      var _ref18 = _slicedToArray(_ref17, 2),
+        k = _ref18[0],
+        m = _ref18[1];
+      return sum + entryPower(k, m.count || 0, m.rank);
     }, 0);
     var uraAssets = URA_ITEMS.filter(function (u) {
       return uraObtained.includes(u.id);
@@ -3345,7 +3611,8 @@ function MonsterGacha() {
       var uraWins = []; // 複数当選を全て演出する(従来は最後の1個しか演出されず無言付与だった)
       var _loop2 = function _loop2() {
         if (localPool.length === 0) return 1; // break
-        var uraResult = rollUraItem(localPool);
+        // 宇宙の秘宝セット効果: 裏アイテム抽選確率+10%
+        var uraResult = rollUraItem(localPool, setBonusesRef.current.space ? 1 + SET_BONUS_EFFECTS.space.rate : 1);
         if (uraResult) {
           uraWins.push(uraResult);
           var idx2 = localPool.findIndex(function (u) {
@@ -3436,10 +3703,10 @@ function MonsterGacha() {
       var getRevealDelay = function getRevealDelay(rank) {
         return rank >= 10 ? 1000 : rank === 9 ? 720 : rank === 8 ? 540 : rank === 7 ? 360 : rank === 6 ? 240 : rank === 5 ? 160 : 150;
       };
-      var groupEntries = Object.entries(timeGroups).map(function (_ref15) {
-        var _ref16 = _slicedToArray(_ref15, 2),
-          time = _ref16[0],
-          group = _ref16[1];
+      var groupEntries = Object.entries(timeGroups).map(function (_ref19) {
+        var _ref20 = _slicedToArray(_ref19, 2),
+          time = _ref20[0],
+          group = _ref20[1];
         var maxGroupRank = Math.max.apply(Math, _toConsumableArray(group.map(function (o) {
           return o.rank;
         })));
@@ -3459,11 +3726,11 @@ function MonsterGacha() {
           lastIdx = gi;
         }
       });
-      groupEntries.forEach(function (_ref17, gIdx) {
-        var time = _ref17.time,
-          group = _ref17.group,
-          maxGroupRank = _ref17.maxGroupRank,
-          revealDelay = _ref17.revealDelay;
+      groupEntries.forEach(function (_ref21, gIdx) {
+        var time = _ref21.time,
+          group = _ref21.group,
+          maxGroupRank = _ref21.maxGroupRank,
+          revealDelay = _ref21.revealDelay;
         return autoOpenRef.current.push(setTimeout(function () {
           var isLastGroup = gIdx === lastIdx;
           // Open all cards in this time group at once
@@ -3658,7 +3925,8 @@ function MonsterGacha() {
     }, uraDelay)); // Delay chest animation if ura item was shown
   }, [addToCollection, nickname, uraUnlocked, uraPool, uraObtained]);
   var pull = useCallback(function (n) {
-    var cost = n === 10 ? GACHA_COST_10 : GACHA_COST_40;
+    // 表示・disabled判定と同じ算出口を通す(setBonusesRefは描画のたびに更新済み=クリック時点の現在値)
+    var cost = gachaCostFor(n, setBonusesRef.current);
     if (coins < cost) return;
     if (window.__gPullBusy) return; // 多重実行ガード(連打による二重課金+開封タイマー消失の防止)
     window.__gPullBusy = true;
@@ -3674,10 +3942,11 @@ function MonsterGacha() {
       return t + n;
     });
     contributeMission('gacha', n);
+    // 神域の解放判定に現在のcollectionが要る。pullの依存配列にcollectionが無いためrefで渡す(常に最新)
     var res = Array.from({
       length: n
     }, function () {
-      return rollMonster(crownBonus);
+      return rollMonster(crownBonus, collectionRef.current);
     });
     var maxRank = Math.max.apply(Math, _toConsumableArray(res.map(function (r) {
       return r.rank;
@@ -3768,6 +4037,10 @@ function MonsterGacha() {
   var getReq = getSynthReq;
   var findSynthCandidates = useCallback(function () {
     return computeSynthCandidates(collection);
+  }, [collection]);
+  // ★MAX進化(煌)の候補。一撃合成には混ぜないため findSynthCandidates とは別経路で渡す。
+  var findPrismCandidates = useCallback(function () {
+    return computePrismCandidates(collection);
   }, [collection]);
   var playSynthSound = function playSynthSound(targetRank) {
     if (targetRank >= 11) {
@@ -3867,7 +4140,7 @@ function MonsterGacha() {
   var advanceSynthRetry = useCallback(function () {
     var cur = collectionRef.current || {};
     var eligible = TYPES.filter(function (t) {
-      return cur["".concat(t.id, "_11")] && cur["".concat(t.id, "_11")].count > 0;
+      return maxEffCount(cur, t.id) > 0;
     }).length >= 4;
     while (synthRetryQueueRef.current.length > 0) {
       var next = synthRetryQueueRef.current.shift();
@@ -3895,6 +4168,9 @@ function MonsterGacha() {
     });
   }, [sendMaxNotif]);
   var doSynthSingle = useCallback(function (keyOrSpecial, typeId, rank, targetRank) {
+    var _collection;
+    // ★MAX進化(煌): 消費元が足りない時は演出も鳴らさず何もしない(先に弾く)
+    if (keyOrSpecial === 'prism' && (((_collection = collection["".concat(typeId, "_11")]) === null || _collection === void 0 ? void 0 : _collection.count) || 0) < PRISM_MERGE) return;
     // Clear any pending synth timers from previous synthesis
     if (synthQueueRef.current) {
       synthQueueRef.current.forEach(function (t) {
@@ -3909,7 +4185,46 @@ function MonsterGacha() {
       return playSynthSound(targetRank);
     }, 200);
     contributeMission('synth', 1);
-    if (rank === 10 && targetRank === 11) {
+    if (keyOrSpecial === 'prism') {
+      // ★MAX×3 → 「・煌」1個。リロール対象外(意思を持ってやる特別な操作)・通知も送らない。
+      setCollection(function (prev) {
+        var _n$bk;
+        var n = _objectSpread({}, prev);
+        var bk = "".concat(typeId, "_11");
+        var left = (((_n$bk = n[bk]) === null || _n$bk === void 0 ? void 0 : _n$bk.count) || 0) - PRISM_MERGE;
+        if (left > 0) n[bk] = _objectSpread(_objectSpread({}, n[bk]), {}, {
+          count: left
+        });else delete n[bk];
+        var tp = TYPES.find(function (t) {
+          return t.id === typeId;
+        });
+        var nm = MONSTERS[typeId][10];
+        var nr = RARITIES[10];
+        var pk = typeId + PRISM_SUFFIX;
+        if (n[pk]) n[pk] = _objectSpread(_objectSpread({}, n[pk]), {}, {
+          count: n[pk].count + 1
+        });else n[pk] = _objectSpread(_objectSpread({}, nm), {}, {
+          name: nm.name + PRISM_NAME_SUFFIX,
+          typeId: typeId,
+          typeName: tp.name,
+          typeEmoji: tp.emoji,
+          typeColor: tp.color,
+          rank: 11,
+          rarity: nr,
+          prism: true,
+          count: 1
+        });
+        setSynthResult({
+          icon: nm.icon,
+          name: nm.name + PRISM_NAME_SUFFIX,
+          rank: 11,
+          rarity: nr,
+          img: nm.img,
+          prism: true
+        });
+        return n;
+      });
+    } else if (rank === 10 && targetRank === 11) {
       // ★10 special: consume 3 from any ★10 (keep 1 per type), produce random ★MAX
       setCollection(function (prev) {
         var n = _objectSpread({}, prev);
@@ -3934,7 +4249,7 @@ function MonsterGacha() {
         } finally {
           _iterator3.f();
         }
-        var rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+        var rt = rollMaxType(n);
         var nm = MONSTERS[rt.id][10];
         var nr = RARITIES[10];
         var nk = "".concat(rt.id, "_11");
@@ -3958,7 +4273,7 @@ function MonsterGacha() {
         });
         // Check if player owns 4+ unique ★MAX types → offer retry
         var maxPatternsOwned = TYPES.filter(function (t) {
-          return n["".concat(t.id, "_11")] && n["".concat(t.id, "_11")].count > 0;
+          return maxEffCount(n, t.id) > 0;
         }).length;
         if (maxPatternsOwned >= 4) {
           // Don't send notification yet - wait for retry decision
@@ -4046,7 +4361,7 @@ function MonsterGacha() {
         count: n[oldKey].count - 1
       });else if (n[oldKey]) delete n[oldKey];
       // Roll new random ★MAX
-      var rt = TYPES[Math.floor(Math.random() * TYPES.length)];
+      var rt = rollMaxType(n);
       var nm = MONSTERS[rt.id][10];
       var nr = RARITIES[10];
       var nk = "".concat(rt.id, "_11");
@@ -4304,10 +4619,10 @@ function MonsterGacha() {
     GAME_IDS.forEach(function (gid) {
       var scores = entries.filter(function (e) {
         var _e$bestScores;
-        return (((_e$bestScores = e.bestScores) === null || _e$bestScores === void 0 ? void 0 : _e$bestScores[gid]) || 0) > 0;
+        return (((_e$bestScores = e.bestScores) === null || _e$bestScores === void 0 ? void 0 : _e$bestScores[scoreKeyOf(gid)]) || 0) > 0;
       }).sort(function (a, b) {
         var _b$bestScores, _a$bestScores;
-        return (((_b$bestScores = b.bestScores) === null || _b$bestScores === void 0 ? void 0 : _b$bestScores[gid]) || 0) - (((_a$bestScores = a.bestScores) === null || _a$bestScores === void 0 ? void 0 : _a$bestScores[gid]) || 0);
+        return (((_b$bestScores = b.bestScores) === null || _b$bestScores === void 0 ? void 0 : _b$bestScores[scoreKeyOf(gid)]) || 0) - (((_a$bestScores = a.bestScores) === null || _a$bestScores === void 0 ? void 0 : _a$bestScores[scoreKeyOf(gid)]) || 0);
       });
       if (scores.length > 0 && scores[0].name === nick) {
         gold++;
@@ -4354,10 +4669,10 @@ function MonsterGacha() {
     var ws = weeklyScores || {};
     if (ws._weekId === weekId) {
       var updates = {};
-      Object.entries(ws).forEach(function (_ref18) {
-        var _ref19 = _slicedToArray(_ref18, 2),
-          gid = _ref19[0],
-          score = _ref19[1];
+      Object.entries(ws).forEach(function (_ref22) {
+        var _ref23 = _slicedToArray(_ref22, 2),
+          gid = _ref23[0],
+          score = _ref23[1];
         if (gid !== '_weekId' && score > 0) updates[gid] = score;
       });
       if (Object.keys(updates).length > 0) {
@@ -4535,8 +4850,10 @@ function MonsterGacha() {
   // Phase 1: Called immediately when game ends - coins + scores recorded instantly
   var handleMiniGameScore = useCallback(function (gameId, earned) {
     var boosted = nickname === 'ココミ' ? Math.round(earned * 1.3) : earned;
+    // 芸術品セット効果: 獲得コイン+5%(コインのみ。スコア・ランキング・ミッションはboostedのまま)
+    var gained = setBonusesRef.current.art ? Math.round(boosted * (1 + SET_BONUS_EFFECTS.art.rate)) : boosted;
     setCoins(function (p) {
-      return p + boosted;
+      return p + gained;
     });
     if (!nickname) {
       // 無言欠落の可視化: 記録されないことをその場で知らせる(2026-08-24 RCA)
@@ -4545,21 +4862,23 @@ function MonsterGacha() {
         return setSaveMsg('');
       }, 5000);
     }
+    // スコアは世代キー(scoreKeyOf)で記録する(godAnother=第8次で世代交代済み)
+    var sk = scoreKeyOf(gameId);
     setBestScores(function (prev) {
-      var isNewBest = boosted > (prev[gameId] || 0);
+      var isNewBest = boosted > (prev[sk] || 0);
       if (isNewBest) {
         setNewRecord({
           gameId: gameId,
           score: boosted,
-          prev: prev[gameId] || 0
+          prev: prev[sk] || 0
         });
         setTimeout(function () {
           return setNewRecord(null);
         }, 3000);
       }
-      var updated = isNewBest ? _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, gameId, boosted)) : prev;
+      var updated = isNewBest ? _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, sk, boosted)) : prev;
       if (isNewBest && nickname && window.fbDb) {
-        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + gameId).set(boosted).catch(function () {});
+        window.fbDb.ref('rankings/' + nickname + '/bestScores/' + sk).set(boosted).catch(function () {});
       }
       return updated;
     });
@@ -4578,14 +4897,14 @@ function MonsterGacha() {
       var weekData = prev._weekId === weekId ? prev : {
         _weekId: weekId
       };
-      var isNewWeekBest = boosted > (weekData[gameId] || 0);
-      var updated = isNewWeekBest ? _objectSpread(_objectSpread({}, weekData), {}, _defineProperty({}, gameId, boosted)) : weekData;
+      var isNewWeekBest = boosted > (weekData[sk] || 0);
+      var updated = isNewWeekBest ? _objectSpread(_objectSpread({}, weekData), {}, _defineProperty({}, sk, boosted)) : weekData;
       if (isNewWeekBest && nickname && window.fbDb) {
-        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + gameId).set(boosted).catch(function () {});
+        window.fbDb.ref('weeklyRankings/' + weekId + '/' + nickname + '/' + sk).set(boosted).catch(function () {});
       }
       var today = getLocalDate();
       if (nickname && window.fbDb) {
-        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + gameId).transaction(function (current) {
+        window.fbDb.ref('dailyRankings/' + today + '/' + nickname + '/' + sk).transaction(function (current) {
           return Math.max(current || 0, boosted);
         }).catch(function () {});
       }
@@ -4615,13 +4934,12 @@ function MonsterGacha() {
   // Calculate power from a save data object
   var calcPower = function calcPower(col) {
     if (!col) return 0;
-    return Object.entries(col).reduce(function (s, _ref20) {
-      var _ref21 = _slicedToArray(_ref20, 2),
-        k = _ref21[0],
-        v = _ref21[1];
+    return Object.entries(col).reduce(function (s, _ref24) {
+      var _ref25 = _slicedToArray(_ref24, 2),
+        k = _ref25[0],
+        v = _ref25[1];
       var count = typeof v === 'number' ? v : (v === null || v === void 0 ? void 0 : v.count) || 0;
-      var rank = parseInt(k.split('_')[1]) || 0;
-      return s + (POWER_VALUES[rank - 1] || 0) * count;
+      return s + entryPower(k, count);
     }, 0);
   };
 
@@ -4913,8 +5231,8 @@ function MonsterGacha() {
         return s + u.value;
       }, 0) : 0;
       var colCnt = data ? Object.keys(data.collection || {}).length : 0;
-      var slotCleared = data ? TYPES.every(function (t) {
-        return data.collection["".concat(t.id, "_11")];
+      var slotCleared = data ? BASE_TYPES.every(function (t) {
+        return maxEffCount(data.collection || {}, t.id) > 0;
       }) : false;
       return /*#__PURE__*/React.createElement("div", {
         key: id,
@@ -6165,9 +6483,10 @@ function MonsterGacha() {
     style: {
       display: 'flex',
       justifyContent: 'center',
-      gap: 6
+      gap: 6,
+      flexWrap: 'wrap'
     }
-  }, TYPES.map(function (type, i) {
+  }, typesFor(collection).map(function (type, i) {
     var owned = maxCounts[i] > 0;
     var monster = MONSTERS[type.id][10];
     return /*#__PURE__*/React.createElement("div", {
@@ -6259,7 +6578,7 @@ function MonsterGacha() {
     }
   }, maxCounts.filter(function (c) {
     return c > 0;
-  }).length, " / 6"))), /*#__PURE__*/React.createElement("div", {
+  }).length, " / ", maxCounts.length))), /*#__PURE__*/React.createElement("div", {
     onClick: function onClick() {
       return nav("gacha");
     },
@@ -6893,7 +7212,7 @@ function MonsterGacha() {
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb10 gpb-lg",
-    disabled: coins < GACHA_COST_10,
+    disabled: coins < gachaCost10,
     onClick: function onClick() {
       return pull(10);
     },
@@ -6915,9 +7234,9 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "10\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99 ", GACHA_COST_10)), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDE99 ", gachaCost10)), /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb40 gpb-lg",
-    disabled: coins < GACHA_COST_40,
+    disabled: coins < gachaCost40,
     onClick: function onClick() {
       return pull(40);
     },
@@ -6939,7 +7258,7 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "40\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99 ", GACHA_COST_40))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83E\uDE99 ", gachaCost40))), /*#__PURE__*/React.createElement("div", {
     style: {
       maxWidth: 320,
       margin: '0 auto'
@@ -7065,7 +7384,7 @@ function MonsterGacha() {
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb10 gpb-sm",
-    disabled: !allOpened || coins < GACHA_COST_10,
+    disabled: !allOpened || coins < gachaCost10,
     onClick: function onClick() {
       return pull(10);
     }
@@ -7084,9 +7403,9 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "10\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99", GACHA_COST_10)), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDE99", gachaCost10)), /*#__PURE__*/React.createElement("button", {
     className: "btn gpb gpb40 gpb-sm",
-    disabled: !allOpened || coins < GACHA_COST_40,
+    disabled: !allOpened || coins < gachaCost40,
     onClick: function onClick() {
       return pull(40);
     }
@@ -7105,7 +7424,7 @@ function MonsterGacha() {
     className: "gpb-label"
   }, "40\u9023"), /*#__PURE__*/React.createElement("span", {
     className: "gpb-cost"
-  }, "\uD83E\uDE99", GACHA_COST_40))), !allOpened && /*#__PURE__*/React.createElement("p", {
+  }, "\uD83E\uDE99", gachaCost40))), !allOpened && /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 13,
       fontWeight: 700,
@@ -7660,6 +7979,7 @@ function MonsterGacha() {
   }), screen === "collection" && /*#__PURE__*/React.createElement(CollectionView, {
     collection: collection,
     onSelect: setModal,
+    setBonuses: setBonuses,
     uraUnlocked: uraUnlocked,
     uraObtained: uraObtained,
     showUraMuseum: showUraMuseum,
@@ -7719,11 +8039,15 @@ function MonsterGacha() {
     collection: collection,
     synthResult: synthResult,
     onFindCandidates: findSynthCandidates,
+    onFindPrism: findPrismCandidates,
     onSynthSingle: doSynthSingle,
     onSynthAll: doSynthAll
   }), screen === "spend" && function () {
-    var grossAssets = Object.values(collection).reduce(function (sum, m) {
-      return sum + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+    var grossAssets = Object.entries(collection).reduce(function (sum, _ref28) {
+      var _ref29 = _slicedToArray(_ref28, 2),
+        k = _ref29[0],
+        m = _ref29[1];
+      return sum + entryPower(k, m.count || 0, m.rank);
     }, 0) + URA_ITEMS.filter(function (u) {
       return uraObtained.includes(u.id);
     }).reduce(function (s, u) {
@@ -7960,7 +8284,7 @@ function MonsterGacha() {
       className: "nb-ind"
     }));
   })), modal && function () {
-    var rkCls = modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
+    var rkCls = modal.prism ? 'rank-rainbow' : modal.rank >= 11 ? 'rank-diamond' : modal.rank === 10 ? 'rank-rainbow' : modal.rank === 9 ? 'rank-gold' : modal.rank === 8 ? 'rank-silver' : modal.rank === 7 ? 'rank-epic' : modal.rank === 6 ? 'rank-ultra' : '';
     var cardCls = modal.rank >= 11 ? 'rank11-card' : modal.rank === 10 ? 'rank10-card' : modal.rank === 9 ? 'rank9-card' : modal.rank === 8 ? 'rank8-card' : modal.rank === 7 ? 'rank7-card' : modal.rank === 6 ? 'rank6-card' : '';
     return /*#__PURE__*/React.createElement("div", {
       className: "mo",
@@ -8041,13 +8365,13 @@ function MonsterGacha() {
         fontWeight: 900,
         color: '#c084fc'
       }
-    }, formatYen(POWER_VALUES[modal.rank - 1])), modal.count > 1 && /*#__PURE__*/React.createElement("span", {
+    }, formatYen(itemUnitPower(modal))), modal.count > 1 && /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 11,
         opacity: 0.4,
         marginLeft: 8
       }
-    }, "(\u5408\u8A08: ", formatYen(POWER_VALUES[modal.rank - 1] * modal.count), ")")), /*#__PURE__*/React.createElement("div", {
+    }, "(\u5408\u8A08: ", formatYen(itemUnitPower(modal) * modal.count), ")")), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 8,
@@ -8250,7 +8574,7 @@ function MonsterGacha() {
         gap: 10,
         marginBottom: 16
       }
-    }, TYPES.map(function (type, i) {
+    }, BASE_TYPES.map(function (type, i) {
       return /*#__PURE__*/React.createElement("div", {
         key: type.id,
         style: {
@@ -8474,7 +8798,7 @@ function MonsterGacha() {
         gap: 8,
         marginBottom: 10
       }
-    }, TYPES.map(function (type, i) {
+    }, BASE_TYPES.map(function (type, i) {
       return /*#__PURE__*/React.createElement("div", {
         key: type.id,
         style: {
@@ -9246,9 +9570,9 @@ function MonsterGacha() {
 // ============================================================
 // TAP GAME
 // ============================================================
-function TapGame(_ref24) {
-  var onScore = _ref24.onScore,
-    onClose = _ref24.onClose;
+function TapGame(_ref30) {
+  var onScore = _ref30.onScore,
+    onClose = _ref30.onClose;
   var _useState129 = useState("ready"),
     _useState130 = _slicedToArray(_useState129, 2),
     phase = _useState130[0],
@@ -9617,9 +9941,9 @@ function TapGame(_ref24) {
 // ============================================================
 // KUKU GAME (計算ゲーム【初級】九九)
 // ============================================================
-function KukuGame(_ref25) {
-  var onScore = _ref25.onScore,
-    onClose = _ref25.onClose;
+function KukuGame(_ref31) {
+  var onScore = _ref31.onScore,
+    onClose = _ref31.onClose;
   var _useState143 = useState("ready"),
     _useState144 = _slicedToArray(_useState143, 2),
     phase = _useState144[0],
@@ -9836,9 +10160,9 @@ function KukuGame(_ref25) {
 // ============================================================
 // MATH MID GAME (計算ゲーム【中級】足し算引き算)
 // ============================================================
-function MathMidGame(_ref26) {
-  var onScore = _ref26.onScore,
-    onClose = _ref26.onClose;
+function MathMidGame(_ref32) {
+  var onScore = _ref32.onScore,
+    onClose = _ref32.onClose;
   var _useState159 = useState("ready"),
     _useState160 = _slicedToArray(_useState159, 2),
     phase = _useState160[0],
@@ -10064,9 +10388,9 @@ function MathMidGame(_ref26) {
 // ============================================================
 // MATH EASY GAME (計算ゲーム【初級】足し算引き算 2桁±1桁)
 // ============================================================
-function MathEasyGame(_ref27) {
-  var onScore = _ref27.onScore,
-    onClose = _ref27.onClose;
+function MathEasyGame(_ref33) {
+  var onScore = _ref33.onScore,
+    onClose = _ref33.onClose;
   var _useState175 = useState("ready"),
     _useState176 = _slicedToArray(_useState175, 2),
     phase = _useState176[0],
@@ -10290,9 +10614,9 @@ function MathEasyGame(_ref27) {
 // ============================================================
 // MATH HARD ADD/SUB GAME (計算ゲーム【上級】足し算引き算 2桁±2桁)
 // ============================================================
-function MathHardAddGame(_ref28) {
-  var onScore = _ref28.onScore,
-    onClose = _ref28.onClose;
+function MathHardAddGame(_ref34) {
+  var onScore = _ref34.onScore,
+    onClose = _ref34.onClose;
   var _useState191 = useState("ready"),
     _useState192 = _slicedToArray(_useState191, 2),
     phase = _useState192[0],
@@ -10516,9 +10840,9 @@ function MathHardAddGame(_ref28) {
 // ============================================================
 // MATH HARD MULT/DIV GAME (計算ゲーム【上級】掛け算割り算 2桁×1桁, 2桁÷1桁)
 // ============================================================
-function MathHardMultGame(_ref29) {
-  var onScore = _ref29.onScore,
-    onClose = _ref29.onClose;
+function MathHardMultGame(_ref35) {
+  var onScore = _ref35.onScore,
+    onClose = _ref35.onClose;
   var _useState207 = useState("ready"),
     _useState208 = _slicedToArray(_useState207, 2),
     phase = _useState208[0],
@@ -10810,9 +11134,9 @@ var TIMING_BGM = [{
   v: 0.025
 }];
 var TOTAL_TAPS = 10;
-function TimingGame(_ref30) {
-  var onScore = _ref30.onScore,
-    onClose = _ref30.onClose;
+function TimingGame(_ref36) {
+  var onScore = _ref36.onScore,
+    onClose = _ref36.onClose;
   var _useState223 = useState("ready"),
     _useState224 = _slicedToArray(_useState223, 2),
     phase = _useState224[0],
@@ -11972,9 +12296,9 @@ var GEM_BGM = [{
 // ============================================================
 // SHOOTING GALLERY GAME
 // ============================================================
-function ShootingGame(_ref31) {
-  var onScore = _ref31.onScore,
-    onClose = _ref31.onClose;
+function ShootingGame(_ref37) {
+  var onScore = _ref37.onScore,
+    onClose = _ref37.onClose;
   var _useState231 = useState("ready"),
     _useState232 = _slicedToArray(_useState231, 2),
     phase = _useState232[0],
@@ -12253,7 +12577,7 @@ function ShootingGame(_ref31) {
     rafRef.current = requestAnimationFrame(_loop4);
   };
   var handleTap = function handleTap(e) {
-    var _ref32, _e$clientX, _e$touches, _ref33, _e$clientY, _e$touches2;
+    var _ref38, _e$clientX, _e$touches, _ref39, _e$clientY, _e$touches2;
     if (phase !== "play") return;
     var now = Date.now();
     if (now - lastTapTimeRef.current < 50) return;
@@ -12261,8 +12585,8 @@ function ShootingGame(_ref31) {
     var cvs = canvasRef.current;
     if (!cvs) return;
     var rect = cvs.getBoundingClientRect();
-    var tapX = ((_ref32 = (_e$clientX = e.clientX) !== null && _e$clientX !== void 0 ? _e$clientX : (_e$touches = e.touches) === null || _e$touches === void 0 || (_e$touches = _e$touches[0]) === null || _e$touches === void 0 ? void 0 : _e$touches.clientX) !== null && _ref32 !== void 0 ? _ref32 : 0) - rect.left;
-    var tapY = ((_ref33 = (_e$clientY = e.clientY) !== null && _e$clientY !== void 0 ? _e$clientY : (_e$touches2 = e.touches) === null || _e$touches2 === void 0 || (_e$touches2 = _e$touches2[0]) === null || _e$touches2 === void 0 ? void 0 : _e$touches2.clientY) !== null && _ref33 !== void 0 ? _ref33 : 0) - rect.top;
+    var tapX = ((_ref38 = (_e$clientX = e.clientX) !== null && _e$clientX !== void 0 ? _e$clientX : (_e$touches = e.touches) === null || _e$touches === void 0 || (_e$touches = _e$touches[0]) === null || _e$touches === void 0 ? void 0 : _e$touches.clientX) !== null && _ref38 !== void 0 ? _ref38 : 0) - rect.left;
+    var tapY = ((_ref39 = (_e$clientY = e.clientY) !== null && _e$clientY !== void 0 ? _e$clientY : (_e$touches2 = e.touches) === null || _e$touches2 === void 0 || (_e$touches2 = _e$touches2[0]) === null || _e$touches2 === void 0 ? void 0 : _e$touches2.clientY) !== null && _ref39 !== void 0 ? _ref39 : 0) - rect.top;
     var scaleX = CANVAS_W / rect.width;
     var scaleY = CANVAS_H / rect.height;
     var cx = tapX * scaleX;
@@ -12509,9 +12833,9 @@ function towerPreloadAssets() {
     } catch (e) {}
   });
 }
-function CoinTowerGame(_ref34) {
-  var onScore = _ref34.onScore,
-    onClose = _ref34.onClose;
+function CoinTowerGame(_ref40) {
+  var onScore = _ref40.onScore,
+    onClose = _ref40.onClose;
   var _useState245 = useState("ready"),
     _useState246 = _slicedToArray(_useState245, 2),
     phase = _useState246[0],
@@ -13001,9 +13325,9 @@ function CoinTowerGame(_ref34) {
 // ============================================================
 // MEMORY SPEED GAME (神経衰弱スピード)
 // ============================================================
-function MemoryGame(_ref35) {
-  var onScore = _ref35.onScore,
-    onClose = _ref35.onClose;
+function MemoryGame(_ref41) {
+  var onScore = _ref41.onScore,
+    onClose = _ref41.onClose;
   var _useState259 = useState("ready"),
     _useState260 = _slicedToArray(_useState259, 2),
     phase = _useState260[0],
@@ -13056,9 +13380,9 @@ function MemoryGame(_ref35) {
     });
     for (var i = deck.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
-      var _ref36 = [deck[j], deck[i]];
-      deck[i] = _ref36[0];
-      deck[j] = _ref36[1];
+      var _ref42 = [deck[j], deck[i]];
+      deck[i] = _ref42[0];
+      deck[j] = _ref42[1];
     }
     return deck.map(function (c, i) {
       return _objectSpread(_objectSpread({}, c), {}, {
@@ -13334,8 +13658,8 @@ function MemoryGame(_ref35) {
   }, "\u30DF\u30B9: ", misses, "\u56DE"))));
 }
 function _BubbleGame_REMOVED() {/* removed */}
-function BubbleGame_PLACEHOLDER(_ref37) {
-  var onDone = _ref37.onDone;
+function BubbleGame_PLACEHOLDER(_ref43) {
+  var onDone = _ref43.onDone;
   var _useState275 = useState("ready"),
     _useState276 = _slicedToArray(_useState275, 2),
     phase = _useState276[0],
@@ -13614,9 +13938,9 @@ function BubbleGame_PLACEHOLDER(_ref37) {
 // ============================================================
 // QUICK DRAW GUNMAN GAME (早撃ちガンマン)
 // ============================================================
-function QuickDrawGame(_ref38) {
-  var onScore = _ref38.onScore,
-    onClose = _ref38.onClose;
+function QuickDrawGame(_ref44) {
+  var onScore = _ref44.onScore,
+    onClose = _ref44.onClose;
   var _useState287 = useState("ready"),
     _useState288 = _slicedToArray(_useState287, 2),
     phase = _useState288[0],
@@ -14158,9 +14482,9 @@ function jugWarmup() {
   };
   ric(_step5);
 }
-function JugglerGame(_ref39) {
-  var onScore = _ref39.onScore,
-    onClose = _ref39.onClose;
+function JugglerGame(_ref45) {
+  var onScore = _ref45.onScore,
+    onClose = _ref45.onClose;
   var _useState303 = useState("ready"),
     _useState304 = _slicedToArray(_useState303, 2),
     phase = _useState304[0],
@@ -16688,15 +17012,15 @@ var gaMV = function gaMV(c) {
 // 角飾り(神殿モチーフの二重ブラケット)。装飾専用でイベントは通さない
 var GA_CNR_D = 'M1 14 L1 1 L14 1 L14 3.2 L3.2 3.2 L3.2 14 Z M6 11 L6 6 L11 6 L11 7.6 L7.6 7.6 L7.6 11 Z';
 var GA_CNR_POS = [[0, 0, '1,1'], [1, 0, '-1,1'], [0, 1, '1,-1'], [1, 1, '-1,-1']];
-function GaCorners(_ref40) {
-  var _ref40$size = _ref40.size,
-    size = _ref40$size === void 0 ? 12 : _ref40$size,
-    _ref40$inset = _ref40.inset,
-    inset = _ref40$inset === void 0 ? 2 : _ref40$inset,
-    _ref40$color = _ref40.color,
-    color = _ref40$color === void 0 ? '#c9a227' : _ref40$color,
-    _ref40$op = _ref40.op,
-    op = _ref40$op === void 0 ? 0.72 : _ref40$op;
+function GaCorners(_ref46) {
+  var _ref46$size = _ref46.size,
+    size = _ref46$size === void 0 ? 12 : _ref46$size,
+    _ref46$inset = _ref46.inset,
+    inset = _ref46$inset === void 0 ? 2 : _ref46$inset,
+    _ref46$color = _ref46.color,
+    color = _ref46$color === void 0 ? '#c9a227' : _ref46$color,
+    _ref46$op = _ref46.op,
+    op = _ref46$op === void 0 ? 0.72 : _ref46$op;
   return /*#__PURE__*/React.createElement(React.Fragment, null, GA_CNR_POS.map(function (p, i) {
     var st = {
       position: 'absolute',
@@ -16719,9 +17043,9 @@ function GaCorners(_ref40) {
     }));
   }));
 }
-function GodAnotherGame(_ref41) {
-  var onScore = _ref41.onScore,
-    onClose = _ref41.onClose;
+function GodAnotherGame(_ref47) {
+  var onScore = _ref47.onScore,
+    onClose = _ref47.onClose;
   var _useState349 = useState("ready"),
     _useState350 = _slicedToArray(_useState349, 2),
     phase = _useState350[0],
@@ -17043,18 +17367,19 @@ function GodAnotherGame(_ref41) {
   ['y7', 64] // 中段黄7 64/65536 = 1/1024(2026-08-25 竹森氏指示: 1/1024・配点1800に変更)
   // ガセ前兆フラグは2026-08-25廃止(doGase等の演出コードは残置)
   ];
+  // 2026-08-25 竹森氏指示: 全配点を約60%に減額(GODは7続きの遊び心を残して4777。AG=GOD×4、クラッシュGOD=GOD×2の関係は維持)
   var BASE = {
-    sin: 20000,
-    amazing: 31108,
-    hades: 20000,
-    violet: 14000,
-    cgod: 15554,
-    cmeio: 10000,
-    cpurple: 7000,
-    god: 7777,
-    meio: 5000,
-    purple: 3500,
-    y7: 1800
+    sin: 12000,
+    amazing: 19108,
+    hades: 12000,
+    violet: 8400,
+    cgod: 9554,
+    cmeio: 6000,
+    cpurple: 4200,
+    god: 4777,
+    meio: 3000,
+    purple: 2100,
+    y7: 1080
   };
   var SYMS = {
     y7: {
@@ -18489,13 +18814,15 @@ function GodAnotherGame(_ref41) {
     var newJugRen = hitAt <= 100 ? jugRenRef.current + 1 : 1;
     jugRenRef.current = newJugRen;
     setJugRen(newJugRen);
-    var baseMult = 1 + (newJugRen - 1) * 0.1;
+    // 2026-08-25 竹森氏指示: 連チャン倍率を0.5刻みに(連チャン=1.5倍、以後+0.5ずつ。非連チャンの初当りは1倍)
+    var baseMult = 1 + (newJugRen - 1) * 0.5;
     var is1G = hitAt === 1;
     // ハマリプレミア: 1000以上ハマりからの当たりは倍率アップ(1000で×1.2, 1100で×1.4, 1200で×1.6, …+0.2/100G・上限なし)
     // 2026-08-25 竹森氏指示で開始を900→1000に変更
     var hamari = hitAt >= 1000 ? 1 + 0.2 * Math.floor((hitAt - 900) / 100) : 1;
-    var mult = (is1G ? baseMult + 1.0 : baseMult) * hamari;
-    setLastMult(mult); // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の+1.0込み)を表示する
+    // 1G連はスコア5倍(2026-08-25 竹森氏指示。連チャン梯子が5倍を超える深い連ではそちらを採用)
+    var mult = (is1G ? Math.max(baseMult, 5) : baseMult) * hamari;
+    setLastMult(mult); // 連チャンバナーは「直近の当たりで実際に適用された倍率」(1G連の5倍込み)を表示する
     spinCountRef.current = 0;
     setSpinCount(0);
     setHistory(function (prev) {
@@ -20696,10 +21023,10 @@ function GodAnotherGame(_ref41) {
 // ============================================================
 // BATTING HERO GAME (70 seconds timing batting game)
 // ============================================================
-function BattingGame(_ref42) {
+function BattingGame(_ref48) {
   var _gameRef$current, _gameRef$current2, _gameRef$current3;
-  var onScore = _ref42.onScore,
-    onClose = _ref42.onClose;
+  var onScore = _ref48.onScore,
+    onClose = _ref48.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var partsRef = useRef([]);
@@ -21148,10 +21475,10 @@ function BattingGame(_ref42) {
         ctx.fillRect(0, 0, W, H);
 
         // Stadium lights
-        [[36, 26], [W - 36, 26]].forEach(function (_ref43) {
-          var _ref44 = _slicedToArray(_ref43, 2),
-            lx = _ref44[0],
-            ly = _ref44[1];
+        [[36, 26], [W - 36, 26]].forEach(function (_ref49) {
+          var _ref50 = _slicedToArray(_ref49, 2),
+            lx = _ref50[0],
+            ly = _ref50[1];
           var g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 80);
           g.addColorStop(0, 'rgba(255,240,180,0.22)');
           g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -21660,9 +21987,9 @@ function BattingGame(_ref42) {
 // ============================================================
 // COIN RUNNER GAME (90 seconds side-scrolling runner)
 // ============================================================
-function CoinRunnerGame(_ref45) {
-  var onScore = _ref45.onScore,
-    onClose = _ref45.onClose;
+function CoinRunnerGame(_ref51) {
+  var onScore = _ref51.onScore,
+    onClose = _ref51.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
@@ -21863,10 +22190,10 @@ function CoinRunnerGame(_ref45) {
       R.heroJumpLoaded = true;
     };
     jumpImg.src = 'assets/games/run-hero-jump.webp';
-    [['bgFar', 'run-bg-far.webp'], ['bgMid', 'run-bg-mid.webp'], ['bgNear', 'run-bg-near.webp']].forEach(function (_ref46) {
-      var _ref47 = _slicedToArray(_ref46, 2),
-        key = _ref47[0],
-        file = _ref47[1];
+    [['bgFar', 'run-bg-far.webp'], ['bgMid', 'run-bg-mid.webp'], ['bgNear', 'run-bg-near.webp']].forEach(function (_ref52) {
+      var _ref53 = _slicedToArray(_ref52, 2),
+        key = _ref53[0],
+        file = _ref53[1];
       var img = new Image();
       img.onerror = function () {};
       img.onload = function () {
@@ -22446,9 +22773,9 @@ function cbPreloadAssets() {
     } catch (e) {}
   });
 }
-function ChainBurstGame(_ref48) {
-  var onScore = _ref48.onScore,
-    onClose = _ref48.onClose;
+function ChainBurstGame(_ref54) {
+  var onScore = _ref54.onScore,
+    onClose = _ref54.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
@@ -23089,9 +23416,9 @@ function pinPreloadAssets() {
     PIN_BOARD_IMG.img = img;
   } catch (e) {}
 }
-function PinballGame(_ref49) {
-  var onScore = _ref49.onScore,
-    onClose = _ref49.onClose;
+function PinballGame(_ref55) {
+  var onScore = _ref55.onScore,
+    onClose = _ref55.onClose;
   var canvasRef = useRef(null);
   var gameRef = useRef(null);
   var rafRef = useRef(null);
@@ -23860,9 +24187,9 @@ function gcPreloadAssets() {
     return loadOne(src, GC_ITEM_IMGS[i]);
   });
 }
-function GemCatchGame(_ref50) {
-  var onScore = _ref50.onScore,
-    onClose = _ref50.onClose;
+function GemCatchGame(_ref56) {
+  var onScore = _ref56.onScore,
+    onClose = _ref56.onClose;
   var _useState433 = useState("ready"),
     _useState434 = _slicedToArray(_useState433, 2),
     phase = _useState434[0],
@@ -24384,10 +24711,10 @@ function GemCatchGame(_ref50) {
 // ============================================================
 // SPEND FORM
 // ============================================================
-function SpendForm(_ref51) {
-  var available = _ref51.available,
-    spending = _ref51.spending,
-    onSpend = _ref51.onSpend;
+function SpendForm(_ref57) {
+  var available = _ref57.available,
+    spending = _ref57.spending,
+    onSpend = _ref57.onSpend;
   var _useState447 = useState(null),
     _useState448 = _slicedToArray(_useState447, 2),
     confirm = _useState448[0],
@@ -24552,16 +24879,17 @@ function SpendForm(_ref51) {
 // ============================================================
 // COLLECTION VIEW
 // ============================================================
-function CollectionView(_ref52) {
-  var collection = _ref52.collection,
-    onSelect = _ref52.onSelect,
-    requestMode = _ref52.requestMode,
-    onRequest = _ref52.onRequest,
-    onCancelRequest = _ref52.onCancelRequest,
-    uraUnlocked = _ref52.uraUnlocked,
-    uraObtained = _ref52.uraObtained,
-    showUraMuseum = _ref52.showUraMuseum,
-    setShowUraMuseum = _ref52.setShowUraMuseum;
+function CollectionView(_ref58) {
+  var collection = _ref58.collection,
+    onSelect = _ref58.onSelect,
+    requestMode = _ref58.requestMode,
+    onRequest = _ref58.onRequest,
+    onCancelRequest = _ref58.onCancelRequest,
+    uraUnlocked = _ref58.uraUnlocked,
+    uraObtained = _ref58.uraObtained,
+    showUraMuseum = _ref58.showUraMuseum,
+    setShowUraMuseum = _ref58.setShowUraMuseum,
+    setBonuses = _ref58.setBonuses;
   var _useState449 = useState("all"),
     _useState450 = _slicedToArray(_useState449, 2),
     filter = _useState450[0],
@@ -24573,15 +24901,25 @@ function CollectionView(_ref52) {
   var ownedTiers = CONGRATS_TIERS.filter(function (t) {
     return !!collection[t.key];
   });
+  // 神域(第7種族)は cg2_12 所持セーブでのみ展示に出す。「N / 69 COLLECTED」の分母は従来6種で固定し、
+  // 神域は別カウント(m/11)として併記する。
+  var vTypes = typesFor(collection);
+  var shrineUnlocked = shrineOn(collection);
+  var shrineOwn = !shrineUnlocked ? 0 : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].filter(function (r) {
+    return collection["".concat(SHRINE_ID, "_").concat(r)] || r === 11 && collection[SHRINE_ID + PRISM_SUFFIX];
+  }).length;
   var all = useMemo(function () {
     var list = [];
     RARITIES.slice().reverse().forEach(function (r) {
       if (r.rank === 12) return; // ★12 is shown separately
-      TYPES.forEach(function (type) {
+      BASE_TYPES.forEach(function (type) {
+        // 「N / 69 COLLECTED」の分母は従来6種で固定(神域は別カウント)
         var key = "".concat(type.id, "_").concat(r.rank);
         var d = MONSTERS[type.id][r.rank - 1];
         if (!d) return;
         var ow = collection[key];
+        // ★MAXを煌(_11k)に進化させても「69種COLLECTED」の所持は落とさない
+        var pw = r.rank === 11 ? collection["".concat(type.id).concat(PRISM_SUFFIX)] : null;
         list.push(_objectSpread(_objectSpread({
           key: key,
           typeId: type.id,
@@ -24591,7 +24929,7 @@ function CollectionView(_ref52) {
           rank: r.rank,
           rarity: r
         }, d), {}, {
-          owned: !!ow,
+          owned: !!ow || !!pw,
           count: (ow === null || ow === void 0 ? void 0 : ow.count) || 0
         }));
       });
@@ -24604,8 +24942,11 @@ function CollectionView(_ref52) {
   var ownCount = all.filter(function (m) {
     return m.owned;
   }).length + ownedTiers.length;
-  var totalPwr = Object.values(collection).reduce(function (s, m) {
-    return s + (POWER_VALUES[m.rank - 1] || 0) * (m.count || 0);
+  var totalPwr = Object.entries(collection).reduce(function (s, _ref59) {
+    var _ref60 = _slicedToArray(_ref59, 2),
+      k = _ref60[0],
+      m = _ref60[1];
+    return s + entryPower(k, m.count || 0, m.rank);
   }, 0);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "scrh"
@@ -24623,7 +24964,18 @@ function CollectionView(_ref52) {
     style: {
       opacity: 0.6
     }
-  }, " / 69 COLLECTED")), /*#__PURE__*/React.createElement("div", {
+  }, " / 69 COLLECTED"), shrineUnlocked ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#2dd4bf',
+      marginLeft: 10
+    }
+  }, "\u26E9\uFE0F \u795E\u57DF ", shrineOwn, " / 11") : /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'rgba(45,212,191,0.30)',
+      marginLeft: 10,
+      fontSize: '0.85em'
+    }
+  }, "\u26E9\uFE0F ??? Tier2\u3067\u89E3\u653E")), /*#__PURE__*/React.createElement("div", {
     className: "scrh-d"
   }))), requestMode && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -24721,6 +25073,63 @@ function CollectionView(_ref52) {
   }, Object.values(collection).reduce(function (s, m) {
     return s + m.count;
   }, 0)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14,
+      padding: '8px 10px 10px',
+      borderRadius: 6,
+      background: 'linear-gradient(180deg, rgba(28,21,12,0.75), rgba(13,10,7,0.85))',
+      border: '2px solid rgba(201,168,76,0.28)',
+      borderImage: 'url(assets/god-another/panel.webp) 60 fill / 9px stretch',
+      borderWidth: 9,
+      borderStyle: 'solid'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      letterSpacing: 2,
+      color: 'rgba(232,213,163,0.55)',
+      fontWeight: 700,
+      textAlign: 'center',
+      marginBottom: 6
+    }
+  }, "SET BONUS \u2500 \u7A2E\u65CF\u30B3\u30F3\u30D7\u7279\u5178"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '4px 10px'
+    }
+  }, vTypes.map(function (t) {
+    var on = !!(setBonuses && setBonuses[t.id]);
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 9.5,
+        color: on ? '#f2e0aa' : 'rgba(255,255,255,0.32)',
+        fontWeight: on ? 800 : 500,
+        textShadow: on ? '0 0 6px rgba(201,168,76,0.4)' : 'none'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        filter: on ? 'none' : 'grayscale(1) opacity(0.5)'
+      }
+    }, t.emoji), /*#__PURE__*/React.createElement("span", {
+      style: {
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }
+    }, SET_BONUS_EFFECTS[t.id].label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 8,
+        letterSpacing: 1
+      }
+    }, on ? 'ON' : "\u26051-10"));
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 20
     }
@@ -24986,26 +25395,42 @@ function CollectionView(_ref52) {
       gridTemplateColumns: 'repeat(3, 1fr)',
       gap: 8
     }
-  }, TYPES.map(function (type, i) {
+  }, vTypes.map(function (type, i) {
+    var _collection2;
     var k = "".concat(type.id, "_11");
     var ow = collection[k];
-    var owned = !!ow;
+    // 煌(進化済み)は同じ★MAX枠のバッジで見せる(66種グリッドの分母は変えない)
+    var prismCount = ((_collection2 = collection["".concat(type.id).concat(PRISM_SUFFIX)]) === null || _collection2 === void 0 ? void 0 : _collection2.count) || 0;
+    var owned = !!ow || prismCount > 0;
     var monster = MONSTERS[type.id][10];
     var count = (ow === null || ow === void 0 ? void 0 : ow.count) || 0;
+    var sel = count > 0 ? _objectSpread(_objectSpread({
+      key: k
+    }, monster), {}, {
+      typeId: type.id,
+      typeName: type.name,
+      typeEmoji: type.emoji,
+      typeColor: type.color,
+      rank: 11,
+      rarity: RARITIES[10],
+      count: count
+    }) : _objectSpread(_objectSpread({
+      key: "".concat(type.id).concat(PRISM_SUFFIX)
+    }, monster), {}, {
+      name: monster.name + PRISM_NAME_SUFFIX,
+      typeId: type.id,
+      typeName: type.name,
+      typeEmoji: type.emoji,
+      typeColor: type.color,
+      rank: 11,
+      rarity: RARITIES[10],
+      prism: true,
+      count: prismCount
+    });
     return /*#__PURE__*/React.createElement("div", {
       key: type.id,
       onClick: function onClick() {
-        return owned && onSelect(_objectSpread(_objectSpread({
-          key: k
-        }, monster), {}, {
-          typeId: type.id,
-          typeName: type.name,
-          typeEmoji: type.emoji,
-          typeColor: type.color,
-          rank: 11,
-          rarity: RARITIES[10],
-          count: count
-        }));
+        return owned && onSelect(sel);
       },
       style: _objectSpread({
         borderRadius: 12,
@@ -25049,14 +25474,28 @@ function CollectionView(_ref52) {
         borderRadius: 6,
         padding: '0 4px'
       }
-    }, "\xD7", count), /*#__PURE__*/React.createElement("div", {
+    }, "\xD7", count), prismCount > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: 4,
+        left: 6,
+        fontSize: 9,
+        fontWeight: 900,
+        color: '#ffd700',
+        background: 'rgba(0,0,0,0.6)',
+        border: '1px solid rgba(255,215,0,0.55)',
+        textShadow: '0 0 6px rgba(255,215,0,0.8)',
+        borderRadius: 6,
+        padding: '0 5px'
+      }
+    }, "\u714C", prismCount > 1 ? '×' + prismCount : ''), /*#__PURE__*/React.createElement("div", {
       className: owned ? 'rank-diamond' : '',
       style: {
         fontSize: 8,
         fontWeight: 900,
         color: owned ? undefined : 'rgba(255,255,255,0.15)'
       }
-    }, owned ? monster.name : '???'), /*#__PURE__*/React.createElement("div", {
+    }, owned ? count > 0 ? monster.name : monster.name + PRISM_NAME_SUFFIX : '???'), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 7,
         color: type.color,
@@ -25147,7 +25586,7 @@ function CollectionView(_ref52) {
       gridTemplateColumns: 'repeat(3, 1fr)',
       gap: 8
     }
-  }, TYPES.map(function (type, i) {
+  }, vTypes.map(function (type, i) {
     var k = "".concat(type.id, "_10");
     var ow = collection[k];
     var owned = !!ow;
@@ -25230,7 +25669,7 @@ function CollectionView(_ref52) {
       gridTemplateColumns: 'repeat(3, 1fr)',
       gap: 8
     }
-  }, TYPES.map(function (type, i) {
+  }, vTypes.map(function (type, i) {
     var k = "".concat(type.id, "_9");
     var ow = collection[k];
     var owned = !!ow;
@@ -25367,7 +25806,7 @@ function CollectionView(_ref52) {
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 6
       }
-    }, TYPES.map(function (type, i) {
+    }, vTypes.map(function (type, i) {
       var k = "".concat(type.id, "_").concat(r.rank);
       var ow = collection[k];
       var owned = !!ow;
@@ -25561,7 +26000,8 @@ function CollectionView(_ref52) {
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 5
       }
-    }, TYPES.map(function (type) {
+    }, BASE_TYPES.map(function (type) {
+      // 裏展示室は従来6種66件で固定
       var uraId = "ura_".concat(type.id, "_").concat(rank);
       var owned = uraObtained.includes(uraId);
       var uraItem = URA_ITEMS.find(function (u) {
@@ -25713,12 +26153,13 @@ function CollectionView(_ref52) {
 // ============================================================
 // SYNTHESIS VIEW
 // ============================================================
-function SynthView(_ref53) {
-  var collection = _ref53.collection,
-    synthResult = _ref53.synthResult,
-    onFindCandidates = _ref53.onFindCandidates,
-    onSynthSingle = _ref53.onSynthSingle,
-    onSynthAll = _ref53.onSynthAll;
+function SynthView(_ref61) {
+  var collection = _ref61.collection,
+    synthResult = _ref61.synthResult,
+    onFindCandidates = _ref61.onFindCandidates,
+    onFindPrism = _ref61.onFindPrism,
+    onSynthSingle = _ref61.onSynthSingle,
+    onSynthAll = _ref61.onSynthAll;
   var _useState453 = useState("all"),
     _useState454 = _slicedToArray(_useState453, 2),
     filter = _useState454[0],
@@ -25730,6 +26171,10 @@ function SynthView(_ref53) {
   var candidates = useMemo(function () {
     return onFindCandidates();
   }, [collection, onFindCandidates]);
+  // ★MAX進化(煌)。一撃合成の件数(totalSynthable / cascadeTotal)には意図的に含めない。
+  var prismCandidates = useMemo(function () {
+    return onFindPrism ? onFindPrism() : [];
+  }, [collection, onFindPrism]);
   var totalSynthable = candidates.reduce(function (sum, c) {
     return sum + c.synthCount;
   }, 0);
@@ -25741,10 +26186,10 @@ function SynthView(_ref53) {
 
   // All owned monsters sorted by type then rank
   var owned = useMemo(function () {
-    return Object.entries(collection).map(function (_ref54) {
-      var _ref55 = _slicedToArray(_ref54, 2),
-        k = _ref55[0],
-        v = _ref55[1];
+    return Object.entries(collection).map(function (_ref62) {
+      var _ref63 = _slicedToArray(_ref62, 2),
+        k = _ref63[0],
+        v = _ref63[1];
       return _objectSpread({
         key: k
       }, v);
@@ -25786,7 +26231,7 @@ function SynthView(_ref53) {
       marginTop: 8,
       letterSpacing: 0.3
     }
-  }, "\u540C\u7A2E\u65CF\u30FB\u540C\u30E9\u30F3\u30AF: \u26051-2=2\u4F53, \u26053-9=3\u4F53 \u2192 \u30E9\u30F3\u30AFUP", /*#__PURE__*/React.createElement("br", null), "\u260510\u30923\u4F53(\u7570\u7A2EOK) \u2192 \u2605MAX\u30E9\u30F3\u30C0\u30E0", /*#__PURE__*/React.createElement("br", null), "\u203B\u5404\u30A2\u30A4\u30C6\u30E01\u500B\u306F\u30B3\u30EC\u30AF\u30B7\u30E7\u30F3\u7528\u306B\u4FDD\u6301")), synthResult && (synthResult.rank >= 9 && !synthResult.batch ? /*#__PURE__*/React.createElement("div", {
+  }, "\u540C\u7A2E\u65CF\u30FB\u540C\u30E9\u30F3\u30AF: \u26051-2=2\u4F53, \u26053-9=3\u4F53 \u2192 \u30E9\u30F3\u30AFUP", /*#__PURE__*/React.createElement("br", null), "\u260510\u30923\u4F53(\u7570\u7A2EOK) \u2192 \u2605MAX\u30E9\u30F3\u30C0\u30E0", /*#__PURE__*/React.createElement("br", null), "\u540C\u3058\u2605MAX\u30923\u4F53 \u2192 \u300C\u30FB\u714C\u300D\u306B\u9032\u5316(\u8CC7\u7523\u4FA1\u5024\u305D\u306E\u307E\u307E)", /*#__PURE__*/React.createElement("br", null), "\u203B\u5404\u30A2\u30A4\u30C6\u30E01\u500B\u306F\u30B3\u30EC\u30AF\u30B7\u30E7\u30F3\u7528\u306B\u4FDD\u6301")), synthResult && (synthResult.rank >= 9 && !synthResult.batch ? /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
@@ -25839,7 +26284,7 @@ function SynthView(_ref53) {
       fontWeight: 700,
       opacity: 0.8
     }
-  }, synthResult.rarity.label, " \u7372\u5F97\uFF01")) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? synthResult.rareIndex >= 0 ? function () {
+  }, synthResult.prism ? '★MAX進化 完了！' : "".concat(synthResult.rarity.label, " \u7372\u5F97\uFF01"))) : synthResult.batch && synthResult.rareItems && synthResult.rareItems.length > 0 ? synthResult.rareIndex >= 0 ? function () {
     var item = synthResult.rareItems[synthResult.rareIndex];
     var isMax = item.rank >= 11;
     var isGod = item.rank === 10;
@@ -26267,7 +26712,96 @@ function SynthView(_ref53) {
     onClick: function onClick() {
       return setConfirmAll(false);
     }
-  }, "\u30AD\u30E3\u30F3\u30BB\u30EB")))), candidates.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u30AD\u30E3\u30F3\u30BB\u30EB")))), prismCandidates.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "\u2605MAX\u9032\u5316"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      opacity: 0.5,
+      marginBottom: 8
+    }
+  }, "\u540C\u3058\u2605MAX\u30923\u4F53 \u2192\u300C\u30FB\u714C\u300D1\u4F53\u306B\u9032\u5316\u3002\u8CC7\u7523\u4FA1\u5024\u306F3\u4F53\u5206\u306E\u307E\u307E\uFF0F\u4E00\u6483\u5408\u6210\u306E\u5BFE\u8C61\u5916"), prismCandidates.map(function (c) {
+    var monster = MONSTERS[c.typeId][10];
+    var tp = TYPES.find(function (t) {
+      return t.id === c.typeId;
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      key: 'prism_' + c.typeId,
+      style: {
+        background: 'linear-gradient(135deg, rgba(208,107,255,0.1), rgba(107,197,255,0.06))',
+        border: '1px solid rgba(208,107,255,0.25)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        minWidth: 56
+      }
+    }, /*#__PURE__*/React.createElement("div", null, renderItemIcon(_objectSpread(_objectSpread({}, monster), {}, {
+      rank: 11
+    }), 28)), /*#__PURE__*/React.createElement("div", {
+      className: "rank-diamond",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, monster.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 8,
+        color: tp.color
+      }
+    }, "\u2605MAX \xD7", c.count, "\uFF083\u4F53\u3067\u9032\u5316\uFF09")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        color: '#fbbf24'
+      }
+    }, "\u2192"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        minWidth: 56
+      }
+    }, /*#__PURE__*/React.createElement("div", null, renderItemIcon(_objectSpread(_objectSpread({}, monster), {}, {
+      rank: 11
+    }), 28)), /*#__PURE__*/React.createElement("div", {
+      className: "rank-rainbow",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, monster.name, PRISM_NAME_SUFFIX), /*#__PURE__*/React.createElement("div", {
+      className: "rank-rainbow",
+      style: {
+        fontSize: 8,
+        fontWeight: 700
+      }
+    }, "\u714C")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginLeft: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn bp",
+      style: {
+        fontSize: 11,
+        padding: '6px 12px'
+      },
+      onClick: function onClick() {
+        return onSynthSingle('prism', c.typeId, 11, 11);
+      }
+    }, "\u9032\u5316", c.synthCount > 1 ? "(".concat(c.synthCount, "\u56DE\u53EF)") : '')));
+  })), candidates.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16
     }
@@ -26440,7 +26974,7 @@ function SynthView(_ref53) {
     onClick: function onClick() {
       return setFilter("all");
     }
-  }, "\u5168\u3066"), TYPES.map(function (t) {
+  }, "\u5168\u3066"), typesFor(collection).map(function (t) {
     return /*#__PURE__*/React.createElement("button", {
       key: t.id,
       className: "tfb ".concat(filter === t.id ? 'act' : ''),
@@ -26455,8 +26989,10 @@ function SynthView(_ref53) {
   }, shown.map(function (item) {
     var synthable = candidates.find(function (c) {
       return c.key === item.key;
+    }) || prismCandidates.find(function (c) {
+      return c.key === item.key;
     });
-    var rkCls = item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
+    var rkCls = item.prism ? 'rank-rainbow' : item.rank >= 11 ? 'rank-diamond' : item.rank === 10 ? 'rank-rainbow' : item.rank === 9 ? 'rank-gold' : item.rank === 8 ? 'rank-silver' : item.rank === 7 ? 'rank-epic' : item.rank === 6 ? 'rank-ultra' : '';
     return /*#__PURE__*/React.createElement("div", {
       key: item.key,
       className: "ci ".concat(item.rank >= 10 ? 'god' : ''),
@@ -26483,7 +27019,7 @@ function SynthView(_ref53) {
         fontSize: 6,
         color: rkCls ? undefined : item.rarity.color
       }
-    }, item.rank === 11 ? "MAX" : "★" + item.rank), synthable && /*#__PURE__*/React.createElement("div", {
+    }, item.prism ? "煌" : item.rank === 11 ? "MAX" : "★" + item.rank), synthable && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 6,
         color: '#fbbf24',
@@ -26982,16 +27518,17 @@ function RankingScreen() {
     name: "上級×÷"
   }];
   var sorted = useMemo(function () {
+    var gk = scoreKeyOf(gameTab); // スコアの世代キー(godAnother=第8次で世代交代済み)
     // Minigame tab: weekly uses weeklyRankings data
     if (tab === 4 && assetMode === 'weekly') {
       var _list2 = _toConsumableArray(weeklyData);
       _list2.sort(function (a, b) {
         var _b$bestScores2, _a$bestScores2;
-        return (((_b$bestScores2 = b.bestScores) === null || _b$bestScores2 === void 0 ? void 0 : _b$bestScores2[gameTab]) || 0) - (((_a$bestScores2 = a.bestScores) === null || _a$bestScores2 === void 0 ? void 0 : _a$bestScores2[gameTab]) || 0);
+        return (((_b$bestScores2 = b.bestScores) === null || _b$bestScores2 === void 0 ? void 0 : _b$bestScores2[gk]) || 0) - (((_a$bestScores2 = a.bestScores) === null || _a$bestScores2 === void 0 ? void 0 : _a$bestScores2[gk]) || 0);
       });
       return _list2.filter(function (r) {
         var _r$bestScores;
-        return (((_r$bestScores = r.bestScores) === null || _r$bestScores === void 0 ? void 0 : _r$bestScores[gameTab]) || 0) > 0;
+        return (((_r$bestScores = r.bestScores) === null || _r$bestScores === void 0 ? void 0 : _r$bestScores[gk]) || 0) > 0;
       });
     }
     // Minigame tab: daily uses dailyRankings data
@@ -26999,11 +27536,11 @@ function RankingScreen() {
       var _list3 = _toConsumableArray(dailyGameData);
       _list3.sort(function (a, b) {
         var _b$bestScores3, _a$bestScores3;
-        return (((_b$bestScores3 = b.bestScores) === null || _b$bestScores3 === void 0 ? void 0 : _b$bestScores3[gameTab]) || 0) - (((_a$bestScores3 = a.bestScores) === null || _a$bestScores3 === void 0 ? void 0 : _a$bestScores3[gameTab]) || 0);
+        return (((_b$bestScores3 = b.bestScores) === null || _b$bestScores3 === void 0 ? void 0 : _b$bestScores3[gk]) || 0) - (((_a$bestScores3 = a.bestScores) === null || _a$bestScores3 === void 0 ? void 0 : _a$bestScores3[gk]) || 0);
       });
       return _list3.filter(function (r) {
         var _r$bestScores2;
-        return (((_r$bestScores2 = r.bestScores) === null || _r$bestScores2 === void 0 ? void 0 : _r$bestScores2[gameTab]) || 0) > 0;
+        return (((_r$bestScores2 = r.bestScores) === null || _r$bestScores2 === void 0 ? void 0 : _r$bestScores2[gk]) || 0) > 0;
       });
     }
     // Daily/weekly growth for assets, pulls, gifts
@@ -27027,11 +27564,11 @@ function RankingScreen() {
     } else {
       list.sort(function (a, b) {
         var _b$bestScores4, _a$bestScores4;
-        return (((_b$bestScores4 = b.bestScores) === null || _b$bestScores4 === void 0 ? void 0 : _b$bestScores4[gameTab]) || 0) - (((_a$bestScores4 = a.bestScores) === null || _a$bestScores4 === void 0 ? void 0 : _a$bestScores4[gameTab]) || 0);
+        return (((_b$bestScores4 = b.bestScores) === null || _b$bestScores4 === void 0 ? void 0 : _b$bestScores4[gk]) || 0) - (((_a$bestScores4 = a.bestScores) === null || _a$bestScores4 === void 0 ? void 0 : _a$bestScores4[gk]) || 0);
       });
       return list.filter(function (r) {
         var _r$bestScores3;
-        return (((_r$bestScores3 = r.bestScores) === null || _r$bestScores3 === void 0 ? void 0 : _r$bestScores3[gameTab]) || 0) > 0;
+        return (((_r$bestScores3 = r.bestScores) === null || _r$bestScores3 === void 0 ? void 0 : _r$bestScores3[gk]) || 0) > 0;
       });
     }
     return list;
@@ -27348,7 +27885,7 @@ function RankingScreen() {
         fontWeight: 900,
         color: '#fbbf24'
       }
-    }, "\uD83E\uDE99", ((_r$bestScores4 = r.bestScores) === null || _r$bestScores4 === void 0 ? void 0 : _r$bestScores4[gameTab]) || 0), tab === 5 && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83E\uDE99", ((_r$bestScores4 = r.bestScores) === null || _r$bestScores4 === void 0 ? void 0 : _r$bestScores4[scoreKeyOf(gameTab)]) || 0), tab === 5 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Orbitron',sans-serif",
         fontSize: 13,

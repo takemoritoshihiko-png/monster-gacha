@@ -332,14 +332,16 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
                     {owned && count > 1 && <div style={{ position: 'absolute', top: 4, right: 6,
                       fontSize: 8, fontWeight: 900, color: '#fbbf24', background: 'rgba(0,0,0,0.5)',
                       borderRadius: 6, padding: '0 4px' }}>×{count}</div>}
-                    {prismCount > 0 && <div className="rank-rainbow" style={{ position: 'absolute', top: 4, left: 6,
-                      fontSize: 8, fontWeight: 900, background: 'rgba(0,0,0,0.5)',
-                      borderRadius: 6, padding: '0 4px' }}>煌{prismCount > 1 ? '×' + prismCount : ''}</div>}
+                    {/* 煌バッジ: rank-rainbowはbackground-clip:textのため背景を重ねると文字が透明化する(2026-08-25実バグ)。金文字+黒ピルで明示 */}
+                    {prismCount > 0 && <div style={{ position: 'absolute', top: 4, left: 6,
+                      fontSize: 9, fontWeight: 900, color: '#ffd700', background: 'rgba(0,0,0,0.6)',
+                      border: '1px solid rgba(255,215,0,0.55)', textShadow: '0 0 6px rgba(255,215,0,0.8)',
+                      borderRadius: 6, padding: '0 5px' }}>煌{prismCount > 1 ? '×' + prismCount : ''}</div>}
                     <div className={owned ? 'rank-diamond' : ''} style={{
                       fontSize: 8, fontWeight: 900,
                       color: owned ? undefined : 'rgba(255,255,255,0.15)',
                     }}>
-                      {owned ? monster.name : '???'}
+                      {owned ? (count > 0 ? monster.name : monster.name + PRISM_NAME_SUFFIX) : '???'}
                     </div>
                     <div style={{ fontSize: 7, color: type.color, opacity: owned ? 0.5 : 0.15, marginTop: 1 }}>
                       {type.emoji} {type.name}
