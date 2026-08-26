@@ -3499,12 +3499,30 @@ function MonsterGacha() {
   }, [collection]);
   var prevGrantedTier = useRef(-1);
   var congratsShownRef = useRef(false);
+  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
+  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
+  // ⚠️宣言位置は下のTier演出effectより前に置くこと: 依存配列は宣言前だとvar巻き上げで常にundefinedになり、
+  //   変化してもeffectが再実行されない(2026-08-26 Tier3が発火しない実バグの真因)
+  var _useState119 = useState(false),
+    _useState120 = _slicedToArray(_useState119, 2),
+    gachaSaveReady = _useState120[0],
+    setGachaSaveReady = _useState120[1];
   useEffect(function () {
     // Wait for collection to be loaded (grantedTier will reflect existing items)
     if (prevGrantedTier.current === -1) {
       prevGrantedTier.current = grantedTier;
       return;
     }
+    // ★MAXリロールの確定待ちの間はTier付与・演出を遅延する(2026-08-26 竹森氏指摘:
+    // 引き直せる★MAXは「このままでOK」を選ぶ(または引き直しが確定する)までTier達成が確定しない)。
+    // 確定するとsynthRetryが変化してこのeffectが再評価され、その時点で発火する。
+    // ※synthRetryQueueRefの宣言はこの行より後だが、effect実行はrender完了後なので参照可(現ビルドのES5変換前提)
+    // 合成の披露アニメ(synthResult)中も遅延=引き直し後の再抽選披露にCONGRATULATIONSが被らない
+    if (synthRetry || synthResult || synthRetryQueueRef.current.length > 0) return;
+    // ガチャ由来のTier到達(★MAX排出・裏66種目)も、開封が全部終わりレア演出が消えるまで遅延する
+    // (2026-08-26 竹森氏指示「適切なタイミングで発動」: 40連の開封途中や裏アイテム披露の最中に被せない)
+    if (gachaPhase === 'chests' && !gachaSaveReady) return;
+    if (rareEffect) return;
     // Only fire when congratsTier exceeds what has ALREADY been granted in collection
     if (congratsTier > grantedTier && !congratsShownRef.current) {
       congratsShownRef.current = true;
@@ -3563,7 +3581,7 @@ function MonsterGacha() {
       }
     }
     prevGrantedTier.current = grantedTier;
-  }, [congratsTier, grantedTier]);
+  }, [congratsTier, grantedTier, synthRetry, synthResult, gachaPhase, gachaSaveReady, rareEffect]);
 
   // Gacha
   var autoOpenRef = useRef([]);
@@ -3583,16 +3601,10 @@ function MonsterGacha() {
       });
     }, ms));
   };
-  var _useState119 = useState(null),
-    _useState120 = _slicedToArray(_useState119, 2),
-    cueEffect = _useState120[0],
-    setCueEffect = _useState120[1];
-  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
-  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
-  var _useState121 = useState(false),
+  var _useState121 = useState(null),
     _useState122 = _slicedToArray(_useState121, 2),
-    gachaSaveReady = _useState122[0],
-    setGachaSaveReady = _useState122[1];
+    cueEffect = _useState122[0],
+    setCueEffect = _useState122[1];
   var startChestOpen = useCallback(function (res) {
     // 取り消しの前に、前回pullの未確定の獲得を先に確定させる(捨てるのは演出だけ)
     var pending = pendingRevealRef.current;

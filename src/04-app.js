@@ -627,6 +627,11 @@ function MonsterGacha() {
   }, [collection]);
   const prevGrantedTier = useRef(-1);
   const congratsShownRef = useRef(false);
+  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
+  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
+  // ⚠️宣言位置は下のTier演出effectより前に置くこと: 依存配列は宣言前だとvar巻き上げで常にundefinedになり、
+  //   変化してもeffectが再実行されない(2026-08-26 Tier3が発火しない実バグの真因)
+  const [gachaSaveReady, setGachaSaveReady] = useState(false);
   useEffect(() => {
     // Wait for collection to be loaded (grantedTier will reflect existing items)
     if (prevGrantedTier.current === -1) {
@@ -639,6 +644,10 @@ function MonsterGacha() {
     // ※synthRetryQueueRefの宣言はこの行より後だが、effect実行はrender完了後なので参照可(現ビルドのES5変換前提)
     // 合成の披露アニメ(synthResult)中も遅延=引き直し後の再抽選披露にCONGRATULATIONSが被らない
     if (synthRetry || synthResult || synthRetryQueueRef.current.length > 0) return;
+    // ガチャ由来のTier到達(★MAX排出・裏66種目)も、開封が全部終わりレア演出が消えるまで遅延する
+    // (2026-08-26 竹森氏指示「適切なタイミングで発動」: 40連の開封途中や裏アイテム披露の最中に被せない)
+    if (gachaPhase === 'chests' && !gachaSaveReady) return;
+    if (rareEffect) return;
     // Only fire when congratsTier exceeds what has ALREADY been granted in collection
     if (congratsTier > grantedTier && !congratsShownRef.current) {
       congratsShownRef.current = true;
@@ -675,7 +684,7 @@ function MonsterGacha() {
       }
     }
     prevGrantedTier.current = grantedTier;
-  }, [congratsTier, grantedTier, synthRetry, synthResult]);
+  }, [congratsTier, grantedTier, synthRetry, synthResult, gachaPhase, gachaSaveReady, rareEffect]);
 
   // Gacha
   const autoOpenRef = useRef([]);
@@ -690,9 +699,6 @@ function MonsterGacha() {
     autoOpenRef.current.push(setTimeout(() => setRareEffect(prev => (prev && prev.fxId === fxId) ? null : prev), ms));
   };
   const [cueEffect, setCueEffect] = useState(null);
-  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
-  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
-  const [gachaSaveReady, setGachaSaveReady] = useState(false);
 
   const startChestOpen = useCallback((res) => {
     // 取り消しの前に、前回pullの未確定の獲得を先に確定させる(捨てるのは演出だけ)
