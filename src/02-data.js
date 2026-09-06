@@ -153,6 +153,22 @@ const POWER_VALUES = [1000, 10000, 100000, 500000, 2500000, 12000000, 60000000, 
 function formatYen(n) {
   return n.toLocaleString() + '円';
 }
+// 景品(資産→現実のお金)。realYen が現実の円。SpendForm と換算レートの正本
+const SPEND_PRIZES = [
+  { amount: 10000000000, realYen: 1000, label: "🎁 Amazonギフトカード 1,000円分", desc: "100億円の資産を使用", maxUses: 20, img: "assets/ui/spend-gift.webp" },
+  { amount: 50000000000, realYen: 5000, label: "🍽️ 家族で食事ごちそう 5,000円分", desc: "500億円の資産を使用", maxUses: 6, img: "assets/ui/spend-meal.webp" },
+  { amount: 250000000000, realYen: 25000, label: "🏠 家庭用の家具サポート 25,000円分", desc: "2,500億円の資産を使用", maxUses: 2, img: "assets/ui/spend-furniture.webp" },
+  { amount: 500000000000, realYen: 50000, label: "✈️ 国内旅費サポート 50,000円分", desc: "5,000億円の資産を使用", maxUses: 1, img: "assets/ui/spend-travel.webp" },
+];
+// 資産→現実の円の換算率(景品から導く。全景品で同じ率=資産1,000万円が現実の1円)
+const ASSET_PER_REAL_YEN = SPEND_PRIZES[0].amount / SPEND_PRIZES[0].realYen;
+function toRealYen(assets) { return assets / ASSET_PER_REAL_YEN; }
+// 現実の円の表示(小さい額は小数で見せる)
+function formatRealYen(realYen) {
+  if (realYen >= 100) return Math.round(realYen).toLocaleString() + "円";
+  if (realYen >= 1) return (Math.round(realYen * 100) / 100).toLocaleString() + "円";
+  return realYen.toLocaleString(undefined, { maximumSignificantDigits: 2 }) + "円";
+}
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
 const GACHA_COST_40 = 800;

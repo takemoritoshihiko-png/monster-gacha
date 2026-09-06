@@ -1444,6 +1444,49 @@ var POWER_VALUES = [1000, 10000, 100000, 500000, 2500000, 12000000, 60000000, 30
 function formatYen(n) {
   return n.toLocaleString() + '円';
 }
+// 景品(資産→現実のお金)。realYen が現実の円。SpendForm と換算レートの正本
+var SPEND_PRIZES = [{
+  amount: 10000000000,
+  realYen: 1000,
+  label: "🎁 Amazonギフトカード 1,000円分",
+  desc: "100億円の資産を使用",
+  maxUses: 20,
+  img: "assets/ui/spend-gift.webp"
+}, {
+  amount: 50000000000,
+  realYen: 5000,
+  label: "🍽️ 家族で食事ごちそう 5,000円分",
+  desc: "500億円の資産を使用",
+  maxUses: 6,
+  img: "assets/ui/spend-meal.webp"
+}, {
+  amount: 250000000000,
+  realYen: 25000,
+  label: "🏠 家庭用の家具サポート 25,000円分",
+  desc: "2,500億円の資産を使用",
+  maxUses: 2,
+  img: "assets/ui/spend-furniture.webp"
+}, {
+  amount: 500000000000,
+  realYen: 50000,
+  label: "✈️ 国内旅費サポート 50,000円分",
+  desc: "5,000億円の資産を使用",
+  maxUses: 1,
+  img: "assets/ui/spend-travel.webp"
+}];
+// 資産→現実の円の換算率(景品から導く。全景品で同じ率=資産1,000万円が現実の1円)
+var ASSET_PER_REAL_YEN = SPEND_PRIZES[0].amount / SPEND_PRIZES[0].realYen;
+function toRealYen(assets) {
+  return assets / ASSET_PER_REAL_YEN;
+}
+// 現実の円の表示(小さい額は小数で見せる)
+function formatRealYen(realYen) {
+  if (realYen >= 100) return Math.round(realYen).toLocaleString() + "円";
+  if (realYen >= 1) return (Math.round(realYen * 100) / 100).toLocaleString() + "円";
+  return realYen.toLocaleString(undefined, {
+    maximumSignificantDigits: 2
+  }) + "円";
+}
 var GACHA_COST_1 = 20;
 var GACHA_COST_10 = 200;
 var GACHA_COST_40 = 800;
@@ -3499,6 +3542,14 @@ function MonsterGacha() {
   }, [collection]);
   var prevGrantedTier = useRef(-1);
   var congratsShownRef = useRef(false);
+  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
+  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
+  // ⚠️宣言位置は下のTier演出effectより前に置くこと: 依存配列は宣言前だとvar巻き上げで常にundefinedになり、
+  //   変化してもeffectが再実行されない(2026-08-26 Tier3が発火しない実バグの真因)
+  var _useState119 = useState(false),
+    _useState120 = _slicedToArray(_useState119, 2),
+    gachaSaveReady = _useState120[0],
+    setGachaSaveReady = _useState120[1];
   useEffect(function () {
     // Wait for collection to be loaded (grantedTier will reflect existing items)
     if (prevGrantedTier.current === -1) {
@@ -3511,6 +3562,10 @@ function MonsterGacha() {
     // ※synthRetryQueueRefの宣言はこの行より後だが、effect実行はrender完了後なので参照可(現ビルドのES5変換前提)
     // 合成の披露アニメ(synthResult)中も遅延=引き直し後の再抽選披露にCONGRATULATIONSが被らない
     if (synthRetry || synthResult || synthRetryQueueRef.current.length > 0) return;
+    // ガチャ由来のTier到達(★MAX排出・裏66種目)も、開封が全部終わりレア演出が消えるまで遅延する
+    // (2026-08-26 竹森氏指示「適切なタイミングで発動」: 40連の開封途中や裏アイテム披露の最中に被せない)
+    if (gachaPhase === 'chests' && !gachaSaveReady) return;
+    if (rareEffect) return;
     // Only fire when congratsTier exceeds what has ALREADY been granted in collection
     if (congratsTier > grantedTier && !congratsShownRef.current) {
       congratsShownRef.current = true;
@@ -3569,7 +3624,7 @@ function MonsterGacha() {
       }
     }
     prevGrantedTier.current = grantedTier;
-  }, [congratsTier, grantedTier, synthRetry, synthResult]);
+  }, [congratsTier, grantedTier, synthRetry, synthResult, gachaPhase, gachaSaveReady, rareEffect]);
 
   // Gacha
   var autoOpenRef = useRef([]);
@@ -3589,16 +3644,10 @@ function MonsterGacha() {
       });
     }, ms));
   };
-  var _useState119 = useState(null),
-    _useState120 = _slicedToArray(_useState119, 2),
-    cueEffect = _useState120[0],
-    setCueEffect = _useState120[1];
-  // 保存トリガー: 最終グループの addToCollection 完了直後に true になる
-  // (箱が開いた瞬間=allOpened で保存すると、コイン消費済み・アイテム未追加のスナップショットが保存され得る)
-  var _useState121 = useState(false),
+  var _useState121 = useState(null),
     _useState122 = _slicedToArray(_useState121, 2),
-    gachaSaveReady = _useState122[0],
-    setGachaSaveReady = _useState122[1];
+    cueEffect = _useState122[0],
+    setCueEffect = _useState122[1];
   var startChestOpen = useCallback(function (res) {
     // 取り消しの前に、前回pullの未確定の獲得を先に確定させる(捨てるのは演出だけ)
     var pending = pendingRevealRef.current;
@@ -4345,7 +4394,7 @@ function MonsterGacha() {
         rarity: RARITIES[targetRank - 1]
       });
     }
-    var synthDuration = targetRank >= 11 ? 4100 : targetRank === 10 ? 3100 : targetRank === 9 ? 2600 : targetRank === 8 ? 2100 : 1600;
+    var synthDuration = targetRank >= 11 ? 3900 : targetRank === 10 ? 2900 : targetRank === 9 ? 2400 : targetRank === 8 ? 1900 : 1400;
     synthQueueRef.current = [setTimeout(function () {
       setSynthResult(null);
       resumeMainBgm();
@@ -4447,8 +4496,8 @@ function MonsterGacha() {
       });
       var timers = [];
       var getDuration = function getDuration(r) {
-        return r >= 11 ? 3800 : r === 10 ? 2700 : r === 9 ? 2200 : 1800;
-      }; // ★9・★10の披露時間を各-100ms
+        return r >= 11 ? 3600 : r === 10 ? 2500 : r === 9 ? 2000 : 1600;
+      };
       var elapsed = getDuration(rareItems[0].rank);
       var _loop3 = function _loop3(i) {
         var ms = elapsed;
@@ -7624,6 +7673,74 @@ function MonsterGacha() {
         }
       }, renderStars(item.rank)));
     })));
+  }(), allOpened && function () {
+    var totalAssets = gachaResults.reduce(function (s, r) {
+      return s + itemUnitPower(r);
+    }, 0);
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        margin: '10px auto',
+        maxWidth: 320,
+        padding: '10px 12px',
+        borderRadius: 14,
+        background: 'linear-gradient(160deg, rgba(40,35,25,0.9), rgba(28,22,14,0.95))',
+        border: '1px solid rgba(201,162,39,0.3)',
+        boxShadow: '0 0 16px rgba(201,162,39,0.12)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        opacity: 0.5,
+        letterSpacing: 3,
+        fontFamily: "'Rajdhani',sans-serif",
+        marginBottom: 8,
+        textAlign: 'center'
+      }
+    }, "TOTAL VALUE"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        fontSize: 12,
+        padding: '2px 0'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        opacity: 0.7
+      }
+    }, "\u7372\u5F97\u30A2\u30A4\u30C6\u30E0\u306E\u8CC7\u7523\u5408\u8A08"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 900,
+        color: '#ffd86e'
+      }
+    }, "\uD83D\uDCB0", formatYen(totalAssets))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        fontSize: 12,
+        padding: '2px 0',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        marginTop: 4,
+        paddingTop: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        opacity: 0.7
+      }
+    }, "\u73FE\u5B9F\u306E\u304A\u91D1\u306B\u3059\u308B\u3068"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 900,
+        color: '#8ef0b0'
+      }
+    }, formatRealYen(toRealYen(totalAssets)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 8,
+        opacity: 0.45,
+        marginTop: 6,
+        textAlign: 'center'
+      }
+    }, "\u666F\u54C1\u306E\u63DB\u7B97\u7387(\u8CC7\u7523", formatYen(ASSET_PER_REAL_YEN), "\uFF1D1\u5186)\u3067\u8A08\u7B97"));
   }())), screen === "minigame" && !miniGame && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'relative',
@@ -24720,31 +24837,7 @@ function SpendForm(_ref57) {
     confirm = _useState448[0],
     setConfirm = _useState448[1]; // null | {amount, label}
 
-  var options = [{
-    amount: 10000000000,
-    label: "🎁 Amazonギフトカード 1,000円分",
-    desc: "100億円の資産を使用",
-    maxUses: 20,
-    img: "assets/ui/spend-gift.webp"
-  }, {
-    amount: 50000000000,
-    label: "🍽️ 家族で食事ごちそう 5,000円分",
-    desc: "500億円の資産を使用",
-    maxUses: 6,
-    img: "assets/ui/spend-meal.webp"
-  }, {
-    amount: 250000000000,
-    label: "🏠 家庭用の家具サポート 25,000円分",
-    desc: "2,500億円の資産を使用",
-    maxUses: 2,
-    img: "assets/ui/spend-furniture.webp"
-  }, {
-    amount: 500000000000,
-    label: "✈️ 国内旅費サポート 50,000円分",
-    desc: "5,000億円の資産を使用",
-    maxUses: 1,
-    img: "assets/ui/spend-travel.webp"
-  }];
+  var options = SPEND_PRIZES;
   var getUsedCount = function getUsedCount(label) {
     return (spending || []).filter(function (e) {
       return e.memo === label;

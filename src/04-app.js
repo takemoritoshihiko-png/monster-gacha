@@ -2697,6 +2697,29 @@ function MonsterGacha() {
                     </div>
                   );
                 })()}
+                {/* 獲得アイテムの資産合計と現実のお金(景品の換算率) */}
+                {allOpened && (() => {
+                  const totalAssets = gachaResults.reduce((s, r) => s + itemUnitPower(r), 0);
+                  return (
+                    <div style={{ margin: '10px auto', maxWidth: 320, padding: '10px 12px', borderRadius: 14,
+                      background: 'linear-gradient(160deg, rgba(40,35,25,0.9), rgba(28,22,14,0.95))',
+                      border: '1px solid rgba(201,162,39,0.3)',
+                      boxShadow: '0 0 16px rgba(201,162,39,0.12)' }}>
+                      <div style={{ fontSize: 9, opacity: 0.5, letterSpacing: 3, fontFamily: "'Rajdhani',sans-serif", marginBottom: 8, textAlign: 'center' }}>
+                        TOTAL VALUE
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, padding: '2px 0' }}>
+                        <span style={{ opacity: 0.7 }}>獲得アイテムの資産合計</span>
+                        <span style={{ fontWeight: 900, color: '#ffd86e' }}>💰{formatYen(totalAssets)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, padding: '2px 0', borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 4, paddingTop: 6 }}>
+                        <span style={{ opacity: 0.7 }}>現実のお金にすると</span>
+                        <span style={{ fontWeight: 900, color: '#8ef0b0' }}>{formatRealYen(toRealYen(totalAssets))}</span>
+                      </div>
+                      <div style={{ fontSize: 8, opacity: 0.45, marginTop: 6, textAlign: 'center' }}>景品の換算率(資産{formatYen(ASSET_PER_REAL_YEN)}＝1円)で計算</div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
