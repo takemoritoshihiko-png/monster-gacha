@@ -169,6 +169,16 @@ function formatRealYen(realYen) {
   if (realYen >= 1) return (Math.round(realYen * 100) / 100).toLocaleString() + "円";
   return realYen.toLocaleString(undefined, { maximumSignificantDigits: 2 }) + "円";
 }
+// コレクション全体の資産価値
+function collectionPower(coll) {
+  return Object.entries(coll || {}).reduce((s, [k, v]) => s + entryPower(k, countOf(v), v && v.rank), 0);
+}
+// 合成1回分の前後の資産価値(使う分 → 生まれる分)。候補は computeSynthCandidates / computePrismCandidates の要素
+function synthValueOnce(c) {
+  if (c.special === 'prism') { const v = POWER_VALUES[10] * PRISM_MERGE; return { before: v, after: v }; }
+  if (c.special === 'star10') return { before: POWER_VALUES[9] * 3, after: POWER_VALUES[10] };
+  return { before: POWER_VALUES[c.rank - 1] * c.req, after: POWER_VALUES[c.targetRank - 1] };
+}
 const GACHA_COST_1 = 20;
 const GACHA_COST_10 = 200;
 const GACHA_COST_40 = 800;

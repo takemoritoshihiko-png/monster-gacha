@@ -622,6 +622,29 @@ function CollectionView({ collection, onSelect, requestMode, onRequest, onCancel
 // ============================================================
 // SYNTHESIS VIEW
 // ============================================================
+// 合成前→合成後の価値を見せる(ゲーム内の資産と、景品の換算率での現実のお金)
+function SynthValueLine({ before, after, label }) {
+  const diff = after - before;
+  const diffColor = diff > 0 ? '#8ef0b0' : diff < 0 ? '#ff8a8a' : 'rgba(255,255,255,0.5)';
+  const sign = diff > 0 ? '+' : '−';
+  return (
+    <div style={{ flexBasis: '100%', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 9, lineHeight: 1.6 }}>
+      {label && <div style={{ opacity: 0.5, marginBottom: 2 }}>{label}</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+        <span style={{ opacity: 0.6 }}>合成前</span>
+        <span><span style={{ color: '#ffd86e', fontWeight: 700 }}>{formatYen(before)}</span><span style={{ opacity: 0.6 }}>（現実 {formatRealYen(toRealYen(before))}）</span></span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+        <span style={{ opacity: 0.6 }}>合成後</span>
+        <span><span style={{ color: '#ffd86e', fontWeight: 700 }}>{formatYen(after)}</span><span style={{ opacity: 0.6 }}>（現実 {formatRealYen(toRealYen(after))}）</span></span>
+      </div>
+      <div style={{ textAlign: 'right', color: diffColor, fontWeight: 700 }}>
+        {diff === 0 ? '価値は変わらない' : sign + formatYen(Math.abs(diff)) + '（現実 ' + sign + formatRealYen(toRealYen(Math.abs(diff))) + '）'}
+      </div>
+    </div>
+  );
+}
+
 function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onSynthSingle, onSynthAll }) {
   const [filter, setFilter] = useState("all");
   const [confirmAll, setConfirmAll] = useState(false);
@@ -631,7 +654,10 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
   const prismCandidates = useMemo(() => onFindPrism ? onFindPrism() : [], [collection, onFindPrism]);
   const totalSynthable = candidates.reduce((sum, c) => sum + c.synthCount, 0);
   // 一撃合成: 連鎖分まで含めた合成予定件数(乱択は種族のみで件数は決定的)
-  const cascadeTotal = useMemo(() => runSynthCascade(collection).totalSynths, [collection]);
+  const cascade = useMemo(() => runSynthCascade(collection), [collection]);
+  const cascadeTotal = cascade.totalSynths;
+  const powerBefore = useMemo(() => collectionPower(collection), [collection]);
+  const powerAfter = useMemo(() => collectionPower(cascade.coll), [cascade]);
   const chainExtra = Math.max(0, cascadeTotal - totalSynthable);
 
   // All owned monsters sorted by type then rank
@@ -850,6 +876,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
           <div style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24', marginBottom: 10 }}>
             🔥 合成可能: {totalSynthable}件{chainExtra > 0 && <span style={{ color: '#f472b6' }}>（連鎖で+{chainExtra}件）</span>}
           </div>
+          <div style={{ display: 'flex', textAlign: 'left', maxWidth: 300, margin: '0 auto 10px' }}><SynthValueLine before={powerBefore} after={powerAfter} label="全部合成したときの資産合計" /></div>
           <button className="btn bp" style={{ fontSize: 14 }} onClick={() => setConfirmAll(true)}>
             ⚡ 一撃合成（{cascadeTotal}件）
           </button>
@@ -898,6 +925,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                 );
               })}
             </div>
+            <div style={{ display: 'flex', textAlign: 'left', marginBottom: 14 }}><SynthValueLine before={powerBefore} after={powerAfter} label="資産合計の変化" /></div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button className="btn bp" style={{ fontSize: 13, padding: '10px 20px' }}
                 onClick={() => { setConfirmAll(false); onSynthAll(); }}>
@@ -927,7 +955,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                 background: 'linear-gradient(135deg, rgba(208,107,255,0.1), rgba(107,197,255,0.06))',
                 border: '1px solid rgba(208,107,255,0.25)',
                 borderRadius: 12, padding: 12, marginBottom: 8,
-                display: 'flex', alignItems: 'center', gap: 10,
+                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
               }}>
                 <div style={{ textAlign: 'center', minWidth: 56 }}>
                   <div>{renderItemIcon({ ...monster, rank: 11 }, 28)}</div>
@@ -946,6 +974,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                     進化{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
                   </button>
                 </div>
+                <SynthValueLine {...synthValueOnce(c)} label="1回分（★MAX×3 → 煌×1）" />
               </div>
             );
           })}
@@ -963,7 +992,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                   background: 'linear-gradient(135deg, rgba(255,107,129,0.1), rgba(255,215,0,0.06))',
                   border: '1px solid rgba(255,107,129,0.2)',
                   borderRadius: 12, padding: 12, marginBottom: 8,
-                  display: 'flex', alignItems: 'center', gap: 10,
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                 }}>
                   <div style={{ textAlign: 'center', minWidth: 56 }}>
                     <div style={{ fontSize: 28 }}>💎</div>
@@ -982,6 +1011,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                       合成{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
                     </button>
                   </div>
+                  <SynthValueLine {...synthValueOnce(c)} label="1回分（★10×3 → ★MAX×1）" />
                 </div>
               );
             }
@@ -993,7 +1023,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
               <div key={c.key} style={{
                 background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 12, padding: 12, marginBottom: 8,
-                display: 'flex', alignItems: 'center', gap: 10,
+                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
               }}>
                 <div style={{ textAlign: 'center', minWidth: 56 }}>
                   <div>{item.img ? renderItemIcon(item, 28) : <span style={{ fontSize: 28 }}>{item.icon}</span>}</div>
@@ -1014,6 +1044,7 @@ function SynthView({ collection, synthResult, onFindCandidates, onFindPrism, onS
                     合成{c.synthCount > 1 ? `(${c.synthCount}回可)` : ''}
                   </button>
                 </div>
+                <SynthValueLine {...synthValueOnce(c)} label={`1回分（★${c.rank}×${c.req} → ★${c.targetRank}×1）`} />
               </div>
             );
           })}
