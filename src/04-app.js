@@ -1191,7 +1191,7 @@ function MonsterGacha() {
       });
       setSynthResult({ icon: MONSTERS[typeId][targetRank - 1].icon, name: MONSTERS[typeId][targetRank - 1].name, rank: targetRank, rarity: RARITIES[targetRank - 1] });
     }
-    const synthDuration = targetRank >= 11 ? 4100 : targetRank === 10 ? 3100 : targetRank === 9 ? 2600 : targetRank === 8 ? 2100 : 1600;
+    const synthDuration = targetRank >= 11 ? 3900 : targetRank === 10 ? 2900 : targetRank === 9 ? 2400 : targetRank === 8 ? 1900 : 1400;
     synthQueueRef.current = [setTimeout(() => { setSynthResult(null); resumeMainBgm(); }, synthDuration)];
   }, [collection, contributeMission, flushSynthRetryQueue]);
 
@@ -1244,7 +1244,7 @@ function MonsterGacha() {
       setSynthResult({ batch: true, count: totalSynths, rareItems, rareIndex: 0 });
       if (synthQueueRef.current) synthQueueRef.current.forEach(t => clearTimeout(t));
       const timers = [];
-      const getDuration = (r) => r >= 11 ? 3800 : r === 10 ? 2700 : r === 9 ? 2200 : 1800;   // ★9・★10の披露時間を各-100ms
+      const getDuration = (r) => r >= 11 ? 3600 : r === 10 ? 2500 : r === 9 ? 2000 : 1600;
       let elapsed = getDuration(rareItems[0].rank);
       for (let i = 1; i < rareItems.length; i++) {
         const ms = elapsed;
